@@ -1,5 +1,5 @@
 {
-  "updatedAt": "2026-11-21T22:10:12.156585Z",
+  "updatedAt": "2026-11-21T23:08:49.118448Z",
   "source": "Yahoo Finance public chart feed (unofficial)",
   "changeBasis": "Yahoo chart previous close; not uniform 24h",
   "items": [
@@ -59,7 +59,7 @@
       "category": "forex",
       "change": -2.3602,
       "price": 0.6619,
-      "quotedAt": "2026-11-21T22:09:45Z",
+      "quotedAt": "2026-11-21T22:29:45Z",
       "proxy": false,
       "url": "https://www.tradingview.com/symbols/AUDUSD/"
     },
@@ -69,7 +69,7 @@
       "category": "forex",
       "change": -1.0492,
       "price": 0.547,
-      "quotedAt": "2026-11-21T22:09:45Z",
+      "quotedAt": "2026-11-21T22:29:45Z",
       "proxy": false,
       "url": "https://www.tradingview.com/symbols/NZDUSD/"
     },
@@ -137,9 +137,9 @@
       "symbol": "BTCUSD",
       "label": "Bitcoin",
       "category": "crypto",
-      "change": -7.3357,
-      "price": 60133.53,
-      "quotedAt": "2026-11-21T22:10:10Z",
+      "change": -7.3922,
+      "price": 60096.88,
+      "quotedAt": "2026-11-21T23:08:44Z",
       "proxy": false,
       "url": "https://www.tradingview.com/symbols/BTCUSD/"
     },
@@ -147,9 +147,9 @@
       "symbol": "ETHUSD",
       "label": "Ethereum",
       "category": "crypto",
-      "change": -7.8779,
-      "price": 1679.35,
-      "quotedAt": "2026-11-21T22:10:06Z",
+      "change": -7.8357,
+      "price": 1680.12,
+      "quotedAt": "2026-11-21T23:08:43Z",
       "proxy": false,
       "url": "https://www.tradingview.com/symbols/ETHUSD/"
     }
