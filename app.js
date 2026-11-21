@@ -390,18 +390,44 @@ function macroSurprise(e){
  const tolerance=Math.max(1e-9,Math.abs(forecast.value)*1e-8);
  return {difference,kind:Math.abs(difference)<tolerance?'equal':difference>0?'above':'below',unit:actual.unit};
 }
+// Public official observations; no Forex Factory archive is published or fetched here.
+let officialEconomicFeed=null;
+function officialIndicatorCards(items){
+ return items.map(e=>{
+  const actual=Number(e.actual),prior=e.previous===null?null:Number(e.previous);
+  const f=window.ICTEditorialForecasts?.find(e)||window.ICTCalendarConsensus?.find(e);const surprise=window.ICTEditorialForecasts?.find(e)?window.ICTEditorialForecasts?.difference(e):window.ICTCalendarConsensus?.comparison(e)?.difference;
+  const changed=prior===null?'السابق غير متاح':`السابق ${escapeHTML(String(prior))}${escapeHTML(e.unit)} · التغير ${actual-prior>0?'+':''}${(actual-prior).toFixed(2)}${escapeHTML(e.unit==='%'?' نقطة مئوية':e.unit)}`;
+  return `<article class="intel-event"><div class="intel-event-top"><span class="intel-currency">USD · BLS</span><span class="intel-date">الفترة ${escapeHTML(e.period)}</span></div><h3>${escapeHTML(e.title)}</h3><div class="intel-numbers"><div><small>السابق</small><strong dir="ltr">${prior===null?'—':escapeHTML(String(prior))+escapeHTML(e.unit)}</strong></div><div><small>المتوقع</small><strong dir="ltr">${f?escapeHTML(String(f.value))+escapeHTML(f.unit):'—'}</strong></div><div><small>الفعلي</small><strong dir="ltr">${escapeHTML(String(actual))+escapeHTML(e.unit)}</strong></div></div><p class="intel-outcome">${f?`الفارق عن توقع السوق: ${surprise>0?'+':''}${escapeHTML(String(surprise))} ${e.unit==='%'?'نقطة مئوية':escapeHTML(e.unit)} · ${surprise>0?'أعلى من المتوقع':surprise<0?'أقل من المتوقع':'مطابق للتوقع'}`:changed}</p><p class="intel-note">${f?`التوقع: ${escapeHTML(f.source)} · ${f.verifiedBeforeRelease===false?'توقع الأجندة الحالي، غير مثبت الحفظ قبل النشر':'سُجل قبل النشر'}${f.recordedAt?' · '+escapeHTML(f.recordedAt):''}. ${f.verifiedBeforeRelease===false?'الفرق مرجعي وليس مفاجأة مثبتة قبل صدور الخبر. ':''}${escapeHTML(window.ICTCalendarConsensus?.interpretation(e)||'')} النتيجة الرسمية: BLS. لا تمثل إشارة تداول.`:'قراءة رسمية من BLS؛ لا يتوفر لها توقع سوق معتمد صالح للمطابقة.'}</p></article>`;
+ }).join('');
+}
+async function fetchOfficialEconomicResults(){
+ try{
+  const response=await fetch('economic-official.json?t='+Date.now(),{cache:'no-store'});
+  if(!response.ok)throw Error('HTTP '+response.status);
+  const data=await response.json();
+  if(data?.source!=='BLS'||data.status!=='ok'||!Array.isArray(data.events))throw Error('invalid official feed');
+  await Promise.all([window.ICTEditorialForecasts?.load(),window.ICTCalendarConsensus?.load()]);
+  officialEconomicFeed={updatedAt:data.updatedAt,events:data.events.filter(e=>e&&e.source==='BLS'&&e.period&&Number.isFinite(Number(e.actual))&&['%','K'].includes(e.unit)).slice(0,30)};
+ }catch{officialEconomicFeed=null}
+ if(state.page==='intelligence')render();
+}
 function economicIntelligence(){
  const engine=window.ICTEconomicResults;
  const local=engine?engine.rows().sort((a,b)=>Date.parse(b.date)-Date.parse(a.date)):[];
+ const official=officialEconomicFeed?.events||[];
+ const officialBlock=official.length
+  ? `<div class="notice">نتائج رسمية أمريكية (BLS) · آخر جلب ${escapeHTML(String(officialEconomicFeed.updatedAt||'غير متاح'))} · الفترة المكتوبة هي فترة الإحصاء لا موعد النشر. التوقعات تؤخذ من السجل التحريري الموثق أو من الأجندة الحالية عند تطابق الخبر والفترة؛ وتُميَّز التوقعات التي لم يُحفظ وقتها قبل الصدور.</div><div class="intel-grid">${officialIndicatorCards(official)}</div>`
+  : `<div class="notice">لا تتوفر الآن نتائج BLS الرسمية المحدثة. ستظهر تلقائيًا بعد نجاح مهمة GitHub الرسمية. لا نعرض أرقامًا افتراضية.</div>`;
+
  // Local results are imported only by the visitor. They are not published on our server.
  if(local.length){
   const cards=local.slice().sort((a,b)=>(b.impact==='high')-(a.impact==='high')||Date.parse(b.date)-Date.parse(a.date)).slice(0,18).map(e=>{
    const analysis=engine.explain(e),difference=engine.differenceText(analysis.comparison);
    return `<article class="intel-event"><div class="intel-event-top"><span class="intel-currency">${escapeHTML(e.currency)}</span><span class="intel-impact">${escapeHTML(e.impact==='high'?'مرتفع التأثير':e.impact==='medium'?'متوسط التأثير':'أثر آخر')}</span><span class="intel-date">${escapeHTML(showDate(new Date(e.date),'date'))}</span></div><h3>${escapeHTML(e.title)}</h3><div class="intel-numbers"><div><small>السابق</small><strong dir="ltr">${escapeHTML(e.previous)}</strong></div><div><small>المتوقع</small><strong dir="ltr">${escapeHTML(e.forecast)}</strong></div><div><small>الفعلي</small><strong dir="ltr">${escapeHTML(e.actual)}</strong></div></div><p class="intel-outcome">${escapeHTML(analysis.headline)} · <span dir="ltr">${escapeHTML(difference)}</span></p><p class="intel-note">${escapeHTML(analysis.category)} — ${escapeHTML(analysis.description)}</p></article>`;
   }).join('');
-  return `${title('ECONOMIC NEWS INTELLIGENCE','قراءة نتائج الأخبار الاقتصادية','نتائج Forex Factory المستوردة محليًا، مع مقارنة وتفسير اقتصادي احتمالي.')}<div class="notice">أرشيف خاص على هذا الجهاز · ${local.length} نتيجة فعلية محفوظة. لا تُحدَّث هذه النتائج تلقائيًا؛ استورد ملفًا جديدًا في مختبر الأخبار عند الحاجة. لا تمثل التحليلات إشارات دخول.</div><div class="intel-grid">${cards}</div><a class="btn" href="intelligence.html#news">فتح مختبر الأخبار والأرشيف الكامل ←</a>`;
+  return `${title('ECONOMIC NEWS INTELLIGENCE','قراءة نتائج الأخبار الاقتصادية','النتائج الرسمية العامة وأرشيفك الشخصي من Forex Factory.')}<h2>النتائج الرسمية التلقائية</h2>${officialBlock}<h2>أرشيف Forex Factory الشخصي</h2><div class="notice">أرشيف خاص على هذا الجهاز · ${local.length} نتيجة فعلية محفوظة. لا تُحدَّث هذه النتائج تلقائيًا؛ استورد ملفًا جديدًا في مختبر الأخبار عند الحاجة. لا تمثل التحليلات إشارات دخول.</div><div class="intel-grid">${cards}</div><a class="btn" href="intelligence.html#news">فتح مختبر الأخبار والأرشيف الكامل ←</a>`;
  }
- return `${title('ECONOMIC NEWS INTELLIGENCE','قراءة نتائج الأخبار الاقتصادية','اربط قسم النتائج بأرشيف Forex Factory الخاص بك.')}<div class="notice">لم أجد نتائج فعلية مستوردة على هذا الجهاز. افتح مختبر الأخبار واستورد ملف JSON من GitHub Actions؛ ستظهر النتائج هنا تلقائيًا في المتصفح نفسه. لا يمكن اعتبار مواعيد الأجندة نتائج فعلية.</div><a class="btn" href="intelligence.html#news">فتح مختبر الأخبار لاستيراد النتائج ←</a><a class="btn" href="#agenda">عرض الأجندة الأسبوعية ←</a>`;
+ return `${title('ECONOMIC NEWS INTELLIGENCE','قراءة نتائج الأخبار الاقتصادية','النتائج الرسمية العامة وأرشيفك الشخصي من Forex Factory.')}<h2>النتائج الرسمية التلقائية</h2>${officialBlock}<h2>أرشيف Forex Factory الشخصي (اختياري)</h2><div class="notice">لم أجد نتائج فعلية مستوردة على هذا الجهاز. افتح مختبر الأخبار واستورد ملف JSON من GitHub Actions؛ ستظهر النتائج هنا تلقائيًا في المتصفح نفسه. لا يمكن اعتبار مواعيد الأجندة نتائج فعلية.</div><a class="btn" href="intelligence.html#news">فتح مختبر الأخبار لاستيراد النتائج ←</a><a class="btn" href="#agenda">عرض الأجندة الأسبوعية ←</a>`;
 }
 
 const academyLessons=[
@@ -461,4 +487,4 @@ matchMedia('(prefers-color-scheme: dark)').addEventListener?.('change',()=>{if((
 
 let deferredInstall;window.addEventListener('beforeinstallprompt',e=>{e.preventDefault();deferredInstall=e;$('install').hidden=false});$('install').addEventListener('click',async()=>{if(deferredInstall){deferredInstall.prompt();await deferredInstall.userChoice;deferredInstall=null;$('install').hidden=true}});
 window.addEventListener('hashchange',render);
-async function boot(){applyTheme();updateHeaderDate();const a=await Promise.all([load('news.json'),load('recs.json'),load('links.json'),load('agenda.json'),load('analyses.json')]);[S.newsArchive,S.recs,S.links,S.agenda,S.analyses]=[a[0]||[],a[1]||[],a[2]||[],a[3]||{days:[]},a[4]||[]];checkPublications();S.news=S.newsArchive;await Promise.all([fetchLiveCalendar(),fetchNextCalendar(),fetchLiveNews()]);render();refreshPulse();ticker();futureAlerts();sessionAlerts();fetchMovers();setInterval(updatePulseClocks,1000);setInterval(refreshPulse,60000);setInterval(fetchMovers,5*60*1000);setInterval(()=>{futureAlerts();sessionAlerts()},30000);setInterval(pollPublishedContent,120000);setInterval(async()=>{await Promise.all([fetchLiveCalendar(),fetchNextCalendar()]);if(state.page==='agenda')render();else refreshPulse();futureAlerts()},10*60*1000);setInterval(()=>{updateHeaderDate();if(state.page==='ict')render()},60000);setInterval(fetchLiveNews,10*60*1000);if('serviceWorker'in navigator)navigator.serviceWorker.register('./sw.js').catch(console.warn)}boot();
+async function boot(){applyTheme();updateHeaderDate();const a=await Promise.all([load('news.json'),load('recs.json'),load('links.json'),load('agenda.json'),load('analyses.json')]);[S.newsArchive,S.recs,S.links,S.agenda,S.analyses]=[a[0]||[],a[1]||[],a[2]||[],a[3]||{days:[]},a[4]||[]];checkPublications();S.news=S.newsArchive;await Promise.all([fetchLiveCalendar(),fetchNextCalendar(),fetchLiveNews()]);render();refreshPulse();ticker();futureAlerts();sessionAlerts();fetchMovers();setInterval(updatePulseClocks,1000);setInterval(refreshPulse,60000);setInterval(fetchMovers,5*60*1000);setInterval(()=>{futureAlerts();sessionAlerts()},30000);setInterval(pollPublishedContent,120000);setInterval(async()=>{await Promise.all([fetchLiveCalendar(),fetchNextCalendar()]);if(state.page==='agenda')render();else refreshPulse();futureAlerts()},10*60*1000);setInterval(()=>{updateHeaderDate();if(state.page==='ict')render()},60000);setInterval(fetchLiveNews,10*60*1000);fetchOfficialEconomicResults();setInterval(fetchOfficialEconomicResults,30*60*1000);if('serviceWorker'in navigator)navigator.serviceWorker.register('./sw.js').catch(console.warn)}boot();
