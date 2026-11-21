@@ -1,0 +1,34 @@
+name: Update official economic results (BLS)
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '53 */6 * * *'
+permissions:
+  contents: write
+concurrency:
+  group: update-economic-calendar
+  cancel-in-progress: false
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Test BLS parser
+        run: python -m unittest discover -s scripts -p 'test_official_results.py' -v
+      - name: Fetch official BLS data
+        run: python scripts/update_official_results.py --output economic-official.json
+      - name: Commit public official observations only
+        run: |
+          if ! git diff --quiet -- economic-official.json || [ -n "$(git ls-files --others --exclude-standard economic-official.json)" ]; then
+            git config user.name 'github-actions[bot]'
+            git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+            git add economic-official.json
+            git commit -m 'data: refresh official BLS observations'
+            git push
+          else
+            echo 'No changes in official economic data.'
+          fi
