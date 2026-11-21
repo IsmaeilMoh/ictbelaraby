@@ -1,7 +1,7 @@
 /* ICT بالعربي 5.4 — resilient offline shell. The OneSignal worker is separate. */
-const CACHE='ict-shell-v6848-shared-calendar-20261121';
+const CACHE='ict-shell-v6843-shared-economic-20261121';
 const PREFIX='ict-shell-';
-const CORE=['./','./index.html','./style.css','./app.js','./platform.css','./typography.css','./smart-weekly-agenda.css','./site-font-unified.css','./site-font-unified.css','./site-font-unified.css','./site-font-unified.css','./home-polish.css','./home-polish.js','./notify-luxury.css','./notify-luxury.js','./unified-theme.css','./unified-theme.js','./bento-glass.css','./ops-room-fix.css','./platform.js','./workspace.html','./workspace.css','./workspace.js','./intelligence.html','./intelligence.css','./intelligence.js','./editorial-forecasts.js','./economic-calendar-bridge.js','./economic-results-core.js','./research.html','./research.css','./research.js','./smart-desk.html','./smart-desk.css','./smart-desk.js','./workflow.html','./workflow.css','./workflow.js','./assets.html','./asset.css','./asset.js','./site-typography-nav-fix.css','./workflow-glass-cta.css','./site-unity.css','./site-unity.js','./ui-icons.css','./ui-icons.js','./mobile.css','./manifest.json','./logo-original.jpeg','./icon-192.png','./icon-512.png'];
+const CORE=['./','./index.html','./style.css','./app.js','./platform.css','./typography.css','./smart-weekly-agenda.css','./site-font-unified.css','./site-font-unified.css','./site-font-unified.css','./site-font-unified.css','./home-polish.css','./home-polish.js','./notify-luxury.css','./notify-luxury.js','./unified-theme.css','./unified-theme.js','./bento-glass.css','./ops-room-fix.css','./platform.js','./workspace.html','./workspace.css','./workspace.js','./intelligence.html','./intelligence.css','./intelligence.js','./economic-results-core.js','./research.html','./research.css','./research.js','./smart-desk.html','./smart-desk.css','./smart-desk.js','./workflow.html','./workflow.css','./workflow.js','./assets.html','./asset.css','./asset.js','./site-typography-nav-fix.css','./workflow-glass-cta.css','./site-unity.css','./site-unity.js','./ui-icons.css','./ui-icons.js','./mobile.css','./manifest.json','./logo-original.jpeg','./icon-192.png','./icon-512.png'];
 self.addEventListener('install',event=>event.waitUntil((async()=>{
  const cache=await caches.open(CACHE);
  // A single unavailable optional file must not prevent future site updates.
@@ -18,7 +18,7 @@ self.addEventListener('fetch',event=>{
  if(url.origin!==scope.origin||!url.pathname.startsWith(scope.pathname))return;
  if(url.pathname.includes('/push/')||/\/(admin\.html|admin\.js|admin\.css)$/.test(url.pathname))return;
  const name=url.pathname.split('/').pop()||'index.html';
- if(name==='economic-forecasts.json'||name==='economic-official.json'||name==='news-live.json'||name==='calendar-live.json'||name==='calendar-next.json'||name==='calendar-sync-status.json'||name==='market-movers.json'){
+ if(name==='economic-official.json'||name==='news-live.json'||name==='calendar-live.json'||name==='calendar-next.json'||name==='calendar-sync-status.json'||name==='market-movers.json'){
   // Live public data must be requested from the network, never presented as fresh from the shell cache.
   event.respondWith(fetch(request,{cache:'no-store'}).catch(()=>new Response('{}',{status:503,headers:{'Content-Type':'application/json'}})));
   return;

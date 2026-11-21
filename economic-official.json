@@ -1,0 +1,9 @@
+{
+  "schemaVersion": 1,
+  "source": "BLS",
+  "updatedAt": null,
+  "status": "pending_first_update",
+  "coverage": "US BLS indicators only",
+  "disclaimer": "بانتظار أول تشغيل لمهمة جلب البيانات الرسمية؛ لا تُعرض نتائج مفترضة.",
+  "events": []
+}
