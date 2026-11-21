@@ -41,5 +41,41 @@ function interpretation(obs){const c=comparison(obs);if(!c)return 'لا يمكن
  const reading=stronger?'أعلى من المتوقع':'أقل من المتوقع';
  const context=(obs.indicator==='cpi-yoy'||obs.indicator==='cpi-mom'||obs.indicator==='core-cpi-mom'||obs.indicator==='ppi-mom')?'التضخم':obs.indicator==='unemployment'?'البطالة':'التوظيف';
  return `${context} ${reading}؛ ${usdPositive?'قد يدعم الدولار ويضغط على الذهب إذا استجابت توقعات الفائدة لذلك':'قد يضغط على الدولار ويدعم الذهب إذا استجابت توقعات الفائدة لذلك'}. تفسير احتمالي، وليس حركة سعر مؤكدة.`;}
-root.ICTCalendarConsensus=Object.freeze({load,ingest,find,comparison,interpretation,monthAfter,parsed});
+// 6.8.49: public-calendar release lifecycle for the existing results cards.
+// Only BLS-supported US indicators are included. A date passing NEVER proves
+// that the official result was published; the matching observation is required.
+const indicators=Object.keys(known);
+const labels={'cpi-yoy':'CPI العام السنوي','cpi-mom':'CPI العام الشهري','core-cpi-mom':'CPI الأساسي الشهري','unemployment':'معدل البطالة','payroll-change':'الوظائف غير الزراعية','ppi-mom':'أسعار المنتجين الشهرية'};
+function lifecycle(observations=[],time=Date.now()){
+ const unique=new Map();
+ for(const ev of calendar){
+  const stamp=Date.parse(ev.date);
+  if(!Number.isFinite(stamp)||stamp<time-10*86400000||stamp>time+16*86400000)continue;
+  const indicator=indicators.find(id=>known[id].some(pattern=>pattern.test(normal(ev.title))));
+  if(!indicator||String(ev.country||ev.currency).toUpperCase()!=='USD')continue;
+  const key=eventKey(ev);
+  // Identical events can appear in both calendar feeds.
+  if(unique.has(key))continue;
+  const obs=observations.find(o=>o&&o.indicator===indicator&&o.unit&&(o.period===priorMonth(releaseMonth(ev.date))));
+  const isFuture=stamp>time;
+  const published=!isFuture&&obs&&Number.isFinite(Number(obs.actual));
+  const forecast=parsed(ev.forecast);
+  const previous=parsed(ev.previous);
+  const canUse=(x,unit)=>x&&((unit==='%'&&x.unit==='%')||(unit==='K'&&x.unit==='K'));
+  const snapshot=snapshots[key];
+  const before=snapshot&&validTime(snapshot.capturedAt)&&Date.parse(snapshot.capturedAt)<stamp?parsed(snapshot.forecast):null;
+  const chosen=canUse(before,obs?.unit)?before:canUse(forecast,obs?.unit)?forecast:null;
+  const difference=published&&chosen?Math.round((Number(obs.actual)-chosen.value)*1000)/1000:null;
+  unique.set(key,{key,indicator,title:labels[indicator],eventTitle:ev.title,date:ev.date,period:obs?.period||null,
+   stage:isFuture?'upcoming':published?'released':'awaiting',
+   previous:previous?normal(ev.previous):obs?.previous!=null?String(obs.previous)+obs.unit:'—',
+   forecast:normal(ev.forecast)||'—',actual:published?String(obs.actual)+obs.unit:'—',
+   difference,unit:obs?.unit||null,verifiedBeforeRelease:Boolean(before),
+   forecastSource:'الأجندة الحالية',officialSource:published?'BLS':null});
+ }
+ return [...unique.values()].sort((a,b)=>Date.parse(a.date)-Date.parse(b.date));
+}
+function priorMonth(v){if(!/^20\d\d-\d\d$/.test(String(v)))return null;let [y,m]=v.split('-').map(Number);return m===1?`${y-1}-12`:`${y}-${String(m-1).padStart(2,'0')}`}
+
+root.ICTCalendarConsensus=Object.freeze({load,ingest,find,comparison,interpretation,monthAfter,parsed,lifecycle});
 })(window);
