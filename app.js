@@ -395,8 +395,9 @@ let officialEconomicFeed=null;
 function officialIndicatorCards(items){
  return items.map(e=>{
   const actual=Number(e.actual),prior=e.previous===null?null:Number(e.previous);
+  const f=window.ICTEditorialForecasts?.find(e)||window.ICTCalendarConsensus?.find(e);const surprise=window.ICTEditorialForecasts?.find(e)?window.ICTEditorialForecasts?.difference(e):window.ICTCalendarConsensus?.comparison(e)?.difference;
   const changed=prior===null?'السابق غير متاح':`السابق ${escapeHTML(String(prior))}${escapeHTML(e.unit)} · التغير ${actual-prior>0?'+':''}${(actual-prior).toFixed(2)}${escapeHTML(e.unit==='%'?' نقطة مئوية':e.unit)}`;
-  return `<article class="intel-event"><div class="intel-event-top"><span class="intel-currency">USD · BLS</span><span class="intel-date">الفترة ${escapeHTML(e.period)}</span></div><h3>${escapeHTML(e.title)}</h3><div class="intel-numbers"><div><small>السابق</small><strong dir="ltr">${prior===null?'—':escapeHTML(String(prior))+escapeHTML(e.unit)}</strong></div><div><small>المتوقع</small><strong>غير متاح</strong></div><div><small>الفعلي</small><strong dir="ltr">${escapeHTML(String(actual))+escapeHTML(e.unit)}</strong></div></div><p class="intel-outcome">${changed}</p><p class="intel-note">قراءة رسمية من BLS للفترة المرجعية، لا تُقارن بتوقع سوق ولا تحدد اتجاه السعر.</p></article>`;
+  return `<article class="intel-event"><div class="intel-event-top"><span class="intel-currency">USD · BLS</span><span class="intel-date">الفترة ${escapeHTML(e.period)}</span></div><h3>${escapeHTML(e.title)}</h3><div class="intel-numbers"><div><small>السابق</small><strong dir="ltr">${prior===null?'—':escapeHTML(String(prior))+escapeHTML(e.unit)}</strong></div><div><small>المتوقع</small><strong dir="ltr">${f?escapeHTML(String(f.value))+escapeHTML(f.unit):'—'}</strong></div><div><small>الفعلي</small><strong dir="ltr">${escapeHTML(String(actual))+escapeHTML(e.unit)}</strong></div></div><p class="intel-outcome">${f?`الفارق عن توقع السوق: ${surprise>0?'+':''}${escapeHTML(String(surprise))} ${e.unit==='%'?'نقطة مئوية':escapeHTML(e.unit)} · ${surprise>0?'أعلى من المتوقع':surprise<0?'أقل من المتوقع':'مطابق للتوقع'}`:changed}</p><p class="intel-note">${f?`التوقع: ${escapeHTML(f.source)} · ${f.verifiedBeforeRelease===false?'توقع الأجندة الحالي، غير مثبت الحفظ قبل النشر':'سُجل قبل النشر'}${f.recordedAt?' · '+escapeHTML(f.recordedAt):''}. ${f.verifiedBeforeRelease===false?'الفرق مرجعي وليس مفاجأة مثبتة قبل صدور الخبر. ':''}${escapeHTML(window.ICTCalendarConsensus?.interpretation(e)||'')} النتيجة الرسمية: BLS. لا تمثل إشارة تداول.`:'قراءة رسمية من BLS؛ لا يتوفر لها توقع سوق معتمد صالح للمطابقة.'}</p></article>`;
  }).join('');
 }
 async function fetchOfficialEconomicResults(){
@@ -405,6 +406,7 @@ async function fetchOfficialEconomicResults(){
   if(!response.ok)throw Error('HTTP '+response.status);
   const data=await response.json();
   if(data?.source!=='BLS'||data.status!=='ok'||!Array.isArray(data.events))throw Error('invalid official feed');
+  await Promise.all([window.ICTEditorialForecasts?.load(),window.ICTCalendarConsensus?.load()]);
   officialEconomicFeed={updatedAt:data.updatedAt,events:data.events.filter(e=>e&&e.source==='BLS'&&e.period&&Number.isFinite(Number(e.actual))&&['%','K'].includes(e.unit)).slice(0,30)};
  }catch{officialEconomicFeed=null}
  if(state.page==='intelligence')render();
@@ -414,7 +416,7 @@ function economicIntelligence(){
  const local=engine?engine.rows().sort((a,b)=>Date.parse(b.date)-Date.parse(a.date)):[];
  const official=officialEconomicFeed?.events||[];
  const officialBlock=official.length
-  ? `<div class="notice">نتائج رسمية أمريكية (BLS) · آخر جلب ${escapeHTML(String(officialEconomicFeed.updatedAt||'غير متاح'))} · الفترة المكتوبة هي فترة الإحصاء، وليست وقت نشر الخبر. لا تتضمن Forecast.</div><div class="intel-grid">${officialIndicatorCards(official)}</div>`
+  ? `<div class="notice">نتائج رسمية أمريكية (BLS) · آخر جلب ${escapeHTML(String(officialEconomicFeed.updatedAt||'غير متاح'))} · الفترة المكتوبة هي فترة الإحصاء لا موعد النشر. التوقعات تؤخذ من السجل التحريري الموثق أو من الأجندة الحالية عند تطابق الخبر والفترة؛ وتُميَّز التوقعات التي لم يُحفظ وقتها قبل الصدور.</div><div class="intel-grid">${officialIndicatorCards(official)}</div>`
   : `<div class="notice">لا تتوفر الآن نتائج BLS الرسمية المحدثة. ستظهر تلقائيًا بعد نجاح مهمة GitHub الرسمية. لا نعرض أرقامًا افتراضية.</div>`;
 
  // Local results are imported only by the visitor. They are not published on our server.
