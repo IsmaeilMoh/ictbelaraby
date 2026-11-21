@@ -52,6 +52,17 @@ function differenceOf(actual,forecast){
  if(!(a.unit in scale))return null;
  return Math.round((a.value-f.value)*1000)/1000;
 }
+function impactLevel(raw){
+ const s=String(raw??'').trim().toLowerCase();
+ if(['3','high','high impact','red','مرتفع'].includes(s))return 'high';
+ if(['2','medium','medium impact','orange','متوسط'].includes(s))return 'medium';
+ if(['1','low','low impact','yellow','منخفض'].includes(s))return 'low';
+ return 'unknown';
+}
+function priorityFilter(rows,mode='important'){
+ const accepted=new Set(mode==='all'?['high','medium','low','unknown']:mode==='high'?['high']:['high','medium']);
+ return (Array.isArray(rows)?rows:[]).filter(e=>accepted.has(impactLevel(e?.impact)));
+}
 function lifecycle(observations=[],time=Date.now()){
  const unique=new Map();
  for(const ev of calendar){
@@ -75,7 +86,7 @@ function lifecycle(observations=[],time=Date.now()){
   const canUse=x=>x&&x.unit===currentUnit;
   const chosen=canUse(before)?before:canUse(forecast)?forecast:null;
   const difference=published&&chosen?differenceOf(actual,String(chosen.value)+chosen.unit):null;
-  unique.set(key,{key,indicator,title:indicator?labels[indicator]:ev.title,eventTitle:ev.title,currency,impact:ev.impact||'',date:ev.date,period:obs?.period||null,
+  unique.set(key,{key,indicator,title:indicator?labels[indicator]:ev.title,eventTitle:ev.title,currency,impact:impactLevel(ev.impact),date:ev.date,period:obs?.period||null,
    stage:isFuture?'upcoming':published?'released':'awaiting',
    previous:normal(ev.previous)||((obs?.previous!=null)?String(obs.previous)+obs.unit:'—'),
    forecast:normal(ev.forecast)||'—',actual,difference,unit:currentUnit,
@@ -89,5 +100,5 @@ function lifecycle(observations=[],time=Date.now()){
 }
 function priorMonth(v){if(!/^20\d\d-\d\d$/.test(String(v)))return null;let [y,m]=v.split('-').map(Number);return m===1?`${y-1}-12`:`${y}-${String(m-1).padStart(2,'0')}`}
 
-root.ICTCalendarConsensus=Object.freeze({load,ingest,find,comparison,interpretation,monthAfter,parsed,lifecycle});
+root.ICTCalendarConsensus=Object.freeze({load,ingest,find,comparison,interpretation,monthAfter,parsed,lifecycle,impactLevel,priorityFilter});
 })(window);

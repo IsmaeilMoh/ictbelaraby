@@ -37,7 +37,10 @@ function numeric(x){let s=String(x??'').trim().replace(/[,\s]/g,'');const isPerc
 // Economic Results Engine 6.8.42 — local, user-imported Forex Factory results.
 // No private probe artifact is fetched or published to the public website.
 const economicResultsKey='ict-economic-results-private-v1';
-let economicResults=[],resultsUpdatedAt=null,newsFilter='all';
+function savedPriority(){try{const v=localStorage.getItem('ict-economic-news-priority-v1');return ['important','high','all'].includes(v)?v:'important'}catch{return 'important'}}
+let economicResults=[],resultsUpdatedAt=null,newsFilter=savedPriority();
+function priorityRows(rows,mode=newsFilter){return window.ICTCalendarConsensus?.priorityFilter(rows,mode)||rows.filter(e=>mode==='all'||(mode==='high'?e.impact==='high':['high','medium'].includes(e.impact)))}
+
 const validResultsRow=r=>r&&typeof r==='object'&&typeof r.id==='string'&&r.id.length<160&&typeof r.title==='string'&&r.title.length<260&&typeof r.date==='string'&&Number.isFinite(Date.parse(r.date))&&r.values&&typeof r.values==='object'&&String(r.source||'')==='Forex Factory';
 function resultRows(input){
  const raw=Array.isArray(input?.events)?input.events:[];
@@ -83,18 +86,18 @@ async function loadPublicOfficialResults(){
   const valid=feed.events.filter(e=>e&&e.source==='BLS'&&e.period&&Number.isFinite(Number(e.actual))&&['%','K'].includes(e.unit));
   if(!valid.length)throw Error('no observations');
   await Promise.all([window.ICTEditorialForecasts?.load(),window.ICTCalendarConsensus?.load()]);
-  const stages=(window.ICTCalendarConsensus?.lifecycle(valid)||[]).slice(0,18);
-  const stageHtml=stages.length?`<div class="card-head"><h3>الأخبار القادمة والنتائج المنتظرة</h3></div><div class="results-official-grid">${stages.map(e=>`<article class="card" style="margin:8px 0;padding:12px"><h3>${esc(e.title)}</h3><p class="micro-note">${esc(e.currency)} · ${when(e.date)} · ${e.stage==='upcoming'?'قادم':e.stage==='released'?'صدرت النتيجة':'بانتظار النتيجة'}</p><div class="metrics"><div><small>السابق</small><strong dir="ltr">${esc(e.previous)}</strong></div><div><small>المتوقع</small><strong dir="ltr">${esc(e.forecast)}</strong></div><div><small>الفعلي</small><strong dir="ltr">${esc(e.actual)}</strong></div></div><p class="micro-note">${e.stage==='upcoming'?'الخبر لم يصدر بعد.':e.stage==='released'?`نتيجة BLS مطابقة للفترة. ${e.difference===null?'لا يوجد توقع صالح للمقارنة.':`الفارق: ${e.difference>0?'+':''}${esc(e.difference)} ${e.unit==='%'?'نقطة مئوية':esc(e.unit||'')}.`}${!e.verifiedBeforeRelease?' المقارنة مرجعية، وقت التوقع قبل الصدور غير مثبت.':''}`:'مر موعد الخبر ولم تظهر نتيجة فعلية في الأجندة المتاحة.'}</p></article>`).join('')}</div>`:'<p class="micro-note">لا توجد أحداث قادمة أو نتائج منتظرة ضمن الأجندة المتاحة.</p>';
+  const stages=priorityRows(window.ICTCalendarConsensus?.lifecycle(valid)||[]).slice(0,18);
+  const stageHtml=stages.length?`<div class="card-head"><h3>الأخبار القادمة والنتائج المنتظرة</h3></div><div class="results-official-grid">${stages.map(e=>`<article class="card" style="margin:8px 0;padding:12px"><h3>${esc(e.title)}</h3><p class="micro-note">${esc(e.currency)} · ${e.impact==='high'?'تأثير مرتفع':e.impact==='medium'?'تأثير متوسط':'تأثير آخر'} · ${e.impact==='high'?'تأثير مرتفع':e.impact==='medium'?'تأثير متوسط':'تأثير آخر'} · ${when(e.date)} · ${e.stage==='upcoming'?'قادم':e.stage==='released'?'صدرت النتيجة':'بانتظار النتيجة'}</p><div class="metrics"><div><small>السابق</small><strong dir="ltr">${esc(e.previous)}</strong></div><div><small>المتوقع</small><strong dir="ltr">${esc(e.forecast)}</strong></div><div><small>الفعلي</small><strong dir="ltr">${esc(e.actual)}</strong></div></div><p class="micro-note">${e.stage==='upcoming'?'الخبر لم يصدر بعد.':e.stage==='released'?`نتيجة BLS مطابقة للفترة. ${e.difference===null?'لا يوجد توقع صالح للمقارنة.':`الفارق: ${e.difference>0?'+':''}${esc(e.difference)} ${e.unit==='%'?'نقطة مئوية':esc(e.unit||'')}.`}${!e.verifiedBeforeRelease?' المقارنة مرجعية، وقت التوقع قبل الصدور غير مثبت.':''}`:'مر موعد الخبر ولم تظهر نتيجة فعلية في الأجندة المتاحة.'}</p></article>`).join('')}</div>`:'<p class="micro-note">لا توجد أحداث قادمة أو نتائج منتظرة ضمن الأجندة المتاحة.</p>';
   node.innerHTML=stageHtml+`<div class="card-head"><h3>نتائج اقتصادية رسمية — BLS</h3><span class="tag">تحديث تلقائي · أمريكية فقط</span></div><p class="micro-note">آخر جلب ${esc(feed.updatedAt||'غير متاح')} · الفترة هي فترة الإحصاء، لا ساعة صدور الخبر. التوقعات من السجل التحريري أو الأجندة القائمة عند التطابق الصارم؛ وتُميَّز القيم غير المحفوظة قبل النشر.</p><div class="results-official-grid">${valid.map(e=>`<article class="card" style="margin:8px 0;padding:12px"><h3>${esc(e.title)}</h3><p class="micro-note">USD · ${esc(e.period)} · المصدر BLS</p><div class="metrics"><div><small>السابق</small><strong dir="ltr">${e.previous===null?'—':esc(e.previous)+esc(e.unit)}</strong></div><div><small>المتوقع</small><strong dir="ltr">${(window.ICTEditorialForecasts?.find(e)||window.ICTCalendarConsensus?.find(e))?esc((window.ICTEditorialForecasts?.find(e)||window.ICTCalendarConsensus?.find(e)).value)+esc(e.unit):'—'}</strong></div><div><small>الفعلي</small><strong dir="ltr">${esc(e.actual)}${esc(e.unit)}</strong></div></div><p class="micro-note">${(window.ICTEditorialForecasts?.find(e)||window.ICTCalendarConsensus?.find(e))?`المصدر: ${esc((window.ICTEditorialForecasts?.find(e)||window.ICTCalendarConsensus?.find(e)).source)} · ${window.ICTCalendarConsensus?.find(e)?.verifiedBeforeRelease===false&&!window.ICTEditorialForecasts?.find(e)?'مقارنة حسابية مرجعية: لم يُثبت حفظ التوقع قبل صدور الخبر.':'مقارنة بتوقع محفوظ قبل النشر.'} الفرق: ${((window.ICTEditorialForecasts?.find(e)?window.ICTEditorialForecasts.difference(e):window.ICTCalendarConsensus.comparison(e)?.difference)||0)>0?'+':''}${esc(String(window.ICTEditorialForecasts?.find(e)?window.ICTEditorialForecasts.difference(e):window.ICTCalendarConsensus.comparison(e)?.difference))} ${e.unit==='%'?'نقطة مئوية':esc(e.unit)}. ${esc(window.ICTCalendarConsensus?.interpretation(e)||'')}`:'لا يتوفر توقع مطابق لهذه الفترة.'} لا تمثل النتائج إشارة تداول.</p></article>`).join('')}</div>`;
  }catch{
-   const staged=(window.ICTCalendarConsensus?.lifecycle([])||[]).slice(0,18);
-   node.innerHTML='<div class="card-head"><h3>الأخبار القادمة والنتائج المنتظرة</h3></div>'+(staged.length?staged.map(e=>`<div class="card" style="padding:12px;margin:8px 0"><strong>${esc(e.currency)} · ${esc(e.title)}</strong><p class="micro-note">${when(e.date)} · ${e.stage==='upcoming'?'قادم':'بانتظار النتيجة'}</p><div class="metrics"><div><small>السابق</small><strong>${esc(e.previous)}</strong></div><div><small>المتوقع</small><strong>${esc(e.forecast)}</strong></div><div><small>الفعلي</small><strong>—</strong></div></div></div>`).join(''):'<p class="micro-note">لا توجد أحداث متاحة حاليًا في الأجندة.</p>')+'<p class="micro-note">بيانات BLS الرسمية غير متاحة حاليًا. لا تُعرض نتائج مفترضة.</p>';
+   const staged=priorityRows(window.ICTCalendarConsensus?.lifecycle([])||[]).slice(0,18);
+   node.innerHTML='<div class="card-head"><h3>الأخبار القادمة والنتائج المنتظرة</h3></div>'+(staged.length?staged.map(e=>`<div class="card" style="padding:12px;margin:8px 0"><strong>${esc(e.currency)} · ${esc(e.title)}</strong><p class="micro-note">${e.impact==='high'?'تأثير مرتفع':e.impact==='medium'?'تأثير متوسط':'تأثير آخر'} · ${when(e.date)} · ${e.stage==='upcoming'?'قادم':'بانتظار النتيجة'}</p><div class="metrics"><div><small>السابق</small><strong>${esc(e.previous)}</strong></div><div><small>المتوقع</small><strong>${esc(e.forecast)}</strong></div><div><small>الفعلي</small><strong>—</strong></div></div></div>`).join(''):'<p class="micro-note">لا توجد أحداث متاحة حاليًا في الأجندة.</p>')+'<p class="micro-note">بيانات BLS الرسمية غير متاحة حاليًا. لا تُعرض نتائج مفترضة.</p>';
  }
 }
 function eventPool(){return economicResults.length?economicResults:events}
 function filteredNews(){
  const pool=eventPool(),q=String($('news-query')?.value||'').trim().toLowerCase(),currency=$('news-currency')?.value||'';
- return pool.filter(e=>(!q||(e.title+' '+e.currency).toLowerCase().includes(q))&&(!currency||e.currency===currency)&&(newsFilter!=='high'||e.impact==='high')&&(newsFilter!=='comparable'||compareEvent(e).comparable)).slice(0,500)
+ return pool.filter(e=>(!q||(e.title+' '+e.currency).toLowerCase().includes(q))&&(!currency||e.currency===currency)&&(newsFilter==='comparable'?compareEvent(e).comparable:priorityRows([e]).length>0)).slice(0,500)
 }
 function newsOptions(){
  const pick=$('news-select'),prev=pick.value;
@@ -135,7 +138,7 @@ async function importEconomicResults(ev){
   catch{throw Error('تعذر تخزين الأرشيف على الهاتف؛ قد تكون مساحة المتصفح ممتلئة.');}
   economicResults=combined;resultsUpdatedAt=new Date().toISOString();
   try{localStorage.setItem(economicResultsKey+'-date',resultsUpdatedAt)}catch{}
-  $('news-query').value='';newsFilter='all';$('news-impact').value='all';$('news-currency').value='';newsOptions();
+  $('news-query').value='';newsFilter=savedPriority();$('news-impact').value=newsFilter;$('news-currency').value='';newsOptions();
   resultsStatus(`تم استيراد ${fresh.length} نتيجة فعلية. الأرشيف المحلي يحتوي الآن على ${combined.length} نتيجة.`);
  }catch(e){resultsStatus(`لم ينجح الاستيراد: ${e.message}`,true)}
  ev.target.value='';
@@ -153,12 +156,13 @@ function clearEconomicResults(){
 }
 function initEconomicResults(){
  economicResults=readResults();try{resultsUpdatedAt=localStorage.getItem(economicResultsKey+'-date')}catch{}
+ $('news-impact').value=newsFilter;
  $('results-file').addEventListener('change',importEconomicResults);
  $('results-export').addEventListener('click',exportEconomicResults);
  $('results-clear').addEventListener('click',clearEconomicResults);
  $('news-query').addEventListener('input',newsOptions);
  $('news-currency').addEventListener('change',newsOptions);
- $('news-impact').addEventListener('change',e=>{newsFilter=e.target.value;newsOptions()});
+ $('news-impact').addEventListener('change',e=>{newsFilter=e.target.value;if(newsFilter!=='comparable')try{localStorage.setItem('ict-economic-news-priority-v1',newsFilter)}catch{}newsOptions();loadPublicOfficialResults()});
 }
 function reactionHistory(){const list=stored(historyKey,[]);return Array.isArray(list)?list.filter(x=>x&&typeof x==='object').slice(0,80):[];}
 function renderReactionHistory(){const rows=reactionHistory();$('reaction-history').innerHTML=rows.length?rows.slice(0,12).map(r=>`<div class="history-row"><div><b>${esc(r.title)}</b><small>${esc(r.asset)} · ${esc(r.window)} دقيقة · ${when(r.saved)}</small></div><strong class="${r.percent>=0?'up':'down'}" dir="ltr">${r.percent>0?'+':''}${Number(r.percent).toFixed(3)}%</strong></div>`).join(''):'<p class="empty">لم تُحفظ قياسات بعد. اختر خبرًا وأدخل السعرين من الشارت.</p>';}

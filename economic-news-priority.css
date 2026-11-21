@@ -1,0 +1,7 @@
+/* ICT بالعربي 6.8.51 — compact controls scoped to the existing economic results section. */
+.economic-priority-filter{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin:10px 0 18px;padding:8px;border:1px solid var(--border,rgba(130,180,160,.28));border-radius:14px;background:var(--surface,rgba(122,160,150,.08));font:inherit}
+.economic-priority-filter>span{font-size:.86rem;opacity:.8;margin-inline-end:3px}
+.economic-priority-filter button{cursor:pointer;font:inherit;font-size:.83rem;font-weight:700;color:inherit;background:transparent;border:1px solid currentColor;border-radius:11px;padding:8px 10px;opacity:.75}
+.economic-priority-filter button.active{opacity:1;background:rgba(113,185,160,.18);box-shadow:inset 0 0 0 1px rgba(113,185,160,.26)}
+.economic-priority-filter button:focus-visible{outline:2px solid #68baa4;outline-offset:2px}
+@media(max-width:420px){.economic-priority-filter{gap:6px;padding:7px}.economic-priority-filter button{font-size:.78rem;padding:8px}.economic-priority-filter>span{width:100%}}
