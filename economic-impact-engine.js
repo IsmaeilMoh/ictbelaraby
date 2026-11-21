@@ -82,5 +82,11 @@ function clusters(rows, minutes=10){
  return out.sort((a,b)=>Date.parse(b.date)-Date.parse(a.date));
 }
 
-root.ICTNewsImpact=Object.freeze({analyze,kind,parse,clusters});
+function clusterStats(rows){
+ // Only count groups with at least one comparable released observation.
+ const groups=clusters(rows).filter(g=>g.items.some(i=>i.status!=='غير مكتمل'));
+ const count=q=>groups.filter(g=>g.quality===q).length;
+ return {total:groups.length,mixed:count('mixed'),partial:count('partial'),conditional:count('conditional'),neutral:count('neutral'),pending:count('pending')};
+}
+root.ICTNewsImpact=Object.freeze({analyze,kind,parse,clusters,clusterStats});
 })(window);

@@ -1,0 +1,15 @@
+/* ICT بالعربي 6.8.54 — concise, responsive simultaneous report presentation. */
+.macro-summary{margin:8px 0 15px;padding:10px 13px;border:1px solid var(--line,rgba(140,180,170,.18));border-radius:12px;background:var(--surface,rgba(100,140,120,.07));color:var(--muted,#a7bab2);font-size:12px;line-height:1.9}
+.macro-summary strong{font-variant-numeric:tabular-nums;color:var(--text,#edf5f0)}
+.macro-report-grid{align-items:stretch}
+.macro-report-card{min-width:0;padding:15px !important;overflow-wrap:anywhere}
+.macro-report-card h3{font-size:clamp(13px,2.5vw,16px);line-height:1.65;margin:8px 0}
+.macro-report-title{display:flex;justify-content:space-between;flex-wrap:wrap;align-items:center;gap:8px;line-height:1.6}
+.macro-report-title strong{font-size:13px}
+.macro-report-title small{font-size:11px;color:var(--muted,#a7bab2)}
+.macro-report-items{list-style:none;margin:10px 0;padding:0;display:grid;gap:6px}
+.macro-report-items li{display:flex;align-items:center;justify-content:space-between;gap:8px;min-width:0;padding:8px 10px;border:1px solid var(--line,rgba(140,180,170,.18));border-radius:9px;background:rgba(120,150,140,.045);font-size:12px;line-height:1.6}
+.macro-report-items li span{min-width:0;overflow-wrap:anywhere}
+.macro-report-items li small{flex:0 0 auto;font-size:10px;color:var(--muted,#a7bab2);text-align:start}
+.macro-report-card .intel-note,.macro-report-card .micro-note{font-size:11px;line-height:1.85;margin:10px 0 0;color:var(--muted,#a7bab2)}
+@media(max-width:560px){.macro-report-grid{grid-template-columns:minmax(0,1fr)!important}.macro-report-card{padding:12px!important}.macro-report-items li{align-items:flex-start;flex-direction:column;gap:2px}.macro-report-items li small{flex:auto}.macro-summary{font-size:11px}}
