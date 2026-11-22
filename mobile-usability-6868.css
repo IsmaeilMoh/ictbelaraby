@@ -1,0 +1,34 @@
+/* ICT بالعربي 6.8.68 — mobile usability polish.
+   Scoped to auxiliary content pages and lower-homepage tools only.
+   Never modify homepage news, market pulse, next session, next event, or bottom market ticker. */
+@media (max-width: 680px) {
+  body.ict6868-tools-page :is(.wrap,.ws-shell,.asset-wrap,.admin-shell) { box-sizing:border-box; max-width:100%; min-width:0; }
+  body.ict6868-tools-page :is(.card,.panel,.section,.ws-panel,.asset-panel,.admin-card) { box-sizing:border-box; max-width:100%; min-width:0; }
+  body.ict6868-tools-page :is(.grid,.metrics,.stats,.stat-grid,.fields,.form-grid,.input-grid,.twocol,.two-column) > * { min-width:0; }
+  body.ict6868-tools-page :is(.card,.panel,.section,.ws-panel,.asset-panel,.admin-card) :is(h1,h2,h3,p,small,span,label) { overflow-wrap:break-word; }
+  body.ict6868-tools-page :is(input,select,textarea) { box-sizing:border-box; max-width:100%; min-width:0; }
+  body.ict6868-tools-page :is(input[type="text"],input[type="number"],input[type="search"],input[type="email"],select,textarea) { font-size:16px; }
+  body.ict6868-tools-page :is(.tabs,.ws-tabs,[role="tablist"],.filter-bar,.radar-filters,.xray-filters) { max-width:100%; min-width:0; overflow-x:auto; overscroll-behavior-x:contain; -webkit-overflow-scrolling:touch; scrollbar-width:thin; }
+  body.ict6868-tools-page :is(.tabs,.ws-tabs,[role="tablist"]) :is(button,[role="tab"]) { flex-shrink:0; min-height:42px; }
+  body.ict6868-tools-page :is(.table-wrap,.table-scroll,.table-responsive,.data-table-wrap) { max-width:100%; overflow-x:auto; overscroll-behavior-x:contain; -webkit-overflow-scrolling:touch; }
+  body.ict6868-tools-page :is(.card,.panel,.ws-panel,.asset-panel) :is(img,video,canvas) { max-width:100%; height:auto; }
+  body.ict6868-tools-page :is(.card,.panel,.ws-panel,.asset-panel) iframe { max-width:100%; }
+  body.ict6868-tools-page :is(.card,.panel,.ws-panel,.asset-panel) :is(button,.btn,[role="button"]) { max-width:100%; }
+  body.ict6868-tools-page :is(.card,.panel,.ws-panel,.asset-panel) :is(pre,code) { overflow-wrap:anywhere; }
+  /* Keep technical tabular content readable; scroll only in a nested region. */
+  body.ict6868-tools-page :is(.table-wrap,.table-scroll,.table-responsive,.data-table-wrap) table { width:max-content; min-width:100%; }
+  /* Don't alter chart dimensions or chart data, only their outer bounds. */
+  body.ict6868-tools-page :is(.tradingview-widget-container,.asset-tv) { max-width:100%; }
+  /* Lower-homepage shortcuts are the only home-area selectors allowed. */
+  #app .home-tools-browser .tool-grid { min-width:0; }
+  #app .home-tools-browser .tool-card { box-sizing:border-box; min-width:0; overflow-wrap:break-word; }
+  #app .home-tools-filters { scroll-padding-inline:12px; }
+  #app .home-tools-filters button { min-height:42px; }
+}
+@media (max-width:390px) {
+  body.ict6868-tools-page :is(.wrap,.ws-shell,.asset-wrap) { padding-inline: max(10px,env(safe-area-inset-right,0px)) max(10px,env(safe-area-inset-left,0px)); }
+  #app .home-tools-browser .tool-card { padding-inline:10px; }
+}
+@media (prefers-reduced-motion:reduce) {
+  body.ict6868-tools-page :is(.tabs,.ws-tabs,[role="tablist"]) { scroll-behavior:auto!important; }
+}
