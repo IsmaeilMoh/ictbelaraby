@@ -1,2 +1,7 @@
 /* Trader DNA 6.8.58: compact, responsive, theme-aware add-on. */
 .dna-filters{margin-bottom:14px}.dna-filter-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}.dna-filter-grid label{display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--dim)}.dna-filter-grid select{min-width:0;width:100%;border:1px solid var(--edge);border-radius:9px;padding:9px 10px;background:var(--pane);color:var(--ink)}.dna-more{margin-top:15px}.dna-more h4{margin:0 0 8px;font-size:13px}.dna-more h4 small{font-weight:400;color:var(--dim)}.dna-monthly{display:flex;flex-direction:column;gap:2px}.dna-month-row{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;padding:6px 3px;border-bottom:1px solid var(--edge);font-size:12px}.dna-month-row b{text-align:left}.dna-filters .micro{margin:4px 0 0}.dna-filters select:focus-visible{outline:2px solid var(--green);outline-offset:2px}@media(max-width:560px){.dna-filter-grid{grid-template-columns:1fr 1fr}.dna-filter-grid label:first-child{grid-column:1/-1}.dna-month-row{font-size:11px}.metrics .metric{padding:9px}}
+
+/* 6.8.66 – provenance labels, compact on mobile */
+.dna-origin-tag{display:inline-block;white-space:nowrap;font-size:.77rem;padding:2px 7px;border:1px solid currentColor;border-radius:999px;opacity:.8}
+#journal-link{display:inline-block;margin-top:8px;font-weight:700}
+#journal-link[hidden]{display:none!important}
