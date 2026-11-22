@@ -7,7 +7,13 @@ const newsImage=n=>newsImageURL(n?.image||n?.image_url||n?.thumbnail);
 const dateFormat=d=>{if(!d)return '';const obj=new Date(/^\d{4}-\d{2}-\d{2}$/.test(String(d))?d+'T12:00:00':d);return Number.isFinite(obj.getTime())?obj.toLocaleString('ar-u-nu-latn',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit',timeZone:typeof currentZone==='function'?currentZone():undefined}):''};
 const section=(title,content,link='',more='عرض الكل')=>`<section class="section"><div class="section-heading"><h2>${title}</h2>${link?`<a href="${link}">${more} ←</a>`:''}</div>${content}</section>`;
 const empty=m=>`<div class="empty">${m}</div>`;
-async function load(file){try{const r=await fetch(file,{cache:'no-store'});if(!r.ok)throw Error(r.status);return await r.json()}catch(e){console.warn('تعذر تحميل',file,e);return null}}
+async function load(file){
+ // Allow the cached public shell to render even if a static JSON request stalls.
+ const controller=new AbortController(),timeout=setTimeout(()=>controller.abort(),12000);
+ try{const r=await fetch(file,{cache:'no-store',signal:controller.signal});if(!r.ok)throw Error(r.status);return await r.json()}
+ catch(e){console.warn('تعذر تحميل',file,e);return null}
+ finally{clearTimeout(timeout)}
+}
 function cardNews(n){const photo=newsImage(n);const artwork=photo?`<div class="news-photo"><img src="${escapeHTML(photo)}" alt="صورة مرفقة من المصدر: ${escapeHTML(n.src||'المصدر')}" loading="lazy" decoding="async" referrerpolicy="no-referrer" onerror="this.closest('.news-photo').classList.add('image-error')"><span class="news-photo-fallback" aria-hidden="true">${escapeHTML(n.tag||'اقتصاد')}</span></div>`:`<div class="news-photo news-photo-placeholder" aria-hidden="true"><span>${escapeHTML(n.tag||'اقتصاد')}</span></div>`;return `<article class="card news-card">${artwork}<span class="tag">${escapeHTML(n.tag||'اقتصاد')}</span><h3>${escapeHTML(n.title)}</h3><p>${escapeHTML(n.sum||'')}</p><div class="card-meta"><span>${escapeHTML(n.src||'')} · ${dateFormat(n.date)}</span>${safeUrl(n.url)!=='#'?`<a href="${escapeHTML(safeUrl(n.url))}" target="_blank" rel="noopener noreferrer">قراءة الخبر ↗</a>`:''}</div></article>`}
 function newsStatusLine(){const date=S.newsUpdated?dateFormat(S.newsUpdated):'';if(S.newsStatus==='fresh')return `آخر تحديث: ${escapeHTML(date)} • أخبار من مصادرها الأصلية`;
 if(S.newsStatus==='stale')return `آخر تحديث: ${escapeHTML(date)} • قد تكون بعض الأخبار قديمة؛ تحقق من تاريخ النشر`;
@@ -794,6 +800,7 @@ function resumeVisiblePageWork(){
  if(document.hidden)return;
  updatePulseClocks();
  refreshPulse();
+ if(navigator.onLine===false)return;
  for(const refresh of visibleDataRefreshers)void refresh();
 }
 document.addEventListener('visibilitychange',()=>{
@@ -804,10 +811,26 @@ document.addEventListener('visibilitychange',()=>{
   resumeVisiblePageWork();
  }
 });
+// A reconnect refresh can bypass the normal interval, but never spam the source.
+// navigator.onLine is only a hint: failed requests still use existing error states.
+let networkWasOffline=typeof navigator!=='undefined'&&navigator.onLine===false;
+window.addEventListener('offline',()=>{networkWasOffline=true});
+window.addEventListener('online',()=>{
+ if(!networkWasOffline)return;
+ networkWasOffline=false;
+ if(document.hidden)return; // visibilitychange will check due tasks later.
+ let index=0;
+ for(const refresh of visibleDataRefreshers){
+  // Spread requests across the reconnect period on slow mobile connections.
+  setTimeout(()=>{if(!document.hidden&&navigator.onLine!==false)void refresh(true)},index++*800);
+ }
+});
 function scheduleVisibleDataRefresh(task, intervalMs){
  let lastAttempt=Date.now(), inFlight=false;
- async function refreshIfDue(){
-  if(document.hidden||inFlight||Date.now()-lastAttempt<intervalMs)return;
+ async function refreshIfDue(force=false){
+  if(document.hidden||navigator.onLine===false||inFlight)return;
+  const since=Date.now()-lastAttempt;
+  if(since<(force?15000:intervalMs))return;
   lastAttempt=Date.now();inFlight=true;
   try{await task()}catch(error){console.warn('Periodic data refresh failed',error)}
   finally{inFlight=false}
