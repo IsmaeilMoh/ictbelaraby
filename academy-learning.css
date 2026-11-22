@@ -1,0 +1,14 @@
+/* ICT 6.8.64 — Academy enhancement, additive and theme-aware */
+.academy-tracks{display:flex;flex-wrap:wrap;gap:7px;margin:12px 0 18px}
+.academy-tracks button,.academy-secondary{font:inherit;color:var(--ink);background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:9px 13px;cursor:pointer}
+.academy-tracks button[aria-pressed="true"]{border-color:var(--green);background:var(--accent-soft);font-weight:700}
+.academy-topline{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap}
+.academy-notes{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin:16px 0}
+.academy-notes section{padding:13px 15px;border:1px solid var(--line);border-radius:13px;background:var(--surface);min-width:0}
+.academy-notes h3{font-size:14px;margin:0 0 6px;color:var(--ink)}
+.academy-notes p{font-size:13px;line-height:1.85;margin:0;color:var(--muted)}
+.academy-actions{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin:16px 0 7px}
+.academy-actions .btn{display:inline-flex;align-items:center;justify-content:center}
+.academy-question button.academy-correct{border-color:var(--green);background:var(--accent-soft)}
+.academy-question button.academy-incorrect{border-color:var(--red)}
+@media(max-width:650px){.academy-notes{grid-template-columns:1fr}.academy-tracks{flex-wrap:nowrap;overflow-x:auto;padding-bottom:4px}.academy-tracks button{flex:0 0 auto}.academy-actions>*{flex:1 1 100%;text-align:center}}
