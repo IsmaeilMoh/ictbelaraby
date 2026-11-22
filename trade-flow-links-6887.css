@@ -1,0 +1,28 @@
+/* ICT بالعربي 6.8.86 — only connected workflow links; no header/footer changes. */
+.trade-flow-map{margin:18px 0 22px;padding:16px;border:1px solid var(--line);border-radius:15px;background:var(--surface);min-width:0}
+.flow-map-head{display:flex;justify-content:space-between;gap:12px;align-items:center}
+.flow-map-head h2{font-size:19px;margin:3px 0}
+.flow-map-head p,.flow-map-note{color:var(--muted);font-size:12px;line-height:1.8;margin:4px 0}
+.flow-map-head>a{border:1px solid var(--line);border-radius:10px;padding:8px 11px;font-size:12px;white-space:nowrap}
+.trade-flow-steps{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:8px;list-style:none;margin:13px 0 10px;padding:0}
+.trade-flow-steps li{min-width:0}
+.trade-flow-steps a{display:flex;align-items:center;gap:8px;height:100%;min-height:64px;padding:9px;border:1px solid var(--line);border-radius:11px;background:var(--bg);color:inherit;text-decoration:none}
+.trade-flow-steps a:hover,.trade-flow-steps a:focus-visible,.workflow-link-trail a:hover,.workflow-link-trail a:focus-visible{border-color:var(--green)}
+.flow-step-index{display:grid;place-items:center;flex:0 0 27px;height:27px;border-radius:9px;background:var(--accent-soft);font:700 11px Arial,sans-serif}
+.flow-step-copy{display:flex;flex:1;min-width:0;flex-direction:column;gap:2px}
+.flow-step-copy strong{font-size:12px;line-height:1.5}
+.flow-step-copy small{font-size:11px;color:var(--muted)}
+.flow-step-chevron{color:var(--muted);font-size:12px}
+.workflow-link-trail{display:flex;flex-wrap:wrap;gap:8px;margin:14px 0;scroll-margin-top:20px}
+.workflow-link-trail a{border:1px solid var(--line);border-radius:9px;padding:8px 11px;font-size:12px;text-decoration:none;color:inherit}
+#workflow-risk,#workflow-journal,#ict-scenario-review{scroll-margin-top:100px}
+@media(max-width:1040px){.trade-flow-steps{grid-template-columns:repeat(3,minmax(0,1fr))}}
+@media(max-width:620px){.trade-flow-map{padding:12px}.flow-map-head{align-items:start;flex-direction:column}.trade-flow-steps{grid-template-columns:1fr 1fr;gap:7px}.trade-flow-steps a{padding:8px 7px;min-height:65px}.flow-step-index{flex-basis:24px;height:24px}.flow-step-copy strong{font-size:11px}.flow-step-copy small{font-size:10px}.flow-step-chevron{display:none}}
+
+/* 6.8.87: highlight the section explicitly requested by a shortcut. */
+#workflow-risk:target,#workflow-journal:target,#ict-scenario-review:target{
+ outline:2px solid var(--green,#80dfb3);outline-offset:3px;
+}
+@media(prefers-reduced-motion:reduce){
+ .workflow-link-trail a{transition:none!important}
+}
