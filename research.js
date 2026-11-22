@@ -10,7 +10,7 @@ function cleanDate(v){const d=new Date(v);if(!Number.isFinite(d.getTime())||!/(?
 function loadBars(content){const records=parseCSV(content.replace(/^\ufeff/,''));if(records.length<21)throw Error('يلزم 20 شمعة على الأقل مع صف العناوين.');if(records.length>20001)throw Error('الحد الأقصى 20 ألف شمعة.');const names=records[0].map(x=>x.toLowerCase().replace(/\s/g,''));const get=k=>names.indexOf(k);for(const k of ['time','open','high','low','close'])if(get(k)<0)throw Error('عمود مفقود: '+k);const res=[];for(let j=1;j<records.length;j++){const r=records[j];const time=cleanDate(r[get('time')]);const nums=['open','high','low','close'].map(k=>Number(r[get(k)]));if(nums.some((n,idx)=>!r[get(['open','high','low','close'][idx])]||!Number.isFinite(n)||n<=0))throw Error('سعر غير صالح في الصف '+(j+1));const [open,high,low,close]=nums;if(high<Math.max(open,close,low)||low>Math.min(open,close,high))throw Error('OHLC غير متسق في الصف '+(j+1));if(res.length&&time<=res[res.length-1].time)throw Error('يجب أن تكون الشموع مرتبة زمنيًا دون تكرار، عند الصف '+(j+1));res.push({time,open,high,low,close});}return res;}
 function fmt(n,d=3){return Number(n).toLocaleString('en-US',{maximumFractionDigits:d});}
 function number(id,min,max,integer=false){const v=Number($(id).value);if(!Number.isFinite(v)||v<min||v>max||(integer&&!Number.isInteger(v)))throw Error('قيمة غير صالحة: '+id);return v;}
-function setting(){return{lookback:number('lookback',3,50,true),structure:number('structure',2,15,true),maxAge:number('sweep-age',0,15,true),rr:number('rr',.5,10),hold:number('hold',1,250,true),fee:number('fee',0,1),side:$('trade-side').value,session:$('research-session').value};}
+function setting(){return{lookback:number('lookback',3,50,true),structure:number('structure',2,15,true),maxAge:number('sweep-age',0,15,true),rr:number('rr',.5,10),hold:number('hold',1,250,true),fee:number('fee',0,1),slippage:number('slippage-r',0,1),requireMss:$('require-mss').checked,requireFvg:$('require-fvg').checked,side:$('trade-side').value,session:$('research-session').value};}
 function recentSweep(i,side,opts){let hit=-1,extreme=null;const minAt=Math.max(opts.lookback+1,i-opts.maxAge);for(let k=i;k>=minAt;k--){const prev=bars.slice(k-opts.lookback,k);if(prev.length<opts.lookback)continue;if(side==='long'){const threshold=Math.min(...prev.map(x=>x.low));if(bars[k].low<threshold&&bars[k].close>threshold){hit=k;extreme=bars[k].low;break;}}else{const threshold=Math.max(...prev.map(x=>x.high));if(bars[k].high>threshold&&bars[k].close<threshold){hit=k;extreme=bars[k].high;break;}}}return hit>=0?{hit,extreme}:null;}
 const NY_CLOCK = new Intl.DateTimeFormat('en-GB',{timeZone:'America/New_York',hour:'2-digit',minute:'2-digit',hourCycle:'h23'});
 function inSession(time,session){if(session==='all')return true;const parts=NY_CLOCK.formatToParts(new Date(time));const h=Number(parts.find(p=>p.type==='hour')?.value),m=Number(parts.find(p=>p.type==='minute')?.value);if(!Number.isFinite(h+m))return false;const minute=h*60+m;const bounds={london:[120,300],newyork:[420,600],silver:[600,660]}[session];return !!bounds&&minute>=bounds[0]&&minute<bounds[1];}
@@ -22,14 +22,14 @@ function signal(i,side,opts){
   for(let k=lower;k<=i;k++)if(Date.parse(bars[k].time)-Date.parse(bars[k-1].time)>step*1.5)return null;
  }
 if(i<Math.max(opts.lookback+opts.maxAge+2,opts.structure+2,4))return null;const sw=recentSweep(i,side,opts);if(!sw)return null;const bar=bars[i],swing=bars.slice(i-opts.structure,i);if(side==='long'){
- if(!(bar.close>Math.max(...swing.map(x=>x.high))))return null;
- if(!(bar.low>bars[i-2].high))return null;
+ if(opts.requireMss&&!(bar.close>Math.max(...swing.map(x=>x.high))))return null;
+ if(opts.requireFvg&&!(bar.low>bars[i-2].high))return null;
  const stop=Math.min(...bars.slice(sw.hit,i+1).map(x=>x.low));return{stop,side,signalAt:i,sweepAt:sw.hit};
 }
- if(!(bar.close<Math.min(...swing.map(x=>x.low))))return null;
- if(!(bar.high<bars[i-2].low))return null;
+ if(opts.requireMss&&!(bar.close<Math.min(...swing.map(x=>x.low))))return null;
+ if(opts.requireFvg&&!(bar.high<bars[i-2].low))return null;
  const stop=Math.max(...bars.slice(sw.hit,i+1).map(x=>x.high));return{stop,side,signalAt:i,sweepAt:sw.hit};}
-function backtest(){if(!bars.length)throw Error('بيانات الشموع غير متاحة بعد؛ راجع حالة المصدر.');const opts=setting();if(opts.session!=='all'&&metadata.timeframe==='1d')throw Error('لا يمكن تطبيق Kill Zones على شموع يومية؛ اختر إطارًا داخل اليوم.');const out=[];const start=Math.max(opts.lookback+opts.maxAge+3,opts.structure+3,5);const sides=opts.side==='both'?['long','short']:[opts.side];for(let i=start;i<bars.length-1;){let sig=null;for(const side of sides){sig=signal(i,side,opts);if(sig)break;}if(!sig){i++;continue;}const entryAt=i+1,entry=bars[entryAt].open,side=sig.side,risk=side==='long'?entry-sig.stop:sig.stop-entry;if(!(risk>0&&Number.isFinite(risk))){i++;continue;}const tp=side==='long'?entry+risk*opts.rr:entry-risk*opts.rr;if(tp<=0){i++;continue;}const last=Math.min(bars.length-1,entryAt+opts.hold-1);let closeAt=last,exit=bars[last].close,reason='timeout';for(let k=entryAt;k<=last;k++){const b=bars[k];const slHit=side==='long'?b.low<=sig.stop:b.high>=sig.stop;const tpHit=side==='long'?b.high>=tp:b.low<=tp;if(slHit){closeAt=k;exit=b.open<=sig.stop&&side==='long'?b.open:b.open>=sig.stop&&side==='short'?b.open:sig.stop;reason=tpHit?'both→SL':'SL';break;}if(tpHit){closeAt=k;exit=tp;reason='TP';break;}}const gross=(side==='long'?(exit-entry):(entry-exit))/risk;out.push({side,signalTime:bars[i].time,entryTime:bars[entryAt].time,exitTime:bars[closeAt].time,entry,stop:sig.stop,tp,exit,grossR:gross,netR:gross-opts.fee,reason,sweepTime:bars[sig.sweepAt].time});i=Math.max(i+1,closeAt+1);}return out;}
+function backtest(){if(!bars.length)throw Error('بيانات الشموع غير متاحة بعد؛ راجع حالة المصدر.');const opts=setting();if(opts.session!=='all'&&metadata.timeframe==='1d')throw Error('لا يمكن تطبيق Kill Zones على شموع يومية؛ اختر إطارًا داخل اليوم.');const out=[];const start=Math.max(opts.lookback+opts.maxAge+3,opts.structure+3,5);const sides=opts.side==='both'?['long','short']:[opts.side];for(let i=start;i<bars.length-1;){let sig=null;for(const side of sides){sig=signal(i,side,opts);if(sig)break;}if(!sig){i++;continue;}const entryAt=i+1,entry=bars[entryAt].open,side=sig.side,risk=side==='long'?entry-sig.stop:sig.stop-entry;if(!(risk>0&&Number.isFinite(risk))){i++;continue;}const tp=side==='long'?entry+risk*opts.rr:entry-risk*opts.rr;if(tp<=0){i++;continue;}const last=Math.min(bars.length-1,entryAt+opts.hold-1);let closeAt=last,exit=bars[last].close,reason='timeout';for(let k=entryAt;k<=last;k++){const b=bars[k];const slHit=side==='long'?b.low<=sig.stop:b.high>=sig.stop;const tpHit=side==='long'?b.high>=tp:b.low<=tp;if(slHit){closeAt=k;exit=b.open<=sig.stop&&side==='long'?b.open:b.open>=sig.stop&&side==='short'?b.open:sig.stop;reason=tpHit?'both→SL':'SL';break;}if(tpHit){closeAt=k;exit=tp;reason='TP';break;}}const gross=(side==='long'?(exit-entry):(entry-exit))/risk;out.push({side,signalTime:bars[i].time,entryTime:bars[entryAt].time,exitTime:bars[closeAt].time,entry,stop:sig.stop,tp,exit,grossR:gross,netR:gross-opts.fee-opts.slippage,reason,sweepTime:bars[sig.sweepAt].time});i=Math.max(i+1,closeAt+1);}return out;}
 function stats(trades){const wins=trades.filter(x=>x.netR>0),losses=trades.filter(x=>x.netR<=0);const net=trades.reduce((t,x)=>t+x.netR,0);let equity=0,peak=0,maxDD=0;for(const t of trades){equity+=t.netR;peak=Math.max(peak,equity);maxDD=Math.max(maxDD,peak-equity);}const grossPos=trades.reduce((s,x)=>s+Math.max(0,x.netR),0),grossNeg=trades.reduce((s,x)=>s+Math.max(0,-x.netR),0);return[{name:'عدد الصفقات',v:String(trades.length)},{name:'نسبة الصفقات الرابحة',v:fmt(100*wins.length/trades.length,1)+'%'},{name:'صافي العائد',v:fmt(net,2)+' R'},{name:'متوسط الصفقة',v:fmt(net/trades.length,3)+' R'},{name:'أكبر تراجع متسلسل',v:fmt(maxDD,2)+' R'},{name:'Profit Factor',v:grossNeg>0?fmt(grossPos/grossNeg,2):'غير محدد'}];}
 function sampleMetrics(trades){
  const n=trades.length, net=trades.reduce((sum,t)=>sum+t.netR,0), wins=trades.filter(t=>t.netR>0).length;
@@ -51,6 +51,7 @@ function showResults(){
  const first=bars[0].time.slice(0,16).replace('T',' '),last=bars.at(-1).time.slice(0,16).replace('T',' ');
  const warning=[];
  if(bars.length<1000)warning.push('عدد الشموع محدود؛ لا تعتمد على النتائج لاتخاذ قرار تداول.');
+ if(metadata.marketKind==='index')warning.push('المؤشر هنا مرجع نقدي وليس عقد وسيط قابلًا للتنفيذ بنفس الأسعار.');
  if(train.length<30||validation.length<30)warning.push('عدد الصفقات في إحدى العينتين أقل من 30؛ الدلالة الإحصائية ضعيفة.');
  if(results.length===0)warning.push('لم تُرصد صفقات تستوفي الشروط المختارة ضمن البيانات المتاحة.');
  const header=`<div class="research-coverage"><b>${esc(metadata.symbol||'الأصل')} · ${esc(metadata.timeframe||'15m')}</b><span>${esc(first)} — ${esc(last)} UTC</span><span>${bars.length} شمعة حقيقية · تقسيم زمني 70% / 30%</span></div>`;
@@ -60,7 +61,27 @@ function showResults(){
  $('backtest-trades').innerHTML=results.slice(-40).reverse().map(t=>`<div class="trade-row"><div><b>${t.side==='long'?'شراء':'بيع'} · ${esc(t.reason)}</b><small dir="ltr">${esc(t.entryTime.slice(0,16))}</small></div><strong class="${t.netR>=0?'up':'down'}" dir="ltr">${t.netR>=0?'+':''}${fmt(t.netR,2)} R</strong></div>`).join('');
  $('export-trades').disabled=!results.length;
 }
-$('run-test').addEventListener('click',()=>{try{results=backtest();showResults();}catch(e){results=[];setStatus('data-status',e.message,true);$('export-trades').disabled=true;}});
+function comparisonCard(title, trades){
+ const m=sampleMetrics(trades);return `<div class="research-sample-card"><strong>${esc(title)}</strong><div class="research-sample-metrics"><span>الصفقات: <b>${m.n}</b></span><span>متوسط R: <b>${metricValue(m.expectancy,3,' R')}</b></span><span>نسبة الربح: <b>${metricValue(m.rate,1,'%')}</b></span><span>أقصى تراجع: <b>${metricValue(m.dd,2,' R')}</b></span></div></div>`;
+}
+function showRuleComparison(){
+ const node=$('rule-comparison');if(!node)return;
+ if(!bars.length){node.textContent='لا توجد بيانات قابلة للاختبار.';return;}
+ const mss=$('require-mss'),fvg=$('require-fvg');
+ const before=[mss.checked,fvg.checked];
+ let cards=[];
+ try{
+  for(const [title,a,b] of [['سحب + تأكيد بنيوي + FVG',true,true],['سحب + تأكيد بنيوي فقط',true,false],['سحب + FVG فقط',false,true],['سحب فقط (مرجع)',false,false]]){
+   mss.checked=a;fvg.checked=b;
+   const trades=backtest(),split=bars[Math.floor(bars.length*.7)].time;
+   cards.push(comparisonCard(title+' · عينة التحقق',trades.filter(t=>t.entryTime>=split)));
+  }
+  node.innerHTML='<p class="micro-note">مقارنة أربع صيغ على نفس الأصل والإطار ونفس التكاليف. النتائج على آخر 30% من الشموع فقط، وقد تتأثر بانحياز الاختيار عند تكرار التجارب. لا تساوي احتمالات نجاح مستقبلية.</p><div class="research-samples">'+cards.join('')+'</div>';
+ }finally{[mss.checked,fvg.checked]=before;}
+}
+$('run-test').addEventListener('click',()=>{try{results=backtest();showResults();$('rule-comparison').textContent='اضغط مقارنة القواعد لرؤية أثر تغيير التأكيدات.';}catch(e){results=[];setStatus('data-status',e.message,true);$('export-trades').disabled=true;}});
+$('compare-rules').addEventListener('click',()=>{try{showRuleComparison();}catch(e){setStatus('data-status',e.message,true);}});
+
 $('export-trades').addEventListener('click',()=>{if(!results.length)return;const columns=['side','signalTime','entryTime','exitTime','entry','stop','tp','exit','grossR','netR','reason','sweepTime'];download('ict-backtest-trades.csv',[columns.join(','),...results.map(t=>columns.map(k=>String(t[k]).replaceAll(',',' ')).join(','))].join('\r\n'),'text/csv;charset=utf-8');});
 // 6.8.98: dataset catalog is taken from verified published arrays; no fictitious forex/CFD prices.
 const INTERVAL_MS={'5m':300000,'15m':900000,'1h':3600000,'4h':14400000,'1d':86400000};
