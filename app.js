@@ -83,6 +83,25 @@ function heroSlideMarkup(n,i,total){
  const heroPhoto=image?`<div class="hero-news-photo" aria-hidden="true"><img src="${escapeHTML(image)}" alt="" decoding="async" referrerpolicy="no-referrer" onerror="this.parentElement.classList.add('image-error')"></div>`:'';
  return `${heroPhoto}<div class="hero-news-body" aria-live="off"><div class="hero-news-label"><span class="hero-news-indicator" aria-hidden="true"></span><span>${S.newsStatus==='archive'?'من أرشيف الأخبار':S.newsStatus==='stale'?'أخبار سابقة':'أبرز الأخبار الاقتصادية'}</span><span class="hero-news-counter en" dir="ltr">${i+1} / ${total}</span></div><div class="hero-news-tag">${tag}</div><h2 class="hero-news-title">${escapeHTML(n.title)}</h2>${sum}<div class="hero-news-meta"><span>${src}</span><span aria-hidden="true">•</span><span>${meta}</span></div><div class="hero-news-action">${url!=='#'?`<a href="${escapeHTML(url)}" target="_blank" rel="noopener noreferrer" class="hero-news-link">اقرأ الخبر من المصدر <span aria-hidden="true">↗</span></a>`:`<a href="#news" class="hero-news-link">استعرض الأخبار <span aria-hidden="true">←</span></a>`}</div></div>`;
 }
+// 6.8.91 — presentation-only editorial navigation, using the existing news feed.
+function editorialHeroRail(){
+ const items=heroNews().slice(0,3);
+ if(items.length<2)return '';
+ return `<div class="ed-hero-rail" role="group" aria-label="اختيار الخبر البارز">${items.map((n,i)=>{
+  const photo=newsImage(n), image=photo?`<img src="${escapeHTML(photo)}" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer" onerror="this.hidden=true">`:'<span class="ed-rail-icon" aria-hidden="true">◉</span>';
+  return `<button type="button" data-hero-index="${i}" aria-label="عرض: ${escapeHTML(n.title)}" aria-pressed="${i===heroSlideIndex}">${image}<strong>${escapeHTML(n.title)}</strong></button>`;
+ }).join('')}</div>`;
+}
+function homeLatestNews(){
+ const items=Array.isArray(S.news)?S.news.filter(n=>n&&n.title).slice(0,4):[];
+ if(!items.length)return '';
+ return `<section class="ed-latest" aria-labelledby="ed-latest-heading"><div class="ed-section-head"><h2 id="ed-latest-heading">أحدث الأخبار والتحليلات</h2><a href="#news">كل الأخبار ←</a></div><div class="ed-news-grid">${items.map(n=>{
+  const url=safeUrl(n.url),image=newsImage(n),photo=image?`<img src="${escapeHTML(image)}" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer" onerror="this.hidden=true">`:'<span class="ed-image-fallback" aria-hidden="true">◉</span>';
+  const tag=escapeHTML(n.tag||'اقتصاد'),meta=escapeHTML(n.src||'المصدر')+' • '+escapeHTML(dateFormat(n.date));
+  const content=`<span class="ed-news-image">${photo}</span><div class="ed-news-body"><span class="ed-news-tag">${tag}</span><h3 class="ed-news-title">${escapeHTML(n.title)}</h3><span class="ed-news-meta">${meta}</span></div>`;
+  return url!=='#'?`<a class="ed-news-card" href="${escapeHTML(url)}" target="_blank" rel="noopener noreferrer">${content}</a>`:`<a class="ed-news-card" href="#news">${content}</a>`;
+ }).join('')}</div></section>`;
+}
 function heroSlider(){
  const items=heroNews();
  if(!items.length)return `<div class="hero-news-slider hero-news-empty"><span class="eyebrow">HEADLINES</span><h2>أبرز الأخبار الاقتصادية</h2><p>لا توجد أخبار متاحة حاليًا. تصفح قسم الأخبار لاحقًا.</p><a class="hero-news-link" href="#news">قسم الأخبار ←</a></div>`;
@@ -94,7 +113,7 @@ function showHeroSlide(index){
  const items=heroNews(),host=document.getElementById('hero-slide-content');if(!host||!items.length)return;
  heroSlideIndex=(index+items.length)%items.length;
  host.innerHTML=heroSlideMarkup(items[heroSlideIndex],heroSlideIndex,items.length);
- document.querySelectorAll('.hero-news-dot').forEach((b,i)=>{b.classList.toggle('is-active',i===heroSlideIndex);b.setAttribute('aria-pressed',String(i===heroSlideIndex))});
+ document.querySelectorAll('[data-hero-index]').forEach(b=>{const active=Number(b.dataset.heroIndex)===heroSlideIndex;b.classList.toggle('is-active',active);b.setAttribute('aria-pressed',String(active))});
 }
 let heroSlidePaused=false;
 function initHeroSlider(){
@@ -237,10 +256,10 @@ function applyHomeToolsFilter(){
  const hint=panel.querySelector('#home-tools-hint');if(hint)hint.textContent=homeToolsMode==='essential'?`عرض ${visible} أدوات مختارة من أصل ${cards.length}. اختر «جميع الأدوات» لإظهار البقية.`:`عرض ${visible} من ${cards.length} أداة. جميع الخدمات متاحة من هذه الفلاتر.`;
 }
 function home(){
- return `<section class="welcome welcome-news-layout"><div class="hero-news-column">${heroSlider()}</div><div class="welcome-aside pulse-desk" id="market-pulse" aria-label="ملخص الأسواق والأخبار والجلسات">${marketPulse()}</div></section>${operationsRoom()}${siteSearchSection()}${visitorGuideSection()}
+ return `<section class="welcome welcome-news-layout"><div class="hero-news-column">${heroSlider()}${editorialHeroRail()}</div><div class="welcome-aside pulse-desk" id="market-pulse" aria-label="ملخص الأسواق والأخبار والجلسات">${marketPulse()}</div></section>${operationsRoom()}${siteSearchSection()}${visitorGuideSection()}
  <div class="section-title home-tools-title"><div><span class="eyebrow">QUICK ACCESS</span><h2 id="home-tools-heading">مركز التداول</h2></div><span class="subtle">الأدوات الأساسية؛ بقية الخدمات متاحة عبر أقسام الموقع.</span></div>
  <section class="home-tools-browser" aria-labelledby="home-tools-heading"><div class="tool-grid" id="home-tools-grid"><a class="tool-card" href="workflow.html"><span class="tool-glyph">◈</span><strong>رحلة الصفقة الذكية</strong><span>من التوصية إلى المراجعة والحاسبة وسجل النتائج</span><b>افتح الأداة ←</b></a><a class="tool-card" href="smart-desk.html"><span class="tool-glyph">◈</span><strong>غرفة المتداول الذكية</strong><span>Trader DNA، البحث في محتوى الموقع، ومتابعة الأخبار والتوصيات</span><b>افتح الغرفة ←</b></a><a class="tool-card" href="research.html"><span class="tool-glyph">▣</span><strong>مختبر الأبحاث التاريخية</strong><span>اختبار الاستراتيجيات وآلة الزمن ومكتبة نماذج ICT</span><b>ابدأ البحث ←</b></a><a class="tool-card" href="intelligence.html"><span class="tool-glyph">◉</span><strong>مختبر ذكاء الأسواق</strong><span>رادار المتابعة وأشعة السوق ورد فعل الأخبار</span><b>افتح المختبر ←</b></a></div></section>
- ${notificationCenter('compact')}`;
+ ${homeLatestNews()}${notificationCenter('compact')}`;
 }
 
 // Market Pulse: Yahoo snapshot selects periodic movers only. TradingView supplies the displayed quotes.
