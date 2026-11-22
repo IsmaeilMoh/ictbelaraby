@@ -20,9 +20,16 @@ SYMBOLS={
   'NDX_INDEX':('NDX','index'), 'SPX_INDEX':('SPX','index'), 'DJI_INDEX':('DJI','index'),
 }
 INTERVALS={'15m':'15min','1h':'1h','1d':'1day'}
+# Up to 5000 historical observations per API request (provider maximum).
+# Prioritize deeper study of the verified XAUUSD and EURUSD feeds while keeping
+# other symbols at the old footprint. No extra API requests or quota increase.
+DEEP_SYMBOLS={'XAUUSD','EURUSD'}
+DEEP_OUTPUTSIZE=5000
+REGULAR_OUTPUTSIZE=500
 
-def request_series(symbol, interval, key, now):
-    query=urlencode({'symbol':symbol,'interval':interval,'outputsize':500,'timezone':'UTC','apikey':key,'format':'JSON'})
+
+def request_series(symbol, interval, key, now, outputsize=REGULAR_OUTPUTSIZE):
+    query=urlencode({'symbol':symbol,'interval':interval,'outputsize':outputsize,'timezone':'UTC','apikey':key,'format':'JSON'})
     req=Request('https://api.twelvedata.com/time_series?'+query,headers={'User-Agent':'ICTArabic research (licensed data)'})
     with urlopen(req,timeout=22) as response: payload=json.load(response)
     if not isinstance(payload,dict) or payload.get('status')=='error' or not isinstance(payload.get('values'),list):
@@ -41,7 +48,12 @@ def request_series(symbol, interval, key, now):
         else:
             try: stamp=dt.datetime.strptime(when,'%Y-%m-%d %H:%M:%S').replace(tzinfo=dt.timezone.utc)
             except ValueError:continue
-        if stamp>=now:continue
+        if interval=='1day':
+            # Today's daily candle may still be open; exclude the current UTC date.
+            if stamp.date()>=now.date():continue
+        elif stamp+dt.timedelta(seconds={'15min':900,'1h':3600}[interval])>now:
+            # Skip any not-yet-closed intraday candle.
+            continue
         try:o,h,l,c=(float(bar[k]) for k in ('open','high','low','close'))
         except (ValueError,TypeError,KeyError):continue
         if not (0<l<=min(o,c)<=max(o,c)<=h):raise ValueError('Invalid OHLC')
@@ -58,11 +70,16 @@ def main():
     for public,(provider,kind) in SYMBOLS.items():
         candles={}
         for label,interval in INTERVALS.items():
-            try:candles[label]=request_series(provider,interval,key,now)
+            try:
+                depth=DEEP_OUTPUTSIZE if public in DEEP_SYMBOLS else REGULAR_OUTPUTSIZE
+                candles[label]=request_series(provider,interval,key,now,outputsize=depth)
+                print(f'OK {public} {label}: {len(candles[label])} / {depth} observations')
             except Exception as exc:print(f'UNAVAILABLE {public} {label}: {exc}')
         if candles:assets[public]=candles;kinds[public]=kind
     if not assets:raise SystemExit('No verified provider datasets; previous file retained')
     target=ROOT/'historical-multi-market.json'
+    for index in ('NDX_INDEX','SPX_INDEX','DJI_INDEX'):
+        if index not in assets:print('INDEX_STATUS',index,'unavailable; see UNAVAILABLE messages above for symbol / plan diagnostics')
     # Do not publish a partial failure that accidentally removes all previously verified assets.
     if target.exists():
         try:
