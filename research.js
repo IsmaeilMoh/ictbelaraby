@@ -53,30 +53,78 @@ function showResults(){
 }
 $('run-test').addEventListener('click',()=>{try{results=backtest();showResults();}catch(e){results=[];setStatus('data-status',e.message,true);$('export-trades').disabled=true;}});
 $('export-trades').addEventListener('click',()=>{if(!results.length)return;const columns=['side','signalTime','entryTime','exitTime','entry','stop','tp','exit','grossR','netR','reason','sweepTime'];download('ict-backtest-trades.csv',[columns.join(','),...results.map(t=>columns.map(k=>String(t[k]).replaceAll(',',' ')).join(','))].join('\r\n'),'text/csv;charset=utf-8');});
-async function loadPublicHistory(){
- stopReplay();const symbol=$('public-history-symbol').value;
+// 6.8.98: dataset catalog is taken from verified published arrays; no fictitious forex/CFD prices.
+const INTERVAL_MS={'5m':300000,'15m':900000,'1h':3600000,'4h':14400000,'1d':86400000};
+const INTERVAL_LABEL={'5m':'5 دقائق','15m':'15 دقيقة','1h':'ساعة','4h':'4 ساعات','1d':'يوم'};
+let publicFeed=null,feedBusy=false,loadToken=0;
+function availableCatalog(feed){
+ const catalog={};
+ if(feed?.version===2&&feed?.source==='Binance spot public API'&&feed?.assets&&typeof feed.assets==='object'){
+  for(const [symbol,intervals] of Object.entries(feed.assets)){
+   if(!/^[A-Z0-9]{3,15}$/.test(symbol)||!intervals||typeof intervals!=='object'||Array.isArray(intervals))continue;
+   const list=Object.keys(intervals).filter(tf=>INTERVAL_MS[tf]&&Array.isArray(intervals[tf])&&intervals[tf].length>=60);
+   if(list.length)catalog[symbol]=list;
+  }
+ } else if(feed?.interval==='15m'&&feed?.source==='Binance spot public API'&&feed?.assets){
+  for(const [symbol,data] of Object.entries(feed.assets))if(/^[A-Z0-9]{3,15}$/.test(symbol)&&Array.isArray(data)&&data.length>=60)catalog[symbol]=['15m'];
+ }
+ return catalog;
+}
+function updateCatalog(){
+ const catalog=availableCatalog(publicFeed),symbolEl=$('public-history-symbol'),tfEl=$('public-history-timeframe');
+ const previousSymbol=symbolEl.value,previousTF=tfEl.value;
+ const symbols=Object.keys(catalog).sort((a,b)=>a.localeCompare(b));
+ symbolEl.replaceChildren(...symbols.map(symbol=>new Option(symbol,symbol)));
+ symbolEl.value=symbols.includes(previousSymbol)?previousSymbol:(symbols.includes('BTCUSDT')?'BTCUSDT':(symbols.includes('BTCUSD')?'BTCUSD':symbols[0]||''));
+ const frames=(catalog[symbolEl.value]||[]).sort((a,b)=>INTERVAL_MS[a]-INTERVAL_MS[b]);
+ tfEl.replaceChildren(...frames.map(tf=>new Option(INTERVAL_LABEL[tf],tf)));
+ tfEl.value=frames.includes(previousTF)?previousTF:(frames.includes('15m')?'15m':frames[0]||'');
+ $('data-symbol').value=symbolEl.value||'—';
+ return symbols.length>0;
+}
+function sourceRows(symbol,tf){const feed=publicFeed;return feed?.version===2?feed.assets?.[symbol]?.[tf]:feed?.assets?.[symbol];}
+function setHistoryFailure(message){bars=[];results=[];metadata={};stopReplay();$('backtest-results').textContent='لا يمكن احتساب اختبار دون شموع موثوقة ضمن الفترة المختارة.';$('backtest-trades').textContent='';$('export-trades').disabled=true;setStatus('data-status',message,true);drawReplay();}
+function applyHistorySelection(){
+ const symbol=$('public-history-symbol').value,tf=$('public-history-timeframe').value;
+ const raw=sourceRows(symbol,tf),step=INTERVAL_MS[tf];
+ if(!Array.isArray(raw)||!step)throw Error('هذا الأصل أو الإطار غير منشور من المصدر.');
+ if(raw.length<60||raw.length>1500)throw Error('عدد الشموع في المصدر غير مناسب.');
+ const valid=loadBars('time,open,high,low,close\n'+raw.map(row=>row.join(',')).join('\n'));
+ if(valid.some((b,i)=>i>0&&Date.parse(b.time)-Date.parse(valid[i-1].time)!==step))throw Error('توجد فجوات زمنية في الشموع؛ تم رفض اختبار السلسلة.');
+ const from=$('public-history-from').value,to=$('public-history-to').value;
+ if(from&&to&&from>to)throw Error('تاريخ البداية يجب أن يسبق تاريخ النهاية.');
+ const fromMs=from?Date.parse(from+'T00:00:00Z'):-Infinity;
+ const toMs=to?Date.parse(to+'T00:00:00Z')+86400000:Infinity;
+ const chosen=valid.filter(b=>{const t=Date.parse(b.time);return t>=fromMs&&t<toMs;});
+ $('history-coverage').textContent=`تغطية المصدر المتاحة: ${valid[0].time.slice(0,16)} إلى ${valid.at(-1).time.slice(0,16)} UTC · ${valid.length} شمعة. فترة الاختبار: ${chosen.length} شمعة. لا تتوفر شموع خارج هذه الحدود.`;
+ if(chosen.length<60)throw Error('الفترة المحددة تحتوي أقل من 60 شمعة؛ وسّع نطاق التاريخ أو غيّر الإطار.');
+ bars=chosen;results=[];metadata={symbol,timeframe:tf,timezone:'UTC',source:publicFeed.source,updatedAt:publicFeed.updatedAt};
  $('data-symbol').value=symbol;
- setStatus('data-status','جارٍ تحميل بيانات '+symbol+' من الموقع…');
+ $('backtest-trades').textContent='';$('export-trades').disabled=true;resetReplay();
+ setStatus('data-status',`تم التحقق من ${bars.length} شمعة حقيقية · ${symbol} · ${tf} · ${publicFeed.source} · تحديث الملف ${publicFeed.updatedAt}`);
+ results=backtest();showResults();
+}
+async function loadPublicHistory(){
+ if(feedBusy)return;
+ feedBusy=true;const token=++loadToken;stopReplay();setStatus('data-status','جارٍ قراءة ملف البيانات العامة والتحقق منه…');
  try{
   const response=await fetch('historical-candles.json?t='+Date.now(),{cache:'no-store'});
   if(!response.ok)throw Error('تعذر الوصول إلى ملف البيانات العامة.');
   const feed=await response.json();
-  if(feed?.interval!=='15m'||feed?.source!=='Binance spot public API'||!feed?.assets||!Array.isArray(feed.assets[symbol]))throw Error('بيانات الشموع غير مكتملة.');
   const age=Date.now()-Date.parse(feed.updatedAt);
-  if(!Number.isFinite(age)||age< -600000||age>48*3600000)throw Error('ملف البيانات أقدم من 48 ساعة؛ لا نعرض اختبارًا على مصدر غير محدث.');
-  const raw=feed.assets[symbol];
-  if(raw.length<60||raw.length>1500)throw Error('عينة الشموع غير كافية أو غير صالحة.');
-  const csv='time,open,high,low,close\n'+raw.map(row=>row.join(',')).join('\n');
-  const valid=loadBars(csv);
-  if(valid.some((v,i)=>i>0&&Date.parse(v.time)-Date.parse(valid[i-1].time)!==900000))throw Error('فجوات في بيانات 15 دقيقة؛ لن نجري اختبارًا على سلسلة غير متصلة.');
-  bars=valid;results=[];metadata={symbol,timeframe:'15m',timezone:'UTC',source:feed.source,updatedAt:feed.updatedAt};
-  setStatus('data-status',`تم تحميل ${bars.length} شمعة ${symbol} · 15m · المصدر Binance Spot · آخر تحديث ${feed.updatedAt}.`);
-  $('backtest-results').textContent='جارٍ حساب نتائج الاختبار من الشموع المنشورة…';
-  $('backtest-trades').textContent='';$('export-trades').disabled=true;resetReplay();
-  try{results=backtest();showResults();}catch(error){setStatus('data-status',error.message,true);}
- }catch(error){bars=[];results=[];setStatus('data-status',`البيانات غير متاحة تلقائيًا: ${error.message}`,true);$('backtest-results').textContent='لا يمكن احتساب نتائج دون بيانات موثوقة.';drawReplay()}
+  if(!Number.isFinite(age)||age< -600000||age>48*3600000)throw Error('ملف البيانات أقدم من 48 ساعة أو يفتقد تاريخ تحديث صالح.');
+  if(!Object.keys(availableCatalog(feed)).length)throw Error('لم ينشر المصدر بيانات مدعومة قابلة للاختبار.');
+  if(token!==loadToken)return;
+  publicFeed=feed;updateCatalog();
+  try{applyHistorySelection();}catch(e){setHistoryFailure(e.message);}
+ }catch(error){publicFeed=null;setHistoryFailure('البيانات غير متاحة تلقائيًا: '+error.message);}
+ finally{feedBusy=false;}
 }
-$('public-history-symbol').addEventListener('change',loadPublicHistory);
+function useExistingHistory(){try{if(!publicFeed){setHistoryFailure('لم تُحمّل بيانات المصدر بعد.');return;}applyHistorySelection();}catch(e){setHistoryFailure(e.message);}}
+$('public-history-symbol').addEventListener('change',()=>{updateCatalog();useExistingHistory();});
+$('public-history-timeframe').addEventListener('change',useExistingHistory);
+$('public-history-from').addEventListener('change',useExistingHistory);
+$('public-history-to').addEventListener('change',useExistingHistory);
 $('refresh-public-history').addEventListener('click',loadPublicHistory);
 loadPublicHistory();
 function stopReplay(){if(replayTimer){clearInterval(replayTimer);replayTimer=null;}$('replay-auto').textContent='تشغيل تلقائي';}
