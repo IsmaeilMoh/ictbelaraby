@@ -193,6 +193,82 @@ function renderXrayData(){
  }).join('')}</div><p class="micro-note">الارتباط محسوب من العوائد اليومية ذات التاريخ المشترك فقط (حد أقصى 20 ملاحظة)، ولا يعني تبعية أو توافقًا آنيًا. ${tooOld?'بيانات المصدر متأخرة؛ لا تستخدمها كإشارة لحظية.':''} ${!base?'لا تتوفر سلسلة مرجعية لهذا الرمز؛ لا يمكن حساب ارتباطاته.':''}</p>`;
 }
 
+
+// 6.8.96 — Event watch plan: explicit manual planning, not an automatic trading signal.
+const eventWatchKey='ict-event-watch-plans-v1';
+let eventWatchSelected='';
+const eventWatchAssets={
+ USD:['XAUUSD','EURUSD','GBPUSD','USDJPY','NAS100','SP500','DJ30','BTCUSD'],
+ EUR:['EURUSD','USDCHF'],GBP:['GBPUSD'],JPY:['USDJPY'],CHF:['USDCHF'],
+ CAD:['USDCAD','WTI'],AUD:['AUDUSD'],NZD:['NZDUSD']
+};
+function eventWatchUpcoming(){
+ const now=Date.now(),to=now+7*86400000;
+ return combinedNews().filter(e=>{
+  const t=Date.parse(e.date);
+  return Number.isFinite(t)&&t>now&&t<=to&&['high','medium'].includes(e.impact)&&e.currency;
+ }).sort((a,b)=>Date.parse(a.date)-Date.parse(b.date)).slice(0,35);
+}
+function eventWatchPlans(){const value=stored(eventWatchKey,{});return value&&typeof value==='object'&&!Array.isArray(value)?value:{}}
+function eventWatchEvent(){return eventWatchUpcoming().find(e=>e.id===eventWatchSelected)||null}
+function eventWatchSummary(){
+ const e=eventWatchEvent(),summary=$('event-plan-summary'),links=$('event-plan-links'),save=$('event-plan-save'),open=$('event-plan-open');
+ if(!e){summary.textContent='لا توجد أحداث متوسطة أو مرتفعة التأثير خلال الأيام السبعة المقبلة ضمن البيانات المتاحة. تأكد من الأجندة لاحقًا.';links.replaceChildren();save.disabled=true;open.disabled=true;return}
+ save.disabled=false;open.disabled=false;
+ summary.textContent=`${e.currency} · ${when(e.date)} · ${e.impact==='high'?'تأثير مرتفع':'تأثير متوسط'} · السابق: ${e.previous} · المتوقع: ${e.forecast} · الفعلي: ${e.actual}`;
+ const relevant=eventWatchAssets[e.currency]||[];
+ links.replaceChildren();
+ const lead=document.createElement('span');lead.textContent='أصول للمتابعة حسب عملة الخبر (دون افتراض اتجاه):';links.append(lead);
+ if(!relevant.length){const msg=document.createElement('small');msg.textContent='لا توجد قائمة جاهزة لهذه العملة؛ اختر الأصل بنفسك.';links.append(msg);return}
+ relevant.filter(a=>allowed.includes(a)).forEach(asset=>{
+  const button=document.createElement('button');button.type='button';button.textContent=asset;button.dataset.watchAsset=asset;
+  button.className=$('event-plan-asset').value===asset?'selected':'';
+  button.addEventListener('click',()=>{$('event-plan-asset').value=asset;eventWatchSummary()});links.append(button);
+ });
+}
+function eventWatchRestore(){
+ const current=eventWatchEvent(),plans=eventWatchPlans(),saved=current?plans[current.id]:null;
+ $('event-plan-asset').value=allowed.includes(saved?.asset)?saved.asset:(eventWatchAssets[current?.currency]?.find(a=>allowed.includes(a))||selected);
+ $('event-plan-notes').value=typeof saved?.notes==='string'?saved.notes.slice(0,300):'';
+ document.querySelectorAll('[data-plan-check]').forEach(c=>{c.checked=Boolean(saved?.checks?.[c.dataset.planCheck])});
+ $('event-plan-status').textContent=saved?'خطة محفوظة لهذا الخبر على الجهاز.':'لم تحفظ خطة لهذا الخبر بعد.';
+ eventWatchSummary();
+}
+function renderEventWatch(){
+ const list=eventWatchUpcoming(),pick=$('event-plan-event');if(!pick)return;
+ const previous=eventWatchSelected;
+ pick.replaceChildren();
+ if(!list.length){const option=document.createElement('option');option.value='';option.textContent='لا تتوفر أخبار قادمة خلال 7 أيام';pick.add(option);eventWatchSelected='';eventWatchRestore();return}
+ list.forEach(e=>{const option=document.createElement('option');option.value=e.id;option.textContent=`${e.currency} · ${e.title} · ${when(e.date)}`;pick.add(option)});
+ eventWatchSelected=list.some(x=>x.id===previous)?previous:list[0].id;
+ pick.value=eventWatchSelected;
+ eventWatchRestore();
+}
+function eventWatchSave(){
+ const e=eventWatchEvent();if(!e){$('event-plan-status').textContent='لا يوجد خبر صالح لحفظ الخطة.';return}
+ const checks={};document.querySelectorAll('[data-plan-check]').forEach(c=>{checks[c.dataset.planCheck]=c.checked});
+ const plans=eventWatchPlans();plans[e.id]={asset:$('event-plan-asset').value,notes:$('event-plan-notes').value.trim().slice(0,300),checks,updatedAt:new Date().toISOString(),title:e.title,date:e.date,currency:e.currency};
+ // Keep a bounded local-only history; no information is sent to the server.
+ const entries=Object.entries(plans).sort((a,b)=>String(b[1]?.updatedAt||'').localeCompare(String(a[1]?.updatedAt||''))).slice(0,50);
+ $('event-plan-status').textContent=setStored(eventWatchKey,Object.fromEntries(entries))?'تم حفظ الخطة على هذا الجهاز.':'تعذر الحفظ المحلي؛ تحقق من إعدادات التخزين.';
+}
+function eventWatchOpenNews(){
+ const e=eventWatchEvent();if(!e)return;
+ document.querySelector('[data-tab="news"]')?.click();
+ $('news-impact').value='all';newsFilter='all';$('news-query').value='';$('news-currency').value='';newsOptions();
+ const pick=$('news-select');if([...pick.options].some(o=>o.value===e.id)){pick.value=e.id;renderNewsReview()}else $('news-feed-status').textContent='افتح الخبر من قائمة المختبر؛ قد يكون تغيّر مع تحديث المصدر.';
+ history.replaceState(null,'','#news');
+ $('panel-news').scrollIntoView({behavior:'smooth',block:'start'});
+}
+function initEventWatch(){
+ const asset=$('event-plan-asset');allowed.forEach(v=>{const o=document.createElement('option');o.value=v;o.textContent=v;asset.add(o)});
+ $('event-plan-event').addEventListener('change',e=>{eventWatchSelected=e.target.value;eventWatchRestore()});
+ asset.addEventListener('change',eventWatchSummary);
+ $('event-plan-save').addEventListener('click',eventWatchSave);
+ $('event-plan-open').addEventListener('click',eventWatchOpenNews);
+ renderEventWatch();
+}
+
 async function refreshMarketSources(){
  const [m,c,r,n,x]=await Promise.all(['market-movers.json','calendar-live.json','market-radar.json','calendar-next.json','market-xray.json'].map(json));
  nextEvents=normalizeEvents(n);radarAt=r?.updatedAt||null;
@@ -200,23 +276,9 @@ async function refreshMarketSources(){
  moversAt=m?.updatedAt||null;
  movers=Array.isArray(m?.items)?m.items.filter(x=>allowed.includes(x.symbol)&&Number.isFinite(Number(x.change))).map(x=>({symbol:x.symbol,label:x.label,category:String(x.category||''),quotedAt:x.quotedAt||m?.updatedAt,change:Number(x.change),price:(x.price!=null&&Number.isFinite(Number(x.price))&&Number(x.price)>0)?Number(x.price):null,proxy:Boolean(x.proxy)})):[];
  calendarAt=c?.updated_at||c?.updatedAt||null;events=normalizeEvents(c);
- xrayFeed=x;renderRadar();newsOptions();renderReactionHistory();renderXray();
+ xrayFeed=x;renderRadar();newsOptions();renderReactionHistory();renderXray();renderEventWatch();
 }
-// Throttle network-only refreshes when a document is in the background.
-// The initial boot, local alerts, session clocks and manual actions are unchanged.
-function scheduleVisibleDataRefresh(task, intervalMs){
- let lastAttempt=Date.now(), inFlight=false;
- async function refreshIfDue(){
-  if(document.hidden||inFlight||Date.now()-lastAttempt<intervalMs)return;
-  lastAttempt=Date.now();inFlight=true;
-  try{await task()}catch(error){console.warn('Periodic data refresh failed',error)}
-  finally{inFlight=false}
- }
- const timer=setInterval(refreshIfDue,Math.min(intervalMs,60000));
- document.addEventListener('visibilitychange',()=>{if(!document.hidden)void refreshIfDue()});
- return timer;
-}
-async function boot(){initTabs();$('radar-asset').innerHTML=allowed.map(s=>`<option value="${s}">${s}</option>`).join('');$('radar-asset').value=selected;$('radar-asset').addEventListener('change',e=>selectRadar(e.target.value));const radarSaved=stored(radarPrefsKey,{});for(const [id,key] of [['radar-window','window'],['radar-group','group'],['radar-direction','direction']]){const el=$(id);if(el&&Array.from(el.options).some(o=>o.value===radarSaved[key]))el.value=radarSaved[key];el?.addEventListener('change',()=>{setStored(radarPrefsKey,radarFilter());renderRadar()});}$('save-radar').addEventListener('click',saveChecks);$('reset-radar').addEventListener('click',resetChecks);$('xray-set').addEventListener('change',renderXray);$('xray-symbol').addEventListener('change',renderChart);$('news-select').addEventListener('change',renderNewsReview);initEconomicResults();loadPublicOfficialResults();scheduleVisibleDataRefresh(loadPublicOfficialResults,30*60*1000);$('reaction-form').addEventListener('submit',saveReaction);$('export-reactions').addEventListener('click',exportReactions);
- await refreshMarketSources();scheduleVisibleDataRefresh(refreshMarketSources,10*60*1000);}
+async function boot(){initTabs();$('radar-asset').innerHTML=allowed.map(s=>`<option value="${s}">${s}</option>`).join('');$('radar-asset').value=selected;$('radar-asset').addEventListener('change',e=>selectRadar(e.target.value));const radarSaved=stored(radarPrefsKey,{});for(const [id,key] of [['radar-window','window'],['radar-group','group'],['radar-direction','direction']]){const el=$(id);if(el&&Array.from(el.options).some(o=>o.value===radarSaved[key]))el.value=radarSaved[key];el?.addEventListener('change',()=>{setStored(radarPrefsKey,radarFilter());renderRadar()});}$('save-radar').addEventListener('click',saveChecks);$('reset-radar').addEventListener('click',resetChecks);$('xray-set').addEventListener('change',renderXray);$('xray-symbol').addEventListener('change',renderChart);$('news-select').addEventListener('change',renderNewsReview);initEconomicResults();loadPublicOfficialResults();setInterval(loadPublicOfficialResults,30*60*1000);$('reaction-form').addEventListener('submit',saveReaction);$('export-reactions').addEventListener('click',exportReactions);
+ initEventWatch();await refreshMarketSources();setInterval(refreshMarketSources,10*60*1000);}
 
 boot();
