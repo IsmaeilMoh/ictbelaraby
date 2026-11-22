@@ -1,5 +1,5 @@
 {
-  "updatedAt": "2026-11-22T17:28:09.788706Z",
+  "updatedAt": "2026-11-22T18:25:03.271221Z",
   "source": "Yahoo Finance public chart feed (unofficial)",
   "changeBasis": "Yahoo chart previous close; not uniform 24h",
   "items": [
@@ -47,9 +47,9 @@
       "symbol": "USDCAD",
       "label": "دولار / كندي",
       "category": "forex",
-      "change": 0.4906,
-      "price": 1.4339,
-      "quotedAt": "2026-11-22T14:25:50Z",
+      "change": 0.5046,
+      "price": 1.4341,
+      "quotedAt": "2026-11-22T18:00:02Z",
       "proxy": false,
       "url": "https://www.tradingview.com/symbols/USDCAD/"
     },
@@ -59,7 +59,7 @@
       "category": "forex",
       "change": -2.3602,
       "price": 0.6619,
-      "quotedAt": "2026-11-21T22:29:45Z",
+      "quotedAt": "2026-11-22T18:23:43Z",
       "proxy": false,
       "url": "https://www.tradingview.com/symbols/AUDUSD/"
     },
@@ -69,7 +69,7 @@
       "category": "forex",
       "change": -1.0492,
       "price": 0.547,
-      "quotedAt": "2026-11-21T22:29:45Z",
+      "quotedAt": "2026-11-22T18:23:43Z",
       "proxy": false,
       "url": "https://www.tradingview.com/symbols/NZDUSD/"
     },
@@ -137,9 +137,9 @@
       "symbol": "BTCUSD",
       "label": "Bitcoin",
       "category": "crypto",
-      "change": -3.4547,
-      "price": 60811.23,
-      "quotedAt": "2026-11-22T17:28:04Z",
+      "change": -3.7766,
+      "price": 60608.48,
+      "quotedAt": "2026-11-22T18:25:01Z",
       "proxy": false,
       "url": "https://www.tradingview.com/symbols/BTCUSD/"
     },
@@ -147,9 +147,9 @@
       "symbol": "ETHUSD",
       "label": "Ethereum",
       "category": "crypto",
-      "change": -3.4697,
-      "price": 1713.17,
-      "quotedAt": "2026-11-22T17:28:04Z",
+      "change": -3.5903,
+      "price": 1711.03,
+      "quotedAt": "2026-11-22T18:24:56Z",
       "proxy": false,
       "url": "https://www.tradingview.com/symbols/ETHUSD/"
     }
