@@ -10,7 +10,7 @@ function cleanDate(v){const d=new Date(v);if(!Number.isFinite(d.getTime())||!/(?
 function loadBars(content){const records=parseCSV(content.replace(/^\ufeff/,''));if(records.length<21)throw Error('يلزم 20 شمعة على الأقل مع صف العناوين.');if(records.length>20001)throw Error('الحد الأقصى 20 ألف شمعة.');const names=records[0].map(x=>x.toLowerCase().replace(/\s/g,''));const get=k=>names.indexOf(k);for(const k of ['time','open','high','low','close'])if(get(k)<0)throw Error('عمود مفقود: '+k);const res=[];for(let j=1;j<records.length;j++){const r=records[j];const time=cleanDate(r[get('time')]);const nums=['open','high','low','close'].map(k=>Number(r[get(k)]));if(nums.some((n,idx)=>!r[get(['open','high','low','close'][idx])]||!Number.isFinite(n)||n<=0))throw Error('سعر غير صالح في الصف '+(j+1));const [open,high,low,close]=nums;if(high<Math.max(open,close,low)||low>Math.min(open,close,high))throw Error('OHLC غير متسق في الصف '+(j+1));if(res.length&&time<=res[res.length-1].time)throw Error('يجب أن تكون الشموع مرتبة زمنيًا دون تكرار، عند الصف '+(j+1));res.push({time,open,high,low,close});}return res;}
 function fmt(n,d=3){return Number(n).toLocaleString('en-US',{maximumFractionDigits:d});}
 function number(id,min,max,integer=false){const v=Number($(id).value);if(!Number.isFinite(v)||v<min||v>max||(integer&&!Number.isInteger(v)))throw Error('قيمة غير صالحة: '+id);return v;}
-function setting(){return{lookback:number('lookback',3,50,true),structure:number('structure',2,15,true),maxAge:number('sweep-age',0,15,true),rr:number('rr',.5,10),hold:number('hold',1,250,true),fee:number('fee',0,1),slippage:number('slippage-r',0,1),requireMss:$('require-mss').checked,requireFvg:$('require-fvg').checked,side:$('trade-side').value,session:$('research-session').value};}
+function setting(){return{lookback:number('lookback',3,50,true),structure:number('structure',2,15,true),maxAge:number('sweep-age',0,15,true),rr:number('rr',.5,10),hold:number('hold',1,250,true),fee:number('fee',0,1),slippage:number('slippage-r',0,1),stopMode:$('stop-mode').value,stopBuffer:number('stop-buffer',0,50)/100,requireMss:$('require-mss').checked,requireFvg:$('require-fvg').checked,side:$('trade-side').value,session:$('research-session').value};}
 function recentSweep(i,side,opts){let hit=-1,extreme=null;const minAt=Math.max(opts.lookback+1,i-opts.maxAge);for(let k=i;k>=minAt;k--){const prev=bars.slice(k-opts.lookback,k);if(prev.length<opts.lookback)continue;if(side==='long'){const threshold=Math.min(...prev.map(x=>x.low));if(bars[k].low<threshold&&bars[k].close>threshold){hit=k;extreme=bars[k].low;break;}}else{const threshold=Math.max(...prev.map(x=>x.high));if(bars[k].high>threshold&&bars[k].close<threshold){hit=k;extreme=bars[k].high;break;}}}return hit>=0?{hit,extreme}:null;}
 const NY_CLOCK = new Intl.DateTimeFormat('en-GB',{timeZone:'America/New_York',hour:'2-digit',minute:'2-digit',hourCycle:'h23'});
 function inSession(time,session){if(session==='all')return true;const parts=NY_CLOCK.formatToParts(new Date(time));const h=Number(parts.find(p=>p.type==='hour')?.value),m=Number(parts.find(p=>p.type==='minute')?.value);if(!Number.isFinite(h+m))return false;const minute=h*60+m;const bounds={london:[120,300],newyork:[420,600],silver:[600,660]}[session];return !!bounds&&minute>=bounds[0]&&minute<bounds[1];}
@@ -29,7 +29,39 @@ if(i<Math.max(opts.lookback+opts.maxAge+2,opts.structure+2,4))return null;const 
  if(opts.requireMss&&!(bar.close<Math.min(...swing.map(x=>x.low))))return null;
  if(opts.requireFvg&&!(bar.high<bars[i-2].low))return null;
  const stop=Math.max(...bars.slice(sw.hit,i+1).map(x=>x.high));return{stop,side,signalAt:i,sweepAt:sw.hit};}
-function backtest(){if(!bars.length)throw Error('بيانات الشموع غير متاحة بعد؛ راجع حالة المصدر.');const opts=setting();if(opts.session!=='all'&&metadata.timeframe==='1d')throw Error('لا يمكن تطبيق Kill Zones على شموع يومية؛ اختر إطارًا داخل اليوم.');const out=[];const start=Math.max(opts.lookback+opts.maxAge+3,opts.structure+3,5);const sides=opts.side==='both'?['long','short']:[opts.side];for(let i=start;i<bars.length-1;){let sig=null;for(const side of sides){sig=signal(i,side,opts);if(sig)break;}if(!sig){i++;continue;}const entryAt=i+1,entry=bars[entryAt].open,side=sig.side,risk=side==='long'?entry-sig.stop:sig.stop-entry;if(!(risk>0&&Number.isFinite(risk))){i++;continue;}const tp=side==='long'?entry+risk*opts.rr:entry-risk*opts.rr;if(tp<=0){i++;continue;}const last=Math.min(bars.length-1,entryAt+opts.hold-1);let closeAt=last,exit=bars[last].close,reason='timeout';for(let k=entryAt;k<=last;k++){const b=bars[k];const slHit=side==='long'?b.low<=sig.stop:b.high>=sig.stop;const tpHit=side==='long'?b.high>=tp:b.low<=tp;if(slHit){closeAt=k;exit=b.open<=sig.stop&&side==='long'?b.open:b.open>=sig.stop&&side==='short'?b.open:sig.stop;reason=tpHit?'both→SL':'SL';break;}if(tpHit){closeAt=k;exit=tp;reason='TP';break;}}const gross=(side==='long'?(exit-entry):(entry-exit))/risk;out.push({side,signalTime:bars[i].time,entryTime:bars[entryAt].time,exitTime:bars[closeAt].time,entry,stop:sig.stop,tp,exit,grossR:gross,netR:gross-opts.fee-opts.slippage,reason,sweepTime:bars[sig.sweepAt].time});i=Math.max(i+1,closeAt+1);}return out;}
+function backtest(override={}){
+ if(!bars.length)throw Error('بيانات الشموع غير متاحة بعد؛ راجع حالة المصدر.');
+ const opts={...setting(),...override};
+ if(opts.session!=='all'&&metadata.timeframe==='1d')throw Error('لا يمكن تطبيق Kill Zones على شموع يومية؛ اختر إطارًا داخل اليوم.');
+ const out=[],start=Math.max(opts.lookback+opts.maxAge+3,opts.structure+3,5);
+ const sides=opts.side==='both'?['long','short']:[opts.side];
+ for(let i=start;i<bars.length-1;){
+  let sig=null;for(const side of sides){sig=signal(i,side,opts);if(sig)break;}
+  if(!sig){i++;continue;}
+  const entryAt=i+1,entry=bars[entryAt].open,side=sig.side;
+  const rawStop=opts.stopMode==='signal'?(side==='long'?bars[i].low:bars[i].high):sig.stop;
+  const initialRisk=side==='long'?entry-rawStop:rawStop-entry;
+  if(!(initialRisk>0&&Number.isFinite(initialRisk))){i++;continue;}
+  // Buffer is a fraction of the initial entry-to-stop distance, never future volatility.
+  const risk=initialRisk*(1+opts.stopBuffer);
+  const stop=side==='long'?entry-risk:entry+risk;
+  if(!(stop>0)){i++;continue;}
+  const tp=side==='long'?entry+risk*opts.rr:entry-risk*opts.rr;
+  if(tp<=0){i++;continue;}
+  const last=Math.min(bars.length-1,entryAt+opts.hold-1);
+  let closeAt=last,exit=bars[last].close,reason='timeout';
+  for(let k=entryAt;k<=last;k++){
+   const b=bars[k],slHit=side==='long'?b.low<=stop:b.high>=stop;
+   const tpHit=side==='long'?b.high>=tp:b.low<=tp;
+   if(slHit){closeAt=k;exit=side==='long'&&b.open<=stop?b.open:side==='short'&&b.open>=stop?b.open:stop;reason=tpHit?'both→SL':'SL';break;}
+   if(tpHit){closeAt=k;exit=tp;reason='TP';break;}
+  }
+  const gross=(side==='long'?exit-entry:entry-exit)/risk;
+  out.push({side,signalTime:bars[i].time,entryTime:bars[entryAt].time,exitTime:bars[closeAt].time,entry,stop,tp,exit,grossR:gross,netR:gross-opts.fee-opts.slippage,reason,sweepTime:bars[sig.sweepAt].time});
+  i=Math.max(i+1,closeAt+1);
+ }
+ return out;
+}
 function stats(trades){const wins=trades.filter(x=>x.netR>0),losses=trades.filter(x=>x.netR<=0);const net=trades.reduce((t,x)=>t+x.netR,0);let equity=0,peak=0,maxDD=0;for(const t of trades){equity+=t.netR;peak=Math.max(peak,equity);maxDD=Math.max(maxDD,peak-equity);}const grossPos=trades.reduce((s,x)=>s+Math.max(0,x.netR),0),grossNeg=trades.reduce((s,x)=>s+Math.max(0,-x.netR),0);return[{name:'عدد الصفقات',v:String(trades.length)},{name:'نسبة الصفقات الرابحة',v:fmt(100*wins.length/trades.length,1)+'%'},{name:'صافي العائد',v:fmt(net,2)+' R'},{name:'متوسط الصفقة',v:fmt(net/trades.length,3)+' R'},{name:'أكبر تراجع متسلسل',v:fmt(maxDD,2)+' R'},{name:'Profit Factor',v:grossNeg>0?fmt(grossPos/grossNeg,2):'غير محدد'}];}
 function sampleMetrics(trades){
  const n=trades.length, net=trades.reduce((sum,t)=>sum+t.netR,0), wins=trades.filter(t=>t.netR>0).length;
@@ -79,7 +111,27 @@ function showRuleComparison(){
   node.innerHTML='<p class="micro-note">مقارنة أربع صيغ على نفس الأصل والإطار ونفس التكاليف. النتائج على آخر 30% من الشموع فقط، وقد تتأثر بانحياز الاختيار عند تكرار التجارب. لا تساوي احتمالات نجاح مستقبلية.</p><div class="research-samples">'+cards.join('')+'</div>';
  }finally{[mss.checked,fvg.checked]=before;}
 }
-$('run-test').addEventListener('click',()=>{try{results=backtest();showResults();$('rule-comparison').textContent='اضغط مقارنة القواعد لرؤية أثر تغيير التأكيدات.';}catch(e){results=[];setStatus('data-status',e.message,true);$('export-trades').disabled=true;}});
+$('run-test').addEventListener('click',()=>{try{results=backtest();showResults();$('rule-comparison').textContent='اضغط مقارنة القواعد لرؤية أثر تغيير التأكيدات.';$('risk-sensitivity').textContent='اضغط اختبار الحساسية لمراجعة تغير النتائج مع الوقف والهدف.';}catch(e){results=[];setStatus('data-status',e.message,true);$('export-trades').disabled=true;}});
+function compareRiskSensitivity(){
+ const node=$('risk-sensitivity');if(!node)return;
+ if(bars.length<50)throw Error('عدد الشموع غير كافٍ لاختبار الحساسية.');
+ const opts=setting(), split=bars[Math.floor(bars.length*.7)].time;
+ const targetSet=[Math.max(.5,Math.round((opts.rr-.5)*4)/4),opts.rr,Math.min(10,Math.round((opts.rr+.5)*4)/4)];
+ const buffers=[0,opts.stopBuffer,Math.min(.5,opts.stopBuffer+.1)];
+ const cases=[],seen=new Set();
+ for(const rr of targetSet)for(const stopBuffer of buffers){
+  const key=rr.toFixed(2)+':'+stopBuffer.toFixed(3);if(seen.has(key))continue;seen.add(key);
+  const trades=backtest({rr,stopBuffer}).filter(t=>t.entryTime>=split);
+  const m=sampleMetrics(trades);
+  cases.push({rr,stopBuffer,m});
+ }
+ const sufficient=cases.every(c=>c.m.n>=30);
+ node.innerHTML=`<p class="micro-note">حساسية نتيجة آخر 30% من الشموع لتعديل الهدف وهامش الوقف. نفس تعريف الإشارات والتكاليف في جميع التجارب. هذه ليست محاكاة سبريد فعلي ولا اختيارًا تلقائيًا لأفضل استراتيجية.</p>`+
+ `<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;text-align:right;font-size:.87rem"><thead><tr><th>الهدف</th><th>هامش الوقف</th><th>الصفقات</th><th>متوسط R</th><th>أقصى تراجع</th></tr></thead><tbody>`+
+ cases.map(c=>`<tr><td dir="ltr">1:${fmt(c.rr,2)}</td><td>${fmt(c.stopBuffer*100,1)}%</td><td>${c.m.n}</td><td dir="ltr">${metricValue(c.m.expectancy,3,' R')}</td><td dir="ltr">${metricValue(c.m.dd,2,' R')}</td></tr>`).join('')+`</tbody></table></div>`+
+ (!sufficient?'<p class="research-warning">بعض التجارب أقل من 30 صفقة؛ لا تُستخدم للمفاضلة الإحصائية. جرّب بيانات تاريخية أطول.</p>':'<p class="micro-note">التكرار في ضبط الخيارات على هذه العينة يسبب انحياز الاختيار؛ اترك فترة أخرى للتحقق المستقل.</p>');
+}
+$('compare-risk').addEventListener('click',()=>{try{compareRiskSensitivity();}catch(e){setStatus('data-status',e.message,true);}});
 $('compare-rules').addEventListener('click',()=>{try{showRuleComparison();}catch(e){setStatus('data-status',e.message,true);}});
 
 $('export-trades').addEventListener('click',()=>{if(!results.length)return;const columns=['side','signalTime','entryTime','exitTime','entry','stop','tp','exit','grossR','netR','reason','sweepTime'];download('ict-backtest-trades.csv',[columns.join(','),...results.map(t=>columns.map(k=>String(t[k]).replaceAll(',',' ')).join(','))].join('\r\n'),'text/csv;charset=utf-8');});
