@@ -1,0 +1,11 @@
+/* 6.8.59 — historical study/validation compact view */
+.research-coverage{display:flex;flex-wrap:wrap;align-items:center;gap:7px 14px;margin:0 0 12px;font-size:.84rem;line-height:1.6}
+.research-coverage span{opacity:.78}
+.research-samples{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin:10px 0}
+.research-sample-card{min-width:0;border:1px solid color-mix(in srgb,currentColor 14%,transparent);border-radius:14px;padding:12px;background:color-mix(in srgb,currentColor 4%,transparent)}
+.research-sample-card>strong{display:block;margin-bottom:9px;font-size:.91rem}
+.research-sample-metrics{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px 10px}
+.research-sample-metrics span{font-size:.77rem;line-height:1.6;overflow-wrap:anywhere}
+.research-sample-metrics b{display:block;font-size:.88rem;font-variant-numeric:tabular-nums}
+.research-warning{border-inline-start:3px solid #cb934b;padding:8px 12px;margin:10px 0;border-radius:8px;background:rgba(203,147,75,.1);font-size:.81rem;line-height:1.75}
+@media(max-width:600px){.research-samples{grid-template-columns:1fr}.research-sample-card{padding:10px}.research-coverage{font-size:.76rem}.research-sample-metrics{gap:5px}}
