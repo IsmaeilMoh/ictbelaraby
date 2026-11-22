@@ -1,7 +1,18 @@
 {
-  "updated_at": "2026-11-22T08:52:56Z",
+  "updated_at": "2026-11-22T09:51:02Z",
   "mode": "rss-attributed",
   "items": [
+    {
+      "id": "b07700e4f13ceb8a0e2c",
+      "title": "الاقتصاد الرقمي يسهم بـ9% من الناتج المحلي العُماني",
+      "tag": "اقتصاد",
+      "src": "CNN Business Arabic",
+      "date": "2026-11-22T09:35:00Z",
+      "url": "https://cnnbusinessarabic.com/sectors/1153154/%D8%A7%D9%84%D8%A7%D9%82%D8%AA%D8%B5%D8%A7%D8%AF-%D8%A7%D9%84%D8%B1%D9%82%D9%85%D9%8A-%D9%8A%D8%B3%D9%87%D9%85-%D8%A89-%D9%85%D9%86-%D8%A7%D9%84%D9%86%D8%A7%D8%AA%D8%AC-%D8%A7%D9%84%D9%85%D8%AD%D9%84%D9%8A-%D8%A7%D9%84%D8%B9%D9%85%D8%A7%D9%86%D9%8A",
+      "priority": 2,
+      "language": "ar",
+      "image": "https://cnnbusinessarabic.com/businesscnn/uploads/images/2026/11/22/1712532.webp"
+    },
     {
       "id": "a13e4758c85e690e9bbe",
       "title": "عمال شركات السيارات وبناء السفن في ألمانيا يستعدون للإضراب",
@@ -375,17 +386,6 @@
       "priority": 4,
       "language": "ar",
       "image": "https://cnnbusinessarabic.com/businesscnn/uploads/images/2026/11/19/1712108.webp"
-    },
-    {
-      "id": "a7df0019423e1d3f1bde",
-      "title": "فون دير لاين: الاستثمار في الأردن «خيار ذكي» وبوابة تجارية رئيسية",
-      "tag": "اقتصاد",
-      "src": "CNN Business Arabic",
-      "date": "2026-11-19T07:40:00Z",
-      "url": "https://cnnbusinessarabic.com/sectors/1152945/%D9%81%D9%88%D9%86-%D8%AF%D9%8A%D8%B1-%D9%84%D8%A7%D9%8A%D9%86-%D8%A7%D9%84%D8%A7%D8%B3%D8%AA%D8%AB%D9%85%D8%A7%D8%B1-%D9%81%D9%8A-%D8%A7%D9%84%D8%A3%D8%B1%D8%AF%D9%86-%D8%AE%D9%8A%D8%A7%D8%B1-%D8%B0%D9%83%D9%8A-%D9%88%D8%A8%D9%88%D8%A7%D8%A8%D8%A9-%D8%AA%D8%AC%D8%A7%D8%B1%D9%8A%D8%A9-%D8%B1%D8%A6%D9%8A%D8%B3%D9%8A%D8%A9",
-      "priority": 2,
-      "language": "ar",
-      "image": "https://cnnbusinessarabic.com/businesscnn/uploads/images/2026/11/19/1712223.webp"
     }
   ],
   "source_count": 1,
