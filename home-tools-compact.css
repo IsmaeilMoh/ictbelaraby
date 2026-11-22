@@ -1,0 +1,10 @@
+/* 6.8.67 — Lower homepage quick-access improvements ONLY. Never style .welcome, .hero-news, .pulse-desk or #market-pulse. */
+#app .home-tools-browser{margin:0;padding:0;min-width:0}
+#app .home-tools-filters{display:flex;gap:8px;flex-wrap:wrap;margin:0 0 9px}
+#app .home-tools-filters button{font:inherit;font-size:12px;font-weight:650;padding:8px 13px;min-height:39px;border:1px solid var(--line);border-radius:12px;color:var(--ink);background:var(--surface);cursor:pointer}
+#app .home-tools-filters button[aria-pressed="true"]{border-color:var(--green);background:var(--accent-soft)}
+#app .home-tools-filters button:focus-visible{outline:2px solid var(--green);outline-offset:2px}
+#app .home-tools-hint{font-size:12px;color:var(--muted);margin:0 0 13px;line-height:1.7}
+#app .home-tools-browser .tool-card[hidden]{display:none!important}
+#app .home-tools-browser .tool-card{min-width:0}
+@media(max-width:620px){#app .home-tools-filters{flex-wrap:nowrap;overflow-x:auto;overscroll-behavior-x:contain;padding:2px 1px 8px;scrollbar-width:thin}#app .home-tools-filters button{flex:0 0 auto;white-space:nowrap;font-size:11px;padding:8px 12px}#app .home-tools-hint{margin-bottom:12px}}
