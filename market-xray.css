@@ -1,0 +1,10 @@
+/* ICT بالعربي 6.8.57: compact automatic Market X-Ray */
+.xray-auto{margin-bottom:15px}.xray-auto .card-head{flex-wrap:wrap;margin-bottom:7px}.xray-auto .micro-note{margin-top:6px}
+.xray-metrics{display:grid;grid-template-columns:repeat(auto-fit,minmax(175px,1fr));gap:9px;margin-top:14px}
+.xray-metric{border:1px solid var(--line,rgba(180,220,210,.14));border-radius:12px;padding:12px;background:rgba(30,48,52,.18);min-width:0}
+.xray-metric-head{display:flex;align-items:center;justify-content:space-between;gap:8px}.xray-metric-head strong{font:800 13px Arial,sans-serif}.xray-metric-head small{font-size:10px;color:var(--muted)}
+.xray-metric-change{font:800 20px Arial,sans-serif;margin:9px 0 3px;text-align:start}.xray-metric>small{display:block;color:var(--muted);font-size:11px}
+.xray-metric-note{display:block;margin-top:8px;font-size:11px;line-height:1.7;color:var(--muted)}
+.xray-selected{margin:3px 0 0}.xray-auto .source-status{white-space:normal}
+@media(max-width:520px){.xray-auto{padding:14px}.xray-metrics{grid-template-columns:repeat(2,minmax(0,1fr));gap:7px}.xray-metric{padding:10px}.xray-metric-head{flex-wrap:wrap}.xray-metric-change{font-size:17px}.xray-metric-note{font-size:10px}}
+@media(max-width:330px){.xray-metrics{grid-template-columns:1fr}}
