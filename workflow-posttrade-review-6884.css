@@ -1,0 +1,2 @@
+/* 6.8.84 — optional review in the existing trade journey */
+.ict-posttrade-review{border:1px solid var(--line);border-radius:13px;padding:12px;margin:12px 0;background:var(--surface)}.ict-posttrade-review summary{font-size:13px;font-weight:700;cursor:pointer}.ict-posttrade-review p{font-size:12px;color:var(--muted);line-height:1.8}.ict-posttrade-review .fields{margin-top:10px}@media(max-width:600px){.ict-posttrade-review{padding:10px}}
