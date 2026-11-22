@@ -202,7 +202,21 @@ async function refreshMarketSources(){
  calendarAt=c?.updated_at||c?.updatedAt||null;events=normalizeEvents(c);
  xrayFeed=x;renderRadar();newsOptions();renderReactionHistory();renderXray();
 }
-async function boot(){initTabs();$('radar-asset').innerHTML=allowed.map(s=>`<option value="${s}">${s}</option>`).join('');$('radar-asset').value=selected;$('radar-asset').addEventListener('change',e=>selectRadar(e.target.value));const radarSaved=stored(radarPrefsKey,{});for(const [id,key] of [['radar-window','window'],['radar-group','group'],['radar-direction','direction']]){const el=$(id);if(el&&Array.from(el.options).some(o=>o.value===radarSaved[key]))el.value=radarSaved[key];el?.addEventListener('change',()=>{setStored(radarPrefsKey,radarFilter());renderRadar()});}$('save-radar').addEventListener('click',saveChecks);$('reset-radar').addEventListener('click',resetChecks);$('xray-set').addEventListener('change',renderXray);$('xray-symbol').addEventListener('change',renderChart);$('news-select').addEventListener('change',renderNewsReview);initEconomicResults();loadPublicOfficialResults();setInterval(loadPublicOfficialResults,30*60*1000);$('reaction-form').addEventListener('submit',saveReaction);$('export-reactions').addEventListener('click',exportReactions);
- await refreshMarketSources();setInterval(refreshMarketSources,10*60*1000);}
+// Throttle network-only refreshes when a document is in the background.
+// The initial boot, local alerts, session clocks and manual actions are unchanged.
+function scheduleVisibleDataRefresh(task, intervalMs){
+ let lastAttempt=Date.now(), inFlight=false;
+ async function refreshIfDue(){
+  if(document.hidden||inFlight||Date.now()-lastAttempt<intervalMs)return;
+  lastAttempt=Date.now();inFlight=true;
+  try{await task()}catch(error){console.warn('Periodic data refresh failed',error)}
+  finally{inFlight=false}
+ }
+ const timer=setInterval(refreshIfDue,Math.min(intervalMs,60000));
+ document.addEventListener('visibilitychange',()=>{if(!document.hidden)void refreshIfDue()});
+ return timer;
+}
+async function boot(){initTabs();$('radar-asset').innerHTML=allowed.map(s=>`<option value="${s}">${s}</option>`).join('');$('radar-asset').value=selected;$('radar-asset').addEventListener('change',e=>selectRadar(e.target.value));const radarSaved=stored(radarPrefsKey,{});for(const [id,key] of [['radar-window','window'],['radar-group','group'],['radar-direction','direction']]){const el=$(id);if(el&&Array.from(el.options).some(o=>o.value===radarSaved[key]))el.value=radarSaved[key];el?.addEventListener('change',()=>{setStored(radarPrefsKey,radarFilter());renderRadar()});}$('save-radar').addEventListener('click',saveChecks);$('reset-radar').addEventListener('click',resetChecks);$('xray-set').addEventListener('change',renderXray);$('xray-symbol').addEventListener('change',renderChart);$('news-select').addEventListener('change',renderNewsReview);initEconomicResults();loadPublicOfficialResults();scheduleVisibleDataRefresh(loadPublicOfficialResults,30*60*1000);$('reaction-form').addEventListener('submit',saveReaction);$('export-reactions').addEventListener('click',exportReactions);
+ await refreshMarketSources();scheduleVisibleDataRefresh(refreshMarketSources,10*60*1000);}
 
 boot();

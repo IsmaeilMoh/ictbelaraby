@@ -757,4 +757,18 @@ matchMedia('(prefers-color-scheme: dark)').addEventListener?.('change',()=>{if((
 
 let deferredInstall;window.addEventListener('beforeinstallprompt',e=>{e.preventDefault();deferredInstall=e;$('install').hidden=false});$('install').addEventListener('click',async()=>{if(deferredInstall){deferredInstall.prompt();await deferredInstall.userChoice;deferredInstall=null;$('install').hidden=true}});
 window.addEventListener('hashchange',render);
-async function boot(){applyTheme();updateHeaderDate();const a=await Promise.all([load('news.json'),load('recs.json'),load('links.json'),load('agenda.json'),load('analyses.json')]);[S.newsArchive,S.recs,S.links,S.agenda,S.analyses]=[a[0]||[],a[1]||[],a[2]||[],a[3]||{days:[]},a[4]||[]];checkPublications();S.news=S.newsArchive;await Promise.all([fetchLiveCalendar(),fetchNextCalendar(),fetchLiveNews()]);render();refreshPulse();ticker();futureAlerts();sessionAlerts();fetchMovers();setInterval(updatePulseClocks,1000);setInterval(refreshPulse,60000);setInterval(fetchMovers,5*60*1000);setInterval(()=>{futureAlerts();sessionAlerts()},30000);setInterval(pollPublishedContent,120000);setInterval(async()=>{await Promise.all([fetchLiveCalendar(),fetchNextCalendar()]);if(state.page==='agenda')render();else refreshPulse();futureAlerts()},10*60*1000);setInterval(()=>{updateHeaderDate();if(state.page==='ict')render()},60000);setInterval(fetchLiveNews,10*60*1000);fetchOfficialEconomicResults();setInterval(fetchOfficialEconomicResults,30*60*1000);if('serviceWorker'in navigator)navigator.serviceWorker.register('./sw.js').catch(console.warn)}boot();
+// Throttle network-only refreshes when a document is in the background.
+// The initial boot, local alerts, session clocks and manual actions are unchanged.
+function scheduleVisibleDataRefresh(task, intervalMs){
+ let lastAttempt=Date.now(), inFlight=false;
+ async function refreshIfDue(){
+  if(document.hidden||inFlight||Date.now()-lastAttempt<intervalMs)return;
+  lastAttempt=Date.now();inFlight=true;
+  try{await task()}catch(error){console.warn('Periodic data refresh failed',error)}
+  finally{inFlight=false}
+ }
+ const timer=setInterval(refreshIfDue,Math.min(intervalMs,60000));
+ document.addEventListener('visibilitychange',()=>{if(!document.hidden)void refreshIfDue()});
+ return timer;
+}
+async function boot(){applyTheme();updateHeaderDate();const a=await Promise.all([load('news.json'),load('recs.json'),load('links.json'),load('agenda.json'),load('analyses.json')]);[S.newsArchive,S.recs,S.links,S.agenda,S.analyses]=[a[0]||[],a[1]||[],a[2]||[],a[3]||{days:[]},a[4]||[]];checkPublications();S.news=S.newsArchive;await Promise.all([fetchLiveCalendar(),fetchNextCalendar(),fetchLiveNews()]);render();refreshPulse();ticker();futureAlerts();sessionAlerts();fetchMovers();setInterval(updatePulseClocks,1000);setInterval(refreshPulse,60000);scheduleVisibleDataRefresh(fetchMovers,5*60*1000);setInterval(()=>{futureAlerts();sessionAlerts()},30000);scheduleVisibleDataRefresh(pollPublishedContent,120000);scheduleVisibleDataRefresh(async()=>{await Promise.all([fetchLiveCalendar(),fetchNextCalendar()]);if(state.page==='agenda')render();else refreshPulse();futureAlerts()},10*60*1000);setInterval(()=>{updateHeaderDate();if(state.page==='ict')render()},60000);scheduleVisibleDataRefresh(fetchLiveNews,10*60*1000);fetchOfficialEconomicResults();scheduleVisibleDataRefresh(fetchOfficialEconomicResults,30*60*1000);if('serviceWorker'in navigator)navigator.serviceWorker.register('./sw.js').catch(console.warn)}boot();
