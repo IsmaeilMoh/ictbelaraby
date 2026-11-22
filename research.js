@@ -111,7 +111,7 @@ function showRuleComparison(){
   node.innerHTML='<p class="micro-note">مقارنة أربع صيغ على نفس الأصل والإطار ونفس التكاليف. النتائج على آخر 30% من الشموع فقط، وقد تتأثر بانحياز الاختيار عند تكرار التجارب. لا تساوي احتمالات نجاح مستقبلية.</p><div class="research-samples">'+cards.join('')+'</div>';
  }finally{[mss.checked,fvg.checked]=before;}
 }
-$('run-test').addEventListener('click',()=>{try{results=backtest();showResults();$('rule-comparison').textContent='اضغط مقارنة القواعد لرؤية أثر تغيير التأكيدات.';$('risk-sensitivity').textContent='اضغط اختبار الحساسية لمراجعة تغير النتائج مع الوقف والهدف.';$('research-stability').textContent='اضغط فحص الاستقرار لتحليل توزيع النتائج على الفترات التاريخية.';}catch(e){results=[];setStatus('data-status',e.message,true);$('export-trades').disabled=true;}});
+$('run-test').addEventListener('click',()=>{try{results=backtest();showResults();$('rule-comparison').textContent='اضغط مقارنة القواعد لرؤية أثر تغيير التأكيدات.';$('risk-sensitivity').textContent='اضغط اختبار الحساسية لمراجعة تغير النتائج مع الوقف والهدف.';$('research-stability').textContent='اضغط فحص الاستقرار لتحليل توزيع النتائج على الفترات التاريخية.';$('walk-forward-results').textContent='اضغط تشغيل Walk-Forward بعد اختيار القواعد والبيانات.';}catch(e){results=[];setStatus('data-status',e.message,true);$('export-trades').disabled=true;}});
 function compareRiskSensitivity(){
  const node=$('risk-sensitivity');if(!node)return;
  if(bars.length<50)throw Error('عدد الشموع غير كافٍ لاختبار الحساسية.');
@@ -200,6 +200,60 @@ function showStability(){
 }
 $('check-stability').addEventListener('click',()=>{try{showStability();}catch(e){setStatus('data-status',e.message,true);}});
 
+
+// 6.9.04: sequential expanding-window Walk-Forward; choose rules from past data only.
+const WF_VARIANTS=[
+ {name:'سحب + بنية + FVG',requireMss:true,requireFvg:true},
+ {name:'سحب + بنية',requireMss:true,requireFvg:false},
+ {name:'سحب + FVG',requireMss:false,requireFvg:true},
+ {name:'سحب فقط',requireMss:false,requireFvg:false}
+];
+function walkForwardEvaluate(candles,traces){
+ const limits=[0,.5,.65,.8,1].map(v=>Math.floor(candles.length*v));
+ const rounds=[];
+ for(let j=1;j<4;j++){
+  const trainEnd=candles[limits[j]].time;
+  const testEnd=j===3?null:candles[limits[j+1]].time;
+  const eligible=traces.map((trades,k)=>{
+   // A past trade is eligible for selection only after its exit; never expose a later outcome.
+   const training=trades.filter(t=>t.exitTime<trainEnd);
+   return {k,training,m:sampleMetrics(training)};
+  }).filter(x=>x.m.n>=10);
+  // Do not select a winner by a single trade or silently imply adequate training history.
+  eligible.sort((a,b)=>b.m.expectancy-a.m.expectancy||a.k-b.k);
+  const chosen=eligible[0]||null;
+  const testing=chosen?traces[chosen.k].filter(t=>t.entryTime>=trainEnd&&(testEnd===null||t.exitTime<testEnd)):[];
+  rounds.push({trainEnd,testEnd,chosen,testing,test:sampleMetrics(testing)});
+ }
+ return rounds;
+}
+function showWalkForward(){
+ const node=$('walk-forward-results');if(!node)return;
+ if(bars.length<300){node.innerHTML='<p class="research-warning">يلزم 300 شمعة على الأقل لتقسيم التاريخ إلى جولات Walk-Forward؛ اختر نطاقًا أوسع.</p>';return;}
+ // Compute each rule once without modifying any user's selected controls.
+ const traces=WF_VARIANTS.map(v=>backtest({requireMss:v.requireMss,requireFvg:v.requireFvg}));
+ const rounds=walkForwardEvaluate(bars,traces);
+ const warnings=[];
+ const tested=rounds.filter(r=>r.chosen);
+ const evaluated=tested.filter(r=>r.test.n>=5);
+ if(tested.length<3)warnings.push('تعذر اختيار نموذج في بعض الجولات: كل صيغة احتاجت 10 صفقات تدريب مكتملة على الأقل.');
+ if(evaluated.length<3)warnings.push('إحدى جولات التحقق أقل من 5 صفقات أو غير متاحة؛ الاستنتاج الإحصائي ضعيف.');
+ if(bars.length<1000)warnings.push('أقل من 1000 شمعة متاحة؛ الفترات قد لا تشمل ظروف سوق متنوعة.');
+ if(tested.some(r=>r.test.n<30))warnings.push('تحتوي جولة تحقق واحدة على الأقل أقل من 30 صفقة؛ تجنب الاستنتاج من متوسط R وحده.');
+ const cards=rounds.map((r,j)=>{
+  const period=r.testEnd?`${r.trainEnd.slice(0,10)} — ${r.testEnd.slice(0,10)}`:`من ${r.trainEnd.slice(0,10)} حتى نهاية البيانات`;
+  return `<div class="research-sample-card"><strong>الجولة ${j+1} · بيانات لاحقة</strong><div class="research-sample-metrics"><span>الاختبار: <b dir="ltr">${esc(period)}</b></span><span>الصيغة المنتقاة من التدريب: <b>${r.chosen?esc(WF_VARIANTS[r.chosen.k].name):'لا توجد عينة تدريب كافية'}</b></span><span>صفقات التدريب: <b>${r.chosen?r.chosen.m.n:'—'}</b></span><span>صفقات التحقق: <b>${r.test.n}</b></span><span>متوسط R للتحقق: <b>${metricValue(r.test.expectancy,3,' R')}</b></span><span>صافي R: <b>${r.test.n?metricValue(r.test.net,2,' R'):'غير محدد'}</b></span><span>أقصى تراجع: <b>${r.test.n?metricValue(r.test.dd,2,' R'):'غير محدد'}</b></span></div></div>`;
+ }).join('');
+ const selectedTrades=rounds.flatMap(r=>r.testing);
+ const total=sampleMetrics(selectedTrades);
+ node.innerHTML=`<div class="card-head"><h3>التحقق المتتابع Walk-Forward</h3><span class="tag">3 جولات زمنية</span></div>`+
+ `<p class="micro-note">تدريب متوسع على أول 50% ثم 65% ثم 80% من الشموع؛ اختبار على الفترات اللاحقة (15%، 15%، 20%). في كل جولة يُختار نموذج التأكيد ذو أعلى متوسط R من <b>صفقات التدريب التي أُغلقت قبل بداية التحقق</b>، بشرط 10 صفقات تدريب على الأقل. الخيارات الأخرى (الوقف، الهدف، الجلسة، التكلفة) ثابتة حسب إعداداتك.</p>`+
+ `<div class="research-samples">${cards}</div>`+
+ `<p class="micro-note">مجموع صفقات التحقق المحددة: <b>${total.n}</b> · متوسط R: <b>${metricValue(total.expectancy,3,' R')}</b>. لا توجد نتائج مستقبلية أو أسعار افتراضية؛ تُستبعد الصفقة التي يتجاوز خروجها نهاية جولة التحقق.</p>`+
+ `<p class="research-warning">${esc(warnings.join(' ')||'حتى مع توفر صفقات كافية، النتائج تاريخية ولا تعطي احتمال نجاح مستقبلي.') } التدريب في الجولات اللاحقة يشمل فترات التحقق السابقة؛ هذا تحديث متسلسل مقصود وليس اختبارًا نهائيًا مستقلًا. تكرار تعديل بقية القواعد بعد مشاهدة النتائج يؤدي إلى انحياز الاختيار. تكاليف التنفيذ تقديرية بوحدة R، والشموع لا تكشف ترتيب اللمسات داخل الشمعة.</p>`;
+}
+$('run-walk-forward').addEventListener('click',()=>{try{showWalkForward();}catch(e){setStatus('data-status',e.message,true);}});
+
 $('export-trades').addEventListener('click',()=>{if(!results.length)return;const columns=['side','signalTime','entryTime','exitTime','entry','stop','tp','exit','grossR','netR','reason','sweepTime'];download('ict-backtest-trades.csv',[columns.join(','),...results.map(t=>columns.map(k=>String(t[k]).replaceAll(',',' ')).join(','))].join('\r\n'),'text/csv;charset=utf-8');});
 // 6.8.98: dataset catalog is taken from verified published arrays; no fictitious forex/CFD prices.
 const INTERVAL_MS={'5m':300000,'15m':900000,'1h':3600000,'4h':14400000,'1d':86400000};
@@ -231,7 +285,7 @@ function updateCatalog(){
  return symbols.length>0;
 }
 function sourceRows(symbol,tf){const feed=publicFeed;return feed?.version===2?feed.assets?.[symbol]?.[tf]:feed?.assets?.[symbol];}
-function setHistoryFailure(message){bars=[];results=[];metadata={};stopReplay();$('backtest-results').textContent='لا يمكن احتساب اختبار دون شموع موثوقة ضمن الفترة المختارة.';$('backtest-trades').textContent='';$('export-trades').disabled=true;$('research-stability').textContent='فحص الاستقرار غير متاح دون بيانات موثوقة.';setStatus('data-status',message,true);drawReplay();}
+function setHistoryFailure(message){bars=[];results=[];metadata={};stopReplay();$('backtest-results').textContent='لا يمكن احتساب اختبار دون شموع موثوقة ضمن الفترة المختارة.';$('backtest-trades').textContent='';$('export-trades').disabled=true;$('research-stability').textContent='فحص الاستقرار غير متاح دون بيانات موثوقة.';$('walk-forward-results').textContent='Walk-Forward غير متاح دون بيانات موثوقة.';setStatus('data-status',message,true);drawReplay();}
 function applyHistorySelection(){
  const symbol=$('public-history-symbol').value,tf=$('public-history-timeframe').value;
  const raw=sourceRows(symbol,tf),step=INTERVAL_MS[tf],kind=feedMarkets[symbol]||'crypto';
@@ -251,7 +305,7 @@ function applyHistorySelection(){
  if(chosen.length<60)throw Error('الفترة المحددة تحتوي أقل من 60 شمعة؛ وسّع نطاق التاريخ أو غيّر الإطار.');
  bars=chosen;results=[];metadata={symbol,timeframe:tf,timezone:'UTC',source:feedSources[symbol]?.source||publicFeed.source,updatedAt:feedSources[symbol]?.updatedAt||publicFeed.updatedAt,marketKind:kind};
  $('data-symbol').value=symbol;
- $('backtest-trades').textContent='';$('export-trades').disabled=true;$('research-stability').textContent='اضغط فحص الاستقرار لتحليل البيانات المختارة.';resetReplay();
+ $('backtest-trades').textContent='';$('export-trades').disabled=true;$('research-stability').textContent='اضغط فحص الاستقرار لتحليل البيانات المختارة.';$('walk-forward-results').textContent='اضغط تشغيل Walk-Forward لبدء التحقق المتتابع.';resetReplay();
  setStatus('data-status',`تم التحقق من ${bars.length} شمعة حقيقية · ${symbol} · ${tf} · ${metadata.source} · تحديث الملف ${metadata.updatedAt}`);
  results=backtest();showResults();
 }
