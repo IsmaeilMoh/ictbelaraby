@@ -1,0 +1,27 @@
+name: Update multi-market historical candles (licensed provider)
+on:
+  workflow_dispatch:
+permissions:
+  contents: write
+concurrency:
+  group: update-multi-market-history
+  cancel-in-progress: false
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Retrieve licensed historical bars (optional)
+        env:
+          TWELVEDATA_API_KEY: ${{ secrets.TWELVEDATA_API_KEY }}
+        run: python scripts/update_multi_market_history.py
+      - name: Publish verified market observations
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add historical-multi-market.json
+          git diff --cached --quiet || (git commit -m 'data: update licensed multi-market research candles' && git pull --rebase && git push)
