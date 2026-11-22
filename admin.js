@@ -95,10 +95,68 @@ function studioRefresh(){
  const signals=posts.signal.filter(x=>!x.sample);
  const statuses={open:signals.filter(x=>!x.status||x.status==='open').length,pending:signals.filter(x=>x.status==='pending').length,tp:signals.filter(x=>x.status==='tp').length,sl:signals.filter(x=>x.status==='sl').length};
  const fields=[['التحليلات المنشورة',posts.analysis.length],['التوصيات المنشورة',signals.length],['نشطة',statuses.open],['معلّقة',statuses.pending],['أهداف محققة',statuses.tp],['وقف خسارة',statuses.sl]];
- target.innerHTML=fields.map(([label,value])=>`<div class="studio-metric"><small>${escape(label)}</small><strong>${value}</strong></div>`).join('');
+ target.innerHTML=fields.map(([label,value])=>`<div class="studio-metric"><small>${escape(label)}</small><strong>${value}</strong></div>`).join('');publicationWarnings();
 }
 function studioExport(){const cells=[['النوع','الرمز','العنوان','الحالة','النشر','آخر تحديث'],...posts.analysis.map(x=>['تحليل',x.asset||'',x.title||'',x.status||'',x.published_at||'',x.updated_at||'']),...posts.signal.filter(x=>!x.sample).map(x=>['توصية',x.pair||'',x.dir||'',x.status||'',x.published_at||x.date||'',x.updated_at||''])];const csv='\ufeff'+cells.map(row=>row.map(v=>'"'+String(v??'').replace(/"/g,'""').replace(/^[=+\-@]/,'\u200b$&')+'"').join(',')).join('\r\n');const url=URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8'}));const a=document.createElement('a');a.href=url;a.download='ict-arabic-publications.csv';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000)}
-async function studioHealth(){const box=$('studio-health-result');if(!box)return;box.textContent='جارٍ فحص آخر ملفات البيانات المنشورة...';const paths=['calendar-live.json','news-live.json','market-movers.json'];const messages=await Promise.all(paths.map(async path=>{try{const r=await fetch(path+'?t='+Date.now(),{cache:'no-store'});if(!r.ok)throw Error('HTTP '+r.status);const data=await r.json();const stamp=data.updatedAt||data.updated_at;const d=stamp?new Date(stamp):null;return path+': '+(d&&Number.isFinite(d.getTime())?d.toLocaleString('ar-u-nu-latn'):'لا يحتوي على وقت تحديث واضح');}catch(e){return path+': غير متاح ('+e.message+')'}}));box.textContent=messages.join(' | ');}
+// 6.8.75 — Read-only operational status. Public files are fetched from this site,
+// never from a private account or a third-party dashboard. No auto-publishing or notification actions.
+const PUBLIC_FEEDS = [
+ {file:'calendar-live.json',name:'الأجندة الحالية',hours:36,items:'events'},
+ {file:'calendar-next.json',name:'الأجندة القادمة',hours:168,items:'events',optional:true},
+ {file:'news-live.json',name:'الأخبار',hours:12,items:'items'},
+ {file:'market-movers.json',name:'تحركات السوق',hours:36,items:'items'},
+ {file:'market-radar.json',name:'الرادار قصير المدى',hours:2,items:'items',optional:true},
+ {file:'market-xray.json',name:'أشعة السوق',hours:36,optional:true},
+ {file:'historical-candles.json',name:'الشموع التاريخية',hours:18,optional:true},
+ {file:'economic-official.json',name:'النتائج الرسمية الأمريكية',hours:168,items:'events'}
+];
+const statusClass = code => code==='fresh'?'ok':code==='stale'?'warn':code==='missing'?'warn':'bad';
+const safeDate = raw => {if(!raw)return null;const time=Date.parse(raw);return Number.isFinite(time)?time:null;};
+function publicationWarnings(){
+ const area=$('studio-content-warnings');if(!area)return;
+ const all=posts.signal.filter(x=>!x.sample),issues=[];
+ for(const p of all){
+  const entry=Number(p.entry),tp=Number(p.tp),sl=Number(p.sl);
+  const direction=String(p.dir||p.direction||'').toLowerCase();
+  const valid=[entry,tp,sl].every(x=>Number.isFinite(x)&&x>0) && (direction==='buy'?(sl<entry&&entry<tp):direction==='sell'?(tp<entry&&entry<sl):false);
+  if(!valid)issues.push('توصية '+String(p.pair||p.asset||'غير محددة')+' تحتاج مراجعة مستويات الدخول/الهدف/الوقف');
+ }
+ const now=Date.now();for(const p of posts.analysis){
+  if(p.status==='active'&&p.expires_at&&safeDate(p.expires_at)!==null&&safeDate(p.expires_at)<now)issues.push('تحليل '+String(p.title||p.asset||'غير محدد')+' تجاوز موعد المتابعة');
+ }
+ const maxShow=5;
+ area.replaceChildren();
+ const h=document.createElement('p');h.className='studio-ops-heading';h.textContent='مراجعة المحتوى المنشور — '+(issues.length?'ملاحظات '+issues.length:'لا توجد ملاحظات من القواعد الأساسية');area.append(h);
+ if(issues.length){const ul=document.createElement('ul');for(const issue of issues.slice(0,maxShow)){const li=document.createElement('li');li.textContent=issue;ul.append(li)}area.append(ul);if(issues.length>maxShow){const p=document.createElement('p');p.textContent='وملاحظات أخرى: '+(issues.length-maxShow);area.append(p)}}
+ const note=document.createElement('p');note.className='admin-help';note.textContent='فحص تنبيهي للحقول فقط، ولا يتحقق من أسعار السوق أو نتائج الصفقات.';area.append(note);
+}
+async function studioHealth(){
+ const box=$('studio-health-result');if(!box)return;
+ const button=$('studio-health');button.disabled=true;box.replaceChildren();
+ const loading=document.createElement('p');loading.textContent='جارٍ التحقق من الملفات المنشورة على الموقع…';box.append(loading);
+ try{
+  const results=await Promise.all(PUBLIC_FEEDS.map(async feed=>{
+   try{
+    const controller=new AbortController();const t=setTimeout(()=>controller.abort(),10000);
+    let response;
+    try{response=await fetch('./'+feed.file+'?adminHealth='+Date.now(),{cache:'no-store',signal:controller.signal})}
+    finally{clearTimeout(t)}
+    if(!response.ok)throw Error('HTTP '+response.status);
+    const data=await response.json();if(!data||typeof data!=='object'||Array.isArray(data))throw Error('بنية JSON غير متوقعة');
+    const timestamp=safeDate(data.updatedAt||data.updated_at||data.generatedAt||data.generated_at);
+    let code='unknown',summary='وقت التحديث غير متاح';
+    if(timestamp!==null){const age=(Date.now()-timestamp)/3600000;code=age>feed.hours?'stale':'fresh';summary='آخر تحديث: '+new Date(timestamp).toLocaleString('ar-u-nu-latn',{dateStyle:'short',timeStyle:'short'});if(age< -1){code='unknown';summary+=' (وقت مستقبلي يحتاج مراجعة)'}}
+    if(feed.items&&Array.isArray(data[feed.items]))summary+=' · عناصر: '+data[feed.items].length;
+    if(data.status==='pending_first_update')code='unknown';
+    return {...feed,code,summary};
+   }catch(e){return {...feed,code:'missing',summary:'تعذّر الجلب: '+String(e.message||e)}}
+  }));
+  box.replaceChildren();const list=document.createElement('div');list.className='studio-feed-list';
+  const labels={fresh:'حديث وفق حدّ الفحص',stale:'متأخر',missing:'غير متاح',unknown:'غير محدد'};
+  for(const item of results){const card=document.createElement('div');card.className='studio-feed-item '+statusClass(item.code);const title=document.createElement('strong');title.textContent=item.name;const badge=document.createElement('span');badge.textContent=labels[item.code];badge.className='studio-feed-badge';const detail=document.createElement('small');detail.textContent=item.file+' — '+item.summary;card.append(title,badge,detail);list.append(card)}
+  box.append(list);const foot=document.createElement('p');foot.className='admin-help';foot.textContent='هذه لقطة لحالة ملفات الموقع وليست ضمانًا لصحة البيانات اللحظية. قد تكون بيانات الأسواق متوقفة طبيعيًا في عطلات التداول، والملفات الاختيارية لا تعني أن الخدمة مفعّلة تلقائيًا.';box.append(foot);
+ }finally{button.disabled=false}
+}
 $('studio-export').addEventListener('click',studioExport);
 $('studio-health').addEventListener('click',studioHealth);
 
