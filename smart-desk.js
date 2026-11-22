@@ -11,15 +11,68 @@ function save(){try{localStorage.setItem(storeKey,JSON.stringify(journal))}catch
 function download(name,body,type){const url=URL.createObjectURL(new Blob([body],{type}));const a=document.createElement('a');a.href=url;a.download=name;document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),1000)}
 function csvCell(s){const v=String(s??'');return '"'+v.replace(/"/g,'""')+'"'}
 function exportCsv(){const columns=['date','asset','session','strategy','r','note'];download('ict-trader-dna.csv','\ufeff'+[columns.join(','),...journal.map(r=>columns.map(k=>csvCell(r[k])).join(','))].join('\r\n'),'text/csv;charset=utf-8')}
-function renderJournal(){const rows=[...journal].sort((a,b)=>b.date.localeCompare(a.date));const count=rows.length,total=rows.reduce((v,x)=>v+x.r,0),wins=rows.filter(x=>x.r>0).length,losses=rows.filter(x=>x.r<0).length;
-let curve=0,peak=0,maxDD=0;for(const r of [...rows].reverse()){curve+=r.r;peak=Math.max(peak,curve);maxDD=Math.max(maxDD,peak-curve)}
-const stats=[['الصفقات',count],['نسبة الصفقات الرابحة',count?(wins/count*100).toFixed(1)+'%':'—'],['صافي R',count?(total>=0?'+':'')+total.toFixed(2)+' R':'—'],['أقصى تراجع',count?maxDD.toFixed(2)+' R':'—']];$('dna-metrics').innerHTML=stats.map(([title,value])=>`<div class="metric"><small>${escape(title)}</small><strong>${escape(value)}</strong></div>`).join('');
-const group=(key)=>{const map=new Map();journal.forEach(r=>{const x=map.get(r[key])||{name:r[key],n:0,sum:0};x.n++;x.sum+=r.r;map.set(r[key],x)});return [...map.values()].sort((a,b)=>b.n-a.n).slice(0,8)};
-$('dna-breakdown').innerHTML=[['حسب الأصل','asset'],['حسب الجلسة','session'],['حسب الاستراتيجية','strategy']].map(([title,key])=>`<div><h4>${title}</h4>${group(key).map(x=>`<div class="line"><span>${escape(x.name)} <small>(${x.n})</small></span><b class="${x.sum<0?'down':'up'}" dir="ltr">${x.sum.toFixed(2)} R</b></div>`).join('')||'<p class="micro">لا بيانات</p>'}</div>`).join('');
-const significant=group('session').filter(x=>x.n>=10),best=significant.sort((a,b)=>b.sum/b.n-a.sum/a.n)[0];$('dna-insight').textContent=count<20?'البيانات الحالية محدودة؛ أضف 20 صفقة على الأقل قبل المقارنة الوصفية بين الجلسات.':best?`من الجلسات التي تضم 10 صفقات على الأقل، أعلى متوسط R مسجّل لديك في ${best.name}: ${(best.sum/best.n).toFixed(2)} R لكل صفقة. هذا وصف تاريخي وليس توقعًا.`:'استمر في التسجيل حتى تتوفر 10 صفقات على الأقل في جلسة واحدة للمقارنة.';
-$('trade-rows').innerHTML=rows.map(r=>`<tr><td dir="ltr">${escape(r.date)}</td><td>${escape(r.asset)}</td><td>${escape(r.session)}</td><td>${escape(r.strategy)}</td><td class="${r.r>=0?'up':'down'}" dir="ltr">${r.r.toFixed(2)} R</td><td><button type="button" data-delete="${escape(r.id)}">حذف</button></td></tr>`).join('')||'<tr><td colspan="6">لا توجد صفقات مسجلة حتى الآن.</td></tr>';
+const dnaPreferencesKey='ict-trader-dna-filters-v6858';
+function dnaSelectRows(){
+ const days=$('dna-period')?.value||'all',asset=$('dna-asset')?.value||'all',session=$('dna-session')?.value||'all';
+ const today=new Date();today.setHours(23,59,59,999);
+ return journal.map((row,index)=>({...row,_idx:index})).filter(row=>{
+  if(asset!=='all'&&row.asset!==asset)return false;
+  if(session!=='all'&&row.session!==session)return false;
+  if(days!=='all'){
+   const date=asDate(row.date+'T12:00:00');
+   if(!date)return false;
+   const lower=new Date(today);lower.setDate(lower.getDate()-Number(days));lower.setHours(0,0,0,0);
+   if(date<lower||date>today)return false;
+  }
+  return true;
+ });
 }
-function bindJournal(){const form=$('trade-form');form.elements.date.value=[new Date().getFullYear(),String(new Date().getMonth()+1).padStart(2,'0'),String(new Date().getDate()).padStart(2,'0')].join('-');form.addEventListener('submit',e=>{e.preventDefault();const d=Object.fromEntries(new FormData(form));const r=cleanRow({...d,r:Number(d.r),id:crypto.randomUUID()});if(!r){alert('راجع التاريخ ونتيجة R؛ يجب أن تكون قيمة عددية معقولة.');return}journal.push(r);journal=journal.slice(-1000);save();renderJournal();form.reset();form.elements.date.value=[new Date().getFullYear(),String(new Date().getMonth()+1).padStart(2,'0'),String(new Date().getDate()).padStart(2,'0')].join('-')});$('trade-rows').addEventListener('click',e=>{const btn=e.target.closest('[data-delete]');if(!btn||!confirm('حذف هذه الصفقة من سجلك المحلي؟'))return;journal=journal.filter(x=>x.id!==btn.dataset.delete);save();renderJournal()});$('export-trades').onclick=exportCsv;$('backup-trades').onclick=()=>download('ict-trader-dna-backup.json',JSON.stringify({version:1,exportedAt:new Date().toISOString(),trades:journal},null,2),'application/json');$('import-trades').addEventListener('change',async e=>{const file=e.target.files?.[0];if(!file)return;if(file.size>1024*1024){alert('الملف كبير جدًا (الحد 1MB).');return}try{const obj=JSON.parse(await file.text());if(!obj||obj.version!==1||!Array.isArray(obj.trades)||obj.trades.length>1000)throw Error();const rows=obj.trades.map(cleanRow);if(rows.some(x=>!x))throw Error();if(!confirm('استبدال سجل الصفقات المحلي بالكامل بالنسخة المستوردة؟'))return;journal=rows;save();renderJournal()}catch{alert('ملف النسخة الاحتياطية غير صالح.')}finally{e.target.value=''}});renderJournal()}
+function refreshDnaFilters(){
+ for(const [id,key] of [['dna-asset','asset'],['dna-session','session']]){
+  const select=$(id);if(!select)continue;
+  const old=select.value||'all';
+  const options=[...new Set(journal.map(x=>x[key]).filter(Boolean))].sort((a,b)=>a.localeCompare(b));
+  while(select.options.length>1)select.remove(1);
+  for(const value of options){const option=document.createElement('option');option.value=value;option.textContent=value;select.appendChild(option)}
+  select.value=options.includes(old)?old:'all';
+ }
+}
+function renderJournal(){
+ refreshDnaFilters();
+ const rows=dnaSelectRows();
+ const count=rows.length,total=rows.reduce((s,x)=>s+x.r,0),wins=rows.filter(x=>x.r>0),losses=rows.filter(x=>x.r<0),flat=rows.filter(x=>x.r===0);
+ const gain=wins.reduce((s,x)=>s+x.r,0),lossAbs=-losses.reduce((s,x)=>s+x.r,0);
+ // Stable entry order resolves ties for multiple trades on the same date.
+ const chronological=[...rows].sort((a,b)=>a.date.localeCompare(b.date)||a._idx-b._idx);
+ let equity=0,peak=0,maxDD=0,runWin=0,runLoss=0,maxWin=0,maxLoss=0;
+ for(const trade of chronological){
+  equity+=trade.r;peak=Math.max(peak,equity);maxDD=Math.max(maxDD,peak-equity);
+  runWin=trade.r>0?runWin+1:0;runLoss=trade.r<0?runLoss+1:0;
+  maxWin=Math.max(maxWin,runWin);maxLoss=Math.max(maxLoss,runLoss);
+ }
+ const pct=n=>n.toFixed(1)+'%';
+ const rfmt=n=>(n>0?'+':'')+n.toFixed(2)+' R';
+ const pf=lossAbs>0?(gain/lossAbs).toFixed(2):'—';
+ const stats=[['الصفقات',count],['الربح من الصفقات',count?pct(wins.length/count*100):'—'],['صافي R',count?rfmt(total):'—'],['متوسط R',count?rfmt(total/count):'—'],['أقصى تراجع',count?maxDD.toFixed(2)+' R':'—'],['معامل الربحية',pf],['متوسط الربح',wins.length?rfmt(gain/wins.length):'—'],['متوسط الخسارة',losses.length?rfmt(-lossAbs/losses.length):'—']];
+ $('dna-metrics').innerHTML=stats.map(([title,value])=>`<div class="metric"><small>${escape(title)}</small><strong>${escape(value)}</strong></div>`).join('');
+ const group=key=>{
+  const groups=new Map();
+  for(const trade of rows){const name=trade[key]||'غير محدد';const rec=groups.get(name)||{name,n:0,sum:0,wins:0};rec.n++;rec.sum+=trade.r;rec.wins+=(trade.r>0?1:0);groups.set(name,rec)}
+  return [...groups.values()].sort((a,b)=>b.n-a.n).slice(0,8)
+ };
+ $('dna-breakdown').innerHTML=[['حسب الأصل','asset'],['حسب الجلسة','session'],['حسب الاستراتيجية','strategy']].map(([title,key])=>`<div><h4>${title}</h4>${group(key).map(x=>`<div class="line"><span>${escape(x.name)} <small>(${x.n})</small></span><b class="${x.sum<0?'down':'up'}" dir="ltr">${escape(rfmt(x.sum))}</b></div>`).join('')||'<p class="micro">لا بيانات ضمن الفلتر</p>'}</div>`).join('');
+ const significant=group('session').filter(x=>x.n>=10).sort((a,b)=>b.sum/b.n-a.sum/a.n),best=significant[0];
+ let insight=count<20?'العينة صغيرة (أقل من 20 صفقة). يمكن قراءة الأرقام، لكن لا تكفي لاستنتاج أفضلية مستقرة.':best?`أعلى متوسط مسجل بين الجلسات التي لديها 10 صفقات على الأقل: ${best.name} (${(best.sum/best.n).toFixed(2)} R/صفقة). هذا وصف تاريخي، وليس توقعًا.`:'لا توجد جلسة تضم 10 صفقات في الفترة المختارة للمقارنة.';
+ insight+=` أطول سلسلة ربح: ${maxWin}، وأطول سلسلة خسارة: ${maxLoss}. الصفقات المتعادلة: ${flat.length}.`;
+ if(count&&!losses.length)insight+=' لا توجد خسائر في العينة؛ لذلك معامل الربحية غير قابل للحساب.';
+ $('dna-insight').textContent=insight;
+ const months=new Map();for(const trade of rows){const key=trade.date.slice(0,7);const x=months.get(key)||{n:0,sum:0};x.n++;x.sum+=trade.r;months.set(key,x)}
+ $('dna-monthly').innerHTML=[...months].sort((a,b)=>b[0].localeCompare(a[0])).slice(0,12).map(([month,x])=>`<div class="dna-month-row"><span dir="ltr">${escape(month)}</span><span>${x.n} صفقة</span><b class="${x.sum<0?'down':'up'}" dir="ltr">${escape(rfmt(x.sum))}</b></div>`).join('')||'<p class="micro">لا توجد أشهر في الفترة المحددة.</p>';
+ const sortRows=[...rows].sort((a,b)=>b.date.localeCompare(a.date)||b._idx-a._idx);
+ $('trade-rows').innerHTML=sortRows.map(r=>`<tr><td dir="ltr">${escape(r.date)}</td><td>${escape(r.asset)}</td><td>${escape(r.session)}</td><td>${escape(r.strategy)}</td><td class="${r.r>=0?'up':'down'}" dir="ltr">${escape(r.r.toFixed(2))} R</td><td><button type="button" data-delete="${escape(r.id)}">حذف</button></td></tr>`).join('')||'<tr><td colspan="6">لا توجد صفقات ضمن المرشح المختار.</td></tr>';
+ $('dna-scope').textContent=`${count} صفقة معروضة من أصل ${journal.length} صفقة محفوظة على هذا الجهاز. التصفية لا تغير بيانات السجل.`;
+}
+function bindJournal(){const form=$('trade-form');form.elements.date.value=[new Date().getFullYear(),String(new Date().getMonth()+1).padStart(2,'0'),String(new Date().getDate()).padStart(2,'0')].join('-');form.addEventListener('submit',e=>{e.preventDefault();const d=Object.fromEntries(new FormData(form));const r=cleanRow({...d,r:Number(d.r),id:crypto.randomUUID()});if(!r){alert('راجع التاريخ ونتيجة R؛ يجب أن تكون قيمة عددية معقولة.');return}if(journal.length>=1000){alert('بلغ السجل الحد الأقصى (1000 صفقة). لم تُحذف صفقاتك السابقة؛ احفظ نسخة احتياطية ونظّم السجل قبل الإضافة.');return}journal.push(r);save();renderJournal();form.reset();form.elements.date.value=[new Date().getFullYear(),String(new Date().getMonth()+1).padStart(2,'0'),String(new Date().getDate()).padStart(2,'0')].join('-')});$('trade-rows').addEventListener('click',e=>{const btn=e.target.closest('[data-delete]');if(!btn||!confirm('حذف هذه الصفقة من سجلك المحلي؟'))return;journal=journal.filter(x=>x.id!==btn.dataset.delete);save();renderJournal()});$('export-trades').onclick=exportCsv;$('backup-trades').onclick=()=>download('ict-trader-dna-backup.json',JSON.stringify({version:1,exportedAt:new Date().toISOString(),trades:journal},null,2),'application/json');$('import-trades').addEventListener('change',async e=>{const file=e.target.files?.[0];if(!file)return;if(file.size>1024*1024){alert('الملف كبير جدًا (الحد 1MB).');return}try{const obj=JSON.parse(await file.text());if(!obj||obj.version!==1||!Array.isArray(obj.trades)||obj.trades.length>1000)throw Error();const rows=obj.trades.map(cleanRow);if(rows.some(x=>!x))throw Error();if(!confirm('استبدال سجل الصفقات المحلي بالكامل بالنسخة المستوردة؟'))return;journal=rows;save();renderJournal()}catch{alert('ملف النسخة الاحتياطية غير صالح.')}finally{e.target.value=''}});for(const id of ['dna-period','dna-asset','dna-session'])$(id)?.addEventListener('change',()=>{try{localStorage.setItem(dnaPreferencesKey,JSON.stringify({period:$('dna-period').value,asset:$('dna-asset').value,session:$('dna-session').value}))}catch{}renderJournal()});refreshDnaFilters();try{const filters=JSON.parse(localStorage.getItem(dnaPreferencesKey)||'{}');for(const [id,key] of [['dna-period','period'],['dna-asset','asset'],['dna-session','session']]){if([...$(id).options].some(o=>o.value===filters[key]))$(id).value=filters[key]}}catch{}renderJournal()}
 async function getJson(file){try{const r=await fetch('./'+file+'?v='+Date.now(),{cache:'no-store'});if(!r.ok)throw Error(r.status);return await r.json()}catch{return null}}
 async function loadData(){const [analyses,recs,news,cal,movers]=await Promise.all(['analyses.json','recs.json','news-live.json','calendar-live.json','market-movers.json'].map(getJson));data={analyses:Array.isArray(analyses)?analyses:[],recs:Array.isArray(recs)?recs:[],news:Array.isArray(news?.items)?news.items:[],calendar:Array.isArray(cal?.events)?cal.events:[],movers:Array.isArray(movers?.items)?movers.items:[],meta:{news:news?.updated_at,calendar:cal?.updatedAt,movers:movers?.updatedAt}};renderDesk();}
 function item(link,title,meta){return `<a class="item" href="${escape(link)}"><b>${escape(title)}</b><small>${escape(meta)}</small></a>`}
