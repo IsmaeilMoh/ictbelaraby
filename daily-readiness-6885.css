@@ -1,0 +1,20 @@
+/* ICT بالعربي 6.8.85 — scoped to daily review in existing live desk. */
+.daily-readiness{margin:18px 0 24px;padding:20px;border:1px solid var(--line);background:var(--surface);border-radius:15px;min-width:0}
+.daily-readiness .readiness-heading{display:flex;justify-content:space-between;align-items:start;gap:14px;margin-bottom:13px}
+.daily-readiness h2{margin:2px 0 4px;font-size:clamp(18px,2vw,23px)}
+.daily-readiness p{line-height:1.8;margin:0;color:var(--muted);font-size:12px}
+.daily-readiness .readiness-status{border:1px solid var(--line);border-radius:10px;padding:8px 12px;flex-shrink:0;font-size:12px;font-weight:700;min-width:135px;text-align:center}
+.daily-readiness .readiness-steps{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}
+.daily-readiness .readiness-steps label{display:flex;align-items:flex-start;gap:10px;padding:12px;border:1px solid var(--line);border-radius:11px;cursor:pointer;min-width:0}
+.daily-readiness .readiness-steps input{accent-color:var(--green,#46ae83);width:17px;height:17px;flex-shrink:0;margin-top:4px}
+.daily-readiness .readiness-steps label strong{display:block;font-size:12px;line-height:1.7}
+.daily-readiness .readiness-steps label small{display:block;color:var(--muted);font-size:11px;line-height:1.7;margin-top:3px}
+.daily-readiness .readiness-steps label:has(input:checked){border-color:var(--green,#46ae83)}
+.daily-readiness .readiness-actions{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:10px;margin-top:13px}
+.daily-readiness .readiness-actions span{font-size:11px;color:var(--muted)}
+.daily-readiness .readiness-actions button{min-height:38px;font-size:12px}
+.daily-readiness .readiness-links{display:flex;flex-wrap:wrap;gap:8px;margin-top:14px}
+.daily-readiness .readiness-links a{font-size:12px;padding:7px 10px;border:1px solid var(--line);border-radius:8px;text-decoration:none}
+.daily-readiness .readiness-links a:focus-visible{outline:2px solid var(--green,#46ae83);outline-offset:2px}
+.daily-readiness .readiness-caution{margin-top:12px}
+@media(max-width:760px){.daily-readiness{padding:13px}.daily-readiness .readiness-heading{flex-direction:column}.daily-readiness .readiness-status{min-width:0}.daily-readiness .readiness-steps{grid-template-columns:1fr}}
