@@ -96,10 +96,21 @@ const deskSources=[
 const sourceCadence={analyses:'محتوى تحريري منشور',recs:'محتوى تحريري منشور',news:'تغذية أخبار دورية',calendar:'أجندة اقتصادية مجمعة',movers:'لقطات أسعار وتغيرات دورية'};
 const formatSourceAge=stamp=>{const d=asDate(stamp);if(!d)return 'وقت التحديث غير منشور';const delta=Date.now()-d.getTime();if(delta< -300000)return 'توقيت المصدر في المستقبل — تحقق من الساعة';if(delta<0)return 'تحديث حديث (اختلاف طفيف في الساعة)';if(delta<60000)return 'منذ أقل من دقيقة';if(delta<3600000)return 'منذ '+Math.floor(delta/60000)+' دقيقة';if(delta<86400000)return 'منذ '+Math.floor(delta/3600000)+' ساعة';return 'منذ '+Math.floor(delta/86400000)+' يوم';};
 const sourceTimestampLabel=source=>source?.updated?'آخر تحديث معلن: '+fmt(source.updated)+' ('+formatSourceAge(source.updated)+')':'لم ينشر الملف توقيت تحديث';
-let deskLoadId=0;
+// 6.8.90: Avoid background polling when the dashboard is not being viewed.
+const DESK_REFRESH_MS=5*60*1000;
+let deskLoadId=0,deskLastFetch=0,deskFetchPromise=null;
+const deskIsRelevant=()=>!document.hidden&&['live','assistant'].some(tab=>!document.getElementById('tab-'+tab)?.hidden);
+function refreshDeskIfDue(){
+ if(!deskIsRelevant()||deskFetchPromise||Date.now()-deskLastFetch<DESK_REFRESH_MS)return;
+ void loadData();
+}
 async function getDeskSource(source){
  try{
-  const response=await fetch('./'+source.file+'?v='+Date.now(),{cache:'no-store'});
+  const controller=new AbortController();
+  const timeout=setTimeout(()=>controller.abort(),12000);
+  let response;
+  try{response=await fetch('./'+source.file+'?v='+Date.now(),{cache:'no-store',signal:controller.signal});}
+  finally{clearTimeout(timeout)}
   if(!response.ok)throw Error('HTTP '+response.status);
   const json=await response.json();
   const list=source.key==='news'||source.key==='movers'?json?.items:source.key==='calendar'?json?.events:json;
@@ -112,17 +123,23 @@ async function getDeskSource(source){
  }catch(error){console.warn('ICT data source unavailable:',source.file,error?.message);return {ok:false,rows:[],updated:null,stale:false}}
 }
 async function loadData(){
+ // If a user taps retry during a fetch, reuse the request rather than duplicate five network calls.
+ if(deskFetchPromise)return deskFetchPromise;
  const id=++deskLoadId;
  const refresh=$('refresh-desk');if(refresh){refresh.disabled=true;refresh.textContent='جارٍ التحديث…'}
  const status=$('desk-status');if(status)status.textContent='جارٍ فحص مصادر البيانات العامة…';
- try{
-  const results=await Promise.all(deskSources.map(getDeskSource));
-  if(id!==deskLoadId)return;
-  const sources=Object.fromEntries(deskSources.map((source,i)=>[source.key,results[i]]));
-  data={analyses:sources.analyses.rows,recs:sources.recs.rows,news:sources.news.rows,calendar:sources.calendar.rows,movers:sources.movers.rows,
-    meta:{news:sources.news.updated,calendar:sources.calendar.updated,movers:sources.movers.updated},sources};
-  renderDesk();
- }finally{if(id===deskLoadId&&refresh){refresh.disabled=false;refresh.textContent='تحديث البيانات'}}
+ deskLastFetch=Date.now();
+ deskFetchPromise=(async()=>{
+  try{
+   const results=await Promise.all(deskSources.map(getDeskSource));
+   if(id!==deskLoadId)return;
+   const sources=Object.fromEntries(deskSources.map((source,i)=>[source.key,results[i]]));
+   data={analyses:sources.analyses.rows,recs:sources.recs.rows,news:sources.news.rows,calendar:sources.calendar.rows,movers:sources.movers.rows,
+     meta:{news:sources.news.updated,calendar:sources.calendar.updated,movers:sources.movers.updated},sources};
+   renderDesk();
+  }finally{if(id===deskLoadId&&refresh){refresh.disabled=false;refresh.textContent='تحديث البيانات'}}
+ })();
+ try{return await deskFetchPromise}finally{deskFetchPromise=null}
 }
 function deskEmpty(source,emptyText){
  const state=data.sources?.[source];
@@ -149,7 +166,11 @@ $('desk-status').innerHTML=`<div class="desk-source-heading">${failed.length?'ت
 }
 const synonyms=[[/الذهب|gold/i,'XAUUSD'],[/الفضة|silver/i,'XAGUSD'],[/ناسداك|nasdaq/i,'NAS100'],[/البيتكوين|بيتكوين|bitcoin/i,'BTC'],[/اليورو/i,'EURUSD'],[/التضخم/i,'CPI'],[/الوظائف/i,'NFP']];
 function search(q){let query=q.trim();for(const [re,target] of synonyms)if(re.test(query)){query+=' '+target;}const tokens=[...new Set(query.toLowerCase().split(/\s+/).filter(s=>s.length>1&&!['آخر','احدث','أحدث','عن','على','من','في','ما','هو','هي','التوصيات','التحليلات','اخبار','الأخبار'].includes(s)))];const entries=[...(data.analyses||[]).map(x=>({type:'تحليل',text:[x.title,x.asset,x.summary,x.body].join(' '),title:x.title||x.asset||'تحليل',date:x.published_at||x.date,link:'./#recs'})),...(data.recs||[]).filter(x=>!x.sample).map(x=>({type:'توصية',text:[x.title,x.pair,x.note,x.dir].join(' '),title:x.title||x.pair||'توصية',date:x.published_at||x.date,link:'./#recs'})),...(data.news||[]).map(x=>({type:'خبر',text:[x.title,x.src,x.tag].join(' '),title:x.title||'خبر',date:x.date,link:/^https:\/\/[^\s<>"']+$/.test(x.url||'')?x.url:'./#news'})),...(data.calendar||[]).map(x=>({type:'أجندة',text:[x.title,x.country,x.currency].join(' '),title:x.title||'حدث',date:x.date,link:'./#agenda'}))];const typeHint=/توصي/.test(q)?'توصية':/تحليل/.test(q)?'تحليل':/خبر|اخبار|أخبار/.test(q)?'خبر':null;const matches=entries.map(x=>{const text=x.text.toLowerCase();const score=tokens.reduce((v,t)=>v+(text.includes(t)?1:0),0)+(typeHint===x.type?1:0);return {...x,score}}).filter(x=>x.score>0).sort((a,b)=>b.score-a.score||Date.parse(b.date||0)-Date.parse(a.date||0)).slice(0,18);$('search-status').textContent=matches.length?`عُثر على ${matches.length} نتيجة مرتبطة بالسؤال من البيانات المنشورة. افتح المصدر للتحقق من التفاصيل.`:'لم أجد نتيجة مطابقة في البيانات المتاحة حاليًا. جرّب رمز الأصل أو اسم الحدث بالإنجليزية.';$('search-results').innerHTML=matches.map(x=>`<div class="search-result"><span>${escape(x.type)} · ${escape(fmt(x.date))}</span><b>${escape(x.title)}</b><p>${escape(x.text.slice(0,170))}</p><a href="${escape(x.link)}" ${x.link.startsWith('https://')?'target="_blank" rel="noopener noreferrer"':''}>فتح المصدر ↗</a></div>`).join('')}
-function openTab(tab){const btn=document.querySelector('[data-tab="'+tab+'"]');if(!btn)return;document.querySelectorAll('[data-tab]').forEach(b=>{const active=b===btn;b.classList.toggle('active',active);b.setAttribute('aria-selected',String(active))});document.querySelectorAll('.tab-panel').forEach(panel=>panel.hidden=panel.id!=='tab-'+tab)}
-function bind(){document.querySelectorAll('[data-tab]').forEach(btn=>btn.addEventListener('click',()=>openTab(btn.dataset.tab)));if(['dna','live','assistant'].includes(location.hash.slice(1)))openTab(location.hash.slice(1));window.addEventListener('hashchange',()=>{const tab=location.hash.slice(1);if(['dna','live','assistant'].includes(tab))openTab(tab)});$('refresh-desk').onclick=loadData;document.querySelector('#tab-live')?.addEventListener('click',e=>{if(e.target.closest('[data-desk-retry]'))loadData()});$('search-form').addEventListener('submit',e=>{e.preventDefault();search($('search-query').value)});document.querySelectorAll('[data-query]').forEach(b=>b.onclick=()=>{$('search-query').value=b.dataset.query;search(b.dataset.query)});bindJournal();loadData();setInterval(loadData,5*60*1000)}
+function openTab(tab){const btn=document.querySelector('[data-tab="'+tab+'"]');if(!btn)return;document.querySelectorAll('[data-tab]').forEach(b=>{const active=b===btn;b.classList.toggle('active',active);b.setAttribute('aria-selected',String(active))});document.querySelectorAll('.tab-panel').forEach(panel=>panel.hidden=panel.id!=='tab-'+tab);refreshDeskIfDue()}
+function bind(){document.querySelectorAll('[data-tab]').forEach(btn=>btn.addEventListener('click',()=>openTab(btn.dataset.tab)));if(['dna','live','assistant'].includes(location.hash.slice(1)))openTab(location.hash.slice(1));window.addEventListener('hashchange',()=>{const tab=location.hash.slice(1);if(['dna','live','assistant'].includes(tab))openTab(tab)});$('refresh-desk').onclick=loadData;document.querySelector('#tab-live')?.addEventListener('click',e=>{if(e.target.closest('[data-desk-retry]'))loadData()});$('search-form').addEventListener('submit',e=>{e.preventDefault();search($('search-query').value)});document.querySelectorAll('[data-query]').forEach(b=>b.onclick=()=>{$('search-query').value=b.dataset.query;search(b.dataset.query)});bindJournal();refreshDeskIfDue();
+ // One inexpensive timer checks eligibility; requests run only while the public-data tab is active.
+ setInterval(refreshDeskIfDue,DESK_REFRESH_MS);
+ document.addEventListener('visibilitychange',refreshDeskIfDue);
+ window.addEventListener('online',refreshDeskIfDue)}
 bind();
 })();
