@@ -1,0 +1,8 @@
+/* 6.8.61 — editorial analysis lifecycle; compact and theme-aware */
+.analysis-toolbar{flex-wrap:wrap;gap:10px}.analysis-toolbar label{min-width:120px}
+.analysis-state-tag{border:1px solid var(--line,rgba(128,128,128,.2))}
+.analysis-archived{opacity:.88}.analysis-archived .analysis-image{filter:saturate(.8)}
+.analysis-status-note{border-inline-start:3px solid #ad843a;padding:8px 10px;margin:8px 0;background:rgba(173,132,58,.08);border-radius:6px;line-height:1.75;font-size:.84rem}
+.analysis-history{border-top:1px solid var(--line,rgba(128,128,128,.2));margin-top:12px;padding-top:10px;font-size:.82rem;line-height:1.7}
+.analysis-history ul{padding-inline-start:20px;margin:8px 0}.analysis-history li{overflow-wrap:anywhere}
+@media(max-width:540px){.analysis-toolbar label{min-width:0;flex:1 1 42%}.analysis-meta{flex-wrap:wrap}.analysis-state-tag{font-size:.7rem}}
