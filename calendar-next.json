@@ -1,5 +1,5 @@
 {
-  "updatedAt": "2026-11-22T16:00:15.585383Z",
+  "updatedAt": "2026-11-22T21:59:09.281911Z",
   "weekStart": "2026-11-23",
   "source": "Forex Factory",
   "sourceUrl": "https://www.forexfactory.com/calendar?week=nov23.2026",
@@ -113,7 +113,7 @@
       "impact": "Low",
       "actual": "—",
       "forecast": "—",
-      "previous": "—"
+      "previous": "8.7%"
     },
     {
       "id": "2026-11-23T14:45:00Z-USD-Flash Manufacturing PMI",
