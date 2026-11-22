@@ -786,8 +786,24 @@ matchMedia('(prefers-color-scheme: dark)').addEventListener?.('change',()=>{if((
 
 let deferredInstall;window.addEventListener('beforeinstallprompt',e=>{e.preventDefault();deferredInstall=e;$('install').hidden=false});$('install').addEventListener('click',async()=>{if(deferredInstall){deferredInstall.prompt();await deferredInstall.userChoice;deferredInstall=null;$('install').hidden=true}});
 window.addEventListener('hashchange',render);
-// Throttle network-only refreshes when a document is in the background.
-// The initial boot, local alerts, session clocks and manual actions are unchanged.
+// Network pollers share one visibility listener. While the PWA is hidden,
+// polling remains paused; on return each source checks its own due time.
+const visibleDataRefreshers=new Set();
+let pulseClockTimer=null;
+function resumeVisiblePageWork(){
+ if(document.hidden)return;
+ updatePulseClocks();
+ refreshPulse();
+ for(const refresh of visibleDataRefreshers)void refresh();
+}
+document.addEventListener('visibilitychange',()=>{
+ if(document.hidden){
+  if(pulseClockTimer!==null){clearInterval(pulseClockTimer);pulseClockTimer=null}
+ }else{
+  if(pulseClockTimer===null)pulseClockTimer=setInterval(updatePulseClocks,1000);
+  resumeVisiblePageWork();
+ }
+});
 function scheduleVisibleDataRefresh(task, intervalMs){
  let lastAttempt=Date.now(), inFlight=false;
  async function refreshIfDue(){
@@ -796,9 +812,14 @@ function scheduleVisibleDataRefresh(task, intervalMs){
   try{await task()}catch(error){console.warn('Periodic data refresh failed',error)}
   finally{inFlight=false}
  }
- const timer=setInterval(refreshIfDue,Math.min(intervalMs,60000));
- document.addEventListener('visibilitychange',()=>{if(!document.hidden)void refreshIfDue()});
- return timer;
+ visibleDataRefreshers.add(refreshIfDue);
+ return setInterval(refreshIfDue,Math.min(intervalMs,60000));
+}
+function startVisiblePulseClock(){
+ if(!document.hidden&&pulseClockTimer===null){
+  updatePulseClocks();
+  pulseClockTimer=setInterval(updatePulseClocks,1000);
+ }
 }
 async function boot(){applyTheme();updateHeaderDate();const a=await Promise.all([load('news.json'),load('recs.json'),load('links.json'),load('agenda.json'),load('analyses.json')]);[S.newsArchive,S.recs,S.links,S.agenda,S.analyses]=[a[0]||[],a[1]||[],a[2]||[],a[3]||{days:[]},a[4]||[]];checkPublications();S.news=S.newsArchive;
  // Show the complete local shell and archived cards immediately after the
@@ -808,4 +829,4 @@ async function boot(){applyTheme();updateHeaderDate();const a=await Promise.all(
   if(state.page==='agenda')render(true);else refreshPulse();
   futureAlerts();
  });
- fetchMovers();setInterval(updatePulseClocks,1000);setInterval(refreshPulse,60000);scheduleVisibleDataRefresh(fetchMovers,5*60*1000);setInterval(()=>{futureAlerts();sessionAlerts()},30000);scheduleVisibleDataRefresh(pollPublishedContent,120000);scheduleVisibleDataRefresh(async()=>{await Promise.all([fetchLiveCalendar(),fetchNextCalendar()]);if(state.page==='agenda')render(true);else refreshPulse();futureAlerts()},10*60*1000);setInterval(()=>{updateHeaderDate();if(state.page==='ict')render(true)},60000);scheduleVisibleDataRefresh(fetchLiveNews,10*60*1000);fetchOfficialEconomicResults();scheduleVisibleDataRefresh(fetchOfficialEconomicResults,30*60*1000);if('serviceWorker'in navigator)navigator.serviceWorker.register('./sw.js').catch(console.warn)}boot();
+ fetchMovers();startVisiblePulseClock();setInterval(()=>{if(!document.hidden)refreshPulse()},60000);scheduleVisibleDataRefresh(fetchMovers,5*60*1000);setInterval(()=>{futureAlerts();sessionAlerts()},30000);scheduleVisibleDataRefresh(pollPublishedContent,120000);scheduleVisibleDataRefresh(async()=>{await Promise.all([fetchLiveCalendar(),fetchNextCalendar()]);if(state.page==='agenda')render(true);else refreshPulse();futureAlerts()},10*60*1000);setInterval(()=>{updateHeaderDate();if(state.page==='ict')render(true)},60000);scheduleVisibleDataRefresh(fetchLiveNews,10*60*1000);fetchOfficialEconomicResults();scheduleVisibleDataRefresh(fetchOfficialEconomicResults,30*60*1000);if('serviceWorker'in navigator)navigator.serviceWorker.register('./sw.js').catch(console.warn)}boot();
