@@ -15,13 +15,16 @@ if(S.newsStatus==='archive')return 'أخبار سابقة • الأخبار ا�
 return 'جارٍ تحميل الأخبار…';}
 function newsBadge(){return `<span class="news-live-chip ${S.newsStatus==='fresh'?'is-fresh':S.newsStatus==='stale'?'is-stale':''}">${S.newsStatus==='fresh'?'تحديث تلقائي':S.newsStatus==='stale'?'أخبار سابقة':S.newsStatus==='archive'?'أرشيف':'جارٍ التحديث'}</span>`;}
 async function fetchLiveNews(){
+ const before=JSON.stringify([S.newsStatus,S.newsUpdated?.getTime()||null,S.news]);
  let payload=null;try{const r=await fetch('news-live.json?t='+Date.now(),{cache:'no-store'});if(r.ok)payload=await r.json()}catch(e){console.info('News feed unavailable',e.message)}
  const time=payload?.updated_at?new Date(payload.updated_at):null;
  const records=Array.isArray(payload?.items)?payload.items:[];
  const normalized=records.filter(n=>n&&typeof n.title==='string'&&n.title.trim()&&/^https:\/\/[^\s]+$/i.test(n.url||'')&&Number.isFinite(new Date(n.date).getTime())&&Date.now()-new Date(n.date).getTime()<7*86400000).map(n=>({title:n.title,src:String(n.src||'المصدر'),tag:String(n.tag||'اقتصاد'),date:n.date,url:n.url,sum:'',image:newsImage(n),language:n.language||'ar'})).slice(0,80);
  if(normalized.length){S.news=normalized;S.newsUpdated=time;S.newsStatus=(time&&Number.isFinite(time.getTime())&&Date.now()-time.getTime()<4*3600000)?'fresh':'stale';}
  else {S.news=S.newsArchive;S.newsUpdated=null;S.newsStatus='archive';}
- if(['news','home'].includes(state.page))render();
+ if(before===JSON.stringify([S.newsStatus,S.newsUpdated?.getTime()||null,S.news]))return;
+ if(state.page==='home')updateHomeNewsSlider();
+ else if(state.page==='news')render(true);
 }
 function newsGrid(items){return items.length?`<div class="grid">${items.map(cardNews).join('')}</div>`:empty('لا توجد أخبار في هذا التصنيف.')}
 const statusNames={pending:'بانتظار التفعيل',open:'مفعّلة',tp:'هدف مسجل إداريًا',sl:'وقف مسجل إداريًا',cl:'مغلقة يدويًا',cancelled:'ملغاة'};
@@ -95,6 +98,16 @@ function showHeroSlide(index){
  heroSlideIndex=(index+items.length)%items.length;
  host.innerHTML=heroSlideMarkup(items[heroSlideIndex],heroSlideIndex,items.length);
  document.querySelectorAll('.hero-news-dot').forEach((b,i)=>{b.classList.toggle('is-active',i===heroSlideIndex);b.setAttribute('aria-pressed',String(i===heroSlideIndex))});
+}
+// Live headlines should never reconstruct the whole homepage or reset reading position.
+function updateHomeNewsSlider(){
+ const current=document.querySelector('.hero-news-slider');
+ if(!current||state.page!=='home')return;
+ const replacement=document.createElement('div');replacement.innerHTML=heroSlider();
+ const next=replacement.firstElementChild;
+ if(!next)return;
+ current.replaceWith(next);
+ initHeroSlider();
 }
 let heroSlidePaused=false;
 function initHeroSlider(){
@@ -504,7 +517,7 @@ function checkPublications(){const current=publicationRows(),ids=current.map(x=>
  if(Array.isArray(previous)&&alertSettings().posts){const seen=new Set(previous);for(const x of current.filter(x=>!seen.has(x.id)&&Date.now()-x.when<48*3600000).slice(0,3)){sendLocalAlert('نُشر '+x.kind+' على ICT بالعربي',x.title,'ict-publication-'+x.id,'recs')}}
  localStorage.setItem(publicationKey,JSON.stringify(ids.slice(0,300)));
 }
-async function pollPublishedContent(){const [recs,analyses]=await Promise.all([load('recs.json?t='+Date.now()),load('analyses.json?t='+Date.now())]);if(Array.isArray(recs))S.recs=recs;if(Array.isArray(analyses))S.analyses=analyses;checkPublications();if(state.page==='recs'&&contentPollStarted)render();contentPollStarted=true}
+async function pollPublishedContent(){const before=JSON.stringify([S.recs,S.analyses]);const [recs,analyses]=await Promise.all([load('recs.json?t='+Date.now()),load('analyses.json?t='+Date.now())]);if(Array.isArray(recs))S.recs=recs;if(Array.isArray(analyses))S.analyses=analyses;checkPublications();if(state.page==='recs'&&contentPollStarted&&before!==JSON.stringify([S.recs,S.analyses]))render(true);contentPollStarted=true}
 
 
 // ICT 4.5 — sourced economic surprise, educational academy and local-only calculators.
@@ -545,7 +558,7 @@ async function fetchOfficialEconomicResults(){
   await Promise.all([window.ICTEditorialForecasts?.load(),window.ICTCalendarConsensus?.load()]);
   officialEconomicFeed={updatedAt:data.updatedAt,events:data.events.filter(e=>e&&e.source==='BLS'&&e.period&&Number.isFinite(Number(e.actual))&&['%','K'].includes(e.unit)).slice(0,30)};
  }catch{officialEconomicFeed=null}
- if(state.page==='intelligence')render();
+ if(state.page==='intelligence')render(true);
 }
 function economicNewsPriority(){
  try{const v=localStorage.getItem('ict-economic-news-priority-v1');return ['important','high','all'].includes(v)?v:'important'}catch{return 'important'}
@@ -731,7 +744,7 @@ function loadTradingViewForRoute(page){
  script.onerror=()=>{tvElementLoading.delete(page);script.remove();console.warn('TradingView module unavailable for',page)};
  document.head.appendChild(script);
 }
-function render(){const p=location.hash.replace('#','')||'home';state.page=Object.hasOwn(navTitle,p)?p:'home';$('app').innerHTML=({home,markets,news,recs:recommendations,agenda:calendar,ict:ictTools,links:social,more,intelligence:economicIntelligence,academy:ictAcademy,calculators:tradingCalculators})[state.page]();document.querySelectorAll('[data-page]').forEach(a=>{const active=a.dataset.page===state.page||(a.dataset.page==='more'&&['news','ict','links','more'].includes(state.page));a.classList.toggle('active',active);if(active)a.setAttribute('aria-current','page');else a.removeAttribute('aria-current')});document.title=`${navTitle[state.page]} | ICT بالعربي`;loadTradingViewForRoute(state.page);if(state.page==='markets')hydrateMarketChart();if(state.page==='calculators')updateCalculators();document.dispatchEvent(new Event('ict-view-rendered'));if(state.page==='home'){applyHomeToolsFilter();initPulseFallback();initHeroSlider()}else if(heroSlideTimer){clearInterval(heroSlideTimer);heroSlideTimer=null}window.scrollTo({top:0,behavior:'instant'})}
+function render(preserveReading=false){const oldScroll=preserveReading?{x:window.scrollX,y:window.scrollY}:null;const p=location.hash.replace('#','')||'home';state.page=Object.hasOwn(navTitle,p)?p:'home';$('app').innerHTML=({home,markets,news,recs:recommendations,agenda:calendar,ict:ictTools,links:social,more,intelligence:economicIntelligence,academy:ictAcademy,calculators:tradingCalculators})[state.page]();document.querySelectorAll('[data-page]').forEach(a=>{const active=a.dataset.page===state.page||(a.dataset.page==='more'&&['news','ict','links','more'].includes(state.page));a.classList.toggle('active',active);if(active)a.setAttribute('aria-current','page');else a.removeAttribute('aria-current')});document.title=`${navTitle[state.page]} | ICT بالعربي`;loadTradingViewForRoute(state.page);if(state.page==='markets')hydrateMarketChart();if(state.page==='calculators')updateCalculators();document.dispatchEvent(new Event('ict-view-rendered'));if(state.page==='home'){applyHomeToolsFilter();initPulseFallback();initHeroSlider()}else if(heroSlideTimer){clearInterval(heroSlideTimer);heroSlideTimer=null}if(oldScroll)window.scrollTo({left:oldScroll.x,top:oldScroll.y,behavior:'instant'});else window.scrollTo({top:0,behavior:'instant'})}
 
 function ticker(){
  const host=$('tape');if(!host)return;
@@ -792,7 +805,7 @@ async function boot(){applyTheme();updateHeaderDate();const a=await Promise.all(
  // bundled public files resolve; slow live feeds must not block first paint.
  render();refreshPulse();ticker();sessionAlerts();
  void Promise.allSettled([fetchLiveCalendar(),fetchNextCalendar(),fetchLiveNews()]).then(()=>{
-  if(state.page==='agenda')render();else refreshPulse();
+  if(state.page==='agenda')render(true);else refreshPulse();
   futureAlerts();
  });
- fetchMovers();setInterval(updatePulseClocks,1000);setInterval(refreshPulse,60000);scheduleVisibleDataRefresh(fetchMovers,5*60*1000);setInterval(()=>{futureAlerts();sessionAlerts()},30000);scheduleVisibleDataRefresh(pollPublishedContent,120000);scheduleVisibleDataRefresh(async()=>{await Promise.all([fetchLiveCalendar(),fetchNextCalendar()]);if(state.page==='agenda')render();else refreshPulse();futureAlerts()},10*60*1000);setInterval(()=>{updateHeaderDate();if(state.page==='ict')render()},60000);scheduleVisibleDataRefresh(fetchLiveNews,10*60*1000);fetchOfficialEconomicResults();scheduleVisibleDataRefresh(fetchOfficialEconomicResults,30*60*1000);if('serviceWorker'in navigator)navigator.serviceWorker.register('./sw.js').catch(console.warn)}boot();
+ fetchMovers();setInterval(updatePulseClocks,1000);setInterval(refreshPulse,60000);scheduleVisibleDataRefresh(fetchMovers,5*60*1000);setInterval(()=>{futureAlerts();sessionAlerts()},30000);scheduleVisibleDataRefresh(pollPublishedContent,120000);scheduleVisibleDataRefresh(async()=>{await Promise.all([fetchLiveCalendar(),fetchNextCalendar()]);if(state.page==='agenda')render(true);else refreshPulse();futureAlerts()},10*60*1000);setInterval(()=>{updateHeaderDate();if(state.page==='ict')render(true)},60000);scheduleVisibleDataRefresh(fetchLiveNews,10*60*1000);fetchOfficialEconomicResults();scheduleVisibleDataRefresh(fetchOfficialEconomicResults,30*60*1000);if('serviceWorker'in navigator)navigator.serviceWorker.register('./sw.js').catch(console.warn)}boot();
