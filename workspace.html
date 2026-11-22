@@ -8,7 +8,7 @@
   <title>مساحتي | ICT بالعربي</title>
   <link rel="icon" href="icon-192.png">
   <link rel="stylesheet" href="workspace.css?v=5.4.0">
-  <script defer src="workspace.js?v=5.4.0"></script>
+  <script defer src="guardian-limits.js?v=6.8.63"></script><script defer src="workspace.js?v=6.8.63"></script>
 <link rel="stylesheet" href="platform.css?v=5.4.0"><script defer src="platform.js?v=5.4.0"></script><link rel="stylesheet" href="unified-theme.css?v=6.8.34"><link rel="stylesheet" href="bento-glass.css?v=6.8.5"><link rel="stylesheet" href="design-consistency.css?v=6.8.6"><link rel="stylesheet" href="interaction-harmony.css?v=6.8.8"><link rel="stylesheet" href="light-contrast.css?v=6.8.11"><link rel="stylesheet" href="ui-icons.css?v=6.8.22">
 <script src="unified-theme.js?v=6.8.31"></script><link rel="stylesheet" href="ui-icons.css?v=6.8.27"><link rel="stylesheet" href="site-unity.css?v=6.8.34"><script defer src="ui-icons.js?v=6.8.27"></script><script defer src="site-unity.js?v=6.8.31"></script><link rel="stylesheet" href="typography.css?v=6.8.29"><link rel="stylesheet" href="site-typography-nav-fix.css?v=6.8.31"><link rel="stylesheet" href="site-font-unified.css?v=6.8.32"><link rel="stylesheet" href="site-font-unified.css?v=6.8.32"><link rel="stylesheet" href="site-font-unified.css?v=6.8.32"><link rel="stylesheet" href="site-font-unified.css?v=6.8.32"></head>
 <body>
@@ -56,10 +56,10 @@
             <label>أقصى خسارة إجمالية %<input type="number" inputmode="decimal" name="totalPct" step="any" min="0.01" max="100" required></label>
             <label>طريقة التراجع الإجمالي<select name="drawdownMode"><option value="static">ثابت — نسبة من الرصيد الابتدائي</option><option value="trailing">متحرك — نسبة من أعلى رصيد مرجعي مسجل</option></select></label>
             <label id="high-water-field">أعلى رصيد مرجعي مسجل<input type="number" inputmode="decimal" name="highWater" step="any" min="0"></label>
-            <label>المخاطرة المخططة للصفقة القادمة (مبلغ)<input type="number" inputmode="decimal" name="plannedRisk" step="any" min="0"></label>
+            <label>مخاطر الصفقات المفتوحة المتبقية (اختياري)<input type="number" inputmode="decimal" name="reservedRisk" step="any" min="0" placeholder="0 — خسارة إضافية محتملة من Equity الحالي"></label><label>هامش أمان إضافي (اختياري)<input type="number" inputmode="decimal" name="safetyBuffer" step="any" min="0" placeholder="0 — احتياط للرسوم والانزلاق"></label><label>المخاطرة المخططة للصفقة القادمة (مبلغ)<input type="number" inputmode="decimal" name="plannedRisk" step="any" min="0"></label>
           </div>
           <div class="ws-actions"><button class="ws-primary" type="submit">حفظ الحساب وحساب الحدود</button><button type="button" id="day-reset" class="ws-secondary">تعيين مرجع اليوم = الرصيد الحالي</button></div>
-          <p class="ws-footnote">تختلف طريقة احتساب الخسارة اليومية والسحب المتحرك بين الشركات. عند بعض الشركات تتغير قاعدة اليوم بحسب Equity أو توقيت إعادة الضبط، وعند أخرى يتوقف حد التراجع المتحرك بعد بلوغ الرصيد الابتدائي. هذا النموذج لا يفترض تلك التفاصيل؛ أدخل المرجع الصحيح يدويًا.</p>
+          <p class="ws-footnote">تختلف طريقة احتساب الخسارة اليومية والسحب المتحرك بين الشركات. عند بعض الشركات تتغير قاعدة اليوم بحسب Equity أو توقيت إعادة الضبط، وعند أخرى يتوقف حد التراجع المتحرك بعد بلوغ الرصيد الابتدائي. هذا النموذج لا يفترض تلك التفاصيل؛ أدخل المرجع الصحيح يدويًا. مخاطر الصفقات المفتوحة هي خسارتها الإضافية الممكنة من Equity الحالي إلى مستويات الوقف، حتى لا تحتسب الخسائر العائمة الحالية مرتين. أدخل القيم جميعها بعملة الحساب.</p>
         </form>
         <div class="ws-card ws-results"><div class="ws-card-head"><h3>مقياس الأمان</h3><span id="guardian-updated">لم تُدخل بيانات بعد</span></div><div id="guardian-results" aria-live="polite"><div class="ws-placeholder">املأ بيانات الحساب ثم اضغط حفظ لحساب حدود المخاطرة.</div></div></div>
       </div>

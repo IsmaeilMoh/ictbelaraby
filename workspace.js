@@ -3,7 +3,7 @@
 (()=>{
  const STORAGE='ict-workspace-v1';
  const $=id=>document.getElementById(id);
- const defaults={nickname:'',favorite:'XAUUSD',order:['guardian','checklist','sessions','calendar','trades','academy','calculators','markets'],hidden:[],guardian:{accountName:'',currency:'USD',initial:'',balance:'',equity:'',dayStart:'',dailyPct:'',totalPct:'',drawdownMode:'static',highWater:'',plannedRisk:'',updated:null},checks:[
+ const defaults={nickname:'',favorite:'XAUUSD',order:['guardian','checklist','sessions','calendar','trades','academy','calculators','markets'],hidden:[],guardian:{accountName:'',currency:'USD',initial:'',balance:'',equity:'',dayStart:'',dailyPct:'',totalPct:'',drawdownMode:'static',highWater:'',plannedRisk:'',reservedRisk:'',safetyBuffer:'',updated:null},checks:[
  {id:'context',name:'حددت الانحياز العام والسياق على الإطار الأعلى',done:false},
  {id:'liquidity',name:'حددت السيولة المستهدفة أو التي جرى سحبها',done:false},
  {id:'structure',name:'لدي تأكيد واضح على الهيكل السعري (MSS / Displacement)',done:false},
@@ -76,25 +76,15 @@
  function toggleHighWater(){const trailing=form.elements.namedItem('drawdownMode').value==='trailing';$('high-water-field').hidden=!trailing}
  form.elements.namedItem('drawdownMode').addEventListener('change',toggleHighWater);
  function guardianRead(){const next={};for(const key of Object.keys(defaults.guardian)){if(key==='updated')continue;const el=form.elements.namedItem(key);next[key]=String(el?.value??'').trim()}next.updated=new Date().toISOString();return next}
- function guardianMath(g){
-  const keys=['initial','balance','equity','dayStart','dailyPct','totalPct','plannedRisk'];if(g.drawdownMode==='trailing')keys.push('highWater');
-  if(keys.some(k=>!validNumber(g[k])))return {error:'أدخل كل القيم الرقمية المطلوبة قبل الحساب، بما فيها مخاطرة الصفقة المخطط لها.'};
-  const n=Object.fromEntries(keys.map(k=>[k,Number(g[k])]));
-  if(n.initial<=0||n.balance<0||n.equity<0||n.dayStart<=0||n.dailyPct<=0||n.dailyPct>100||n.totalPct<=0||n.totalPct>100||n.plannedRisk<0)return {error:'راجع القيم: الرصيد الابتدائي ومرجع اليوم موجبان، ونسب الحدود أكبر من صفر ولا تتجاوز 100%.'};
-  if(g.drawdownMode==='trailing'&&n.highWater<Math.max(n.initial,n.balance))return {error:'أعلى رصيد مرجعي لا يمكن أن يقل عن الرصيد الابتدائي أو الحالي. تحقق من بيانات حسابك.'};
-  const totalBase=g.drawdownMode==='trailing'?n.highWater:n.initial;
-  const dailyFloor=n.dayStart*(1-n.dailyPct/100),totalFloor=totalBase*(1-n.totalPct/100);
-  const dailyRemaining=n.equity-dailyFloor,totalRemaining=n.equity-totalFloor,allowed=Math.min(dailyRemaining,totalRemaining);
-  return {n,dailyFloor,totalFloor,dailyRemaining,totalRemaining,allowed,after:n.equity-n.plannedRisk,atRisk:allowed<=0||n.plannedRisk>allowed,totalBase};
- }
+ function guardianMath(g){return window.ICTGuardianLimits.calculate(g)}
  function stat(label,value){const wrap=node('div','ws-stat');wrap.append(node('small','',label),node('strong','',value));return wrap}
  function renderGuardian(){const root=$('guardian-results');root.replaceChildren();const g=model.guardian,res=guardianMath(g);$('guardian-updated').textContent=g.updated?'آخر حفظ: '+new Date(g.updated).toLocaleString('ar-u-nu-latn'):'قيم افتراضية قابلة للتعديل';if(res.error){root.append(node('p','ws-danger',res.error));return}
-  const {n,dailyFloor,totalFloor,dailyRemaining,totalRemaining,allowed,after,atRisk}=res;
+  const {n,dailyFloor,totalFloor,dailyRemaining,totalRemaining,rawAllowed,allowed,after,atRisk}=res;
   const status=allowed<=0?'تجاوزت أحد الحدود المدخلة':atRisk?'الصفقة المخطط لها قد تتجاوز حدًا من الحدود':'ضمن الحدود المدخلة نظريًا';root.append(node('h3',atRisk?'ws-danger':'ws-safe',status));
-  const grid=node('div','ws-stat-grid');grid.append(stat('الحد الأدنى اليومي',money(dailyFloor,g.currency)),stat('حد الحساب الإجمالي',money(totalFloor,g.currency)),stat('المتبقي للخسارة اليومية',money(dailyRemaining,g.currency)),stat('المتبقي للخسارة الإجمالية',money(totalRemaining,g.currency)),stat('المتاح وفق الحد الأكثر تشددًا',money(allowed,g.currency)),stat('القيمة بعد خسارة الصفقة المخططة',money(after,g.currency)));root.append(grid);
+  const grid=node('div','ws-stat-grid');grid.append(stat('الحد الأدنى اليومي',money(dailyFloor,g.currency)),stat('حد الحساب الإجمالي',money(totalFloor,g.currency)),stat('المتبقي للخسارة اليومية',money(dailyRemaining,g.currency)),stat('المتبقي للخسارة الإجمالية',money(totalRemaining,g.currency)),stat('المساحة قبل الاحتياطات',money(rawAllowed,g.currency)),stat('المخاطر المحجوزة',money(n.reservedRisk,g.currency)),stat('هامش الأمان',money(n.safetyBuffer,g.currency)),stat('المتاح للصفقة القادمة بعد الاحتياطات',money(allowed,g.currency)),stat('القيمة بعد خسارة الصفقة المخططة',money(after,g.currency)));root.append(grid);
   const percent=n.plannedRisk>0&&allowed>0?n.plannedRisk/allowed*100:(allowed<=0?100:0);
   const meter=node('div','ws-meter'+(atRisk?' is-danger':percent>=75?' is-warn':''));const fill=node('span');fill.style.width=Math.max(0,Math.min(100,percent))+'%';meter.append(fill);root.append(node('p','ws-mini','المخاطرة المخططة كنسبة من المساحة المتاحة: '+integer(percent)+'%'),meter);
-  root.append(node('p','ws-risk-note','حدود الحساب محسوبة وفق Equity المدخلة الآن. الربح/الخسارة العائمة قد تغير المساحة المتاحة، ولا يشمل النموذج رسوم التداول أو قواعد إعادة الضبط الخاصة بكل شركة.'));
+  root.append(node('p','ws-risk-note','تُحسب المساحة من Equity المدخلة وتُخصم المخاطر الإضافية للصفقات المفتوحة وهامش الأمان. لا تضف الخسارة العائمة الحالية مرة ثانية. المقياس لا يتصل بحساب الوسيط؛ تأكد من تحديث الأرقام وقواعد إعادة الضبط قبل كل صفقة.'));
  }
  form.addEventListener('submit',e=>{e.preventDefault();const g=guardianRead(),r=guardianMath(g);if(r.error){notify(r.error);return}model.guardian=g;storageSave();renderGuardian();notify('تم حفظ بيانات الحساب وحساب الحدود')});
  $('day-reset').addEventListener('click',()=>{if(!confirm('تعيين مرجع بداية اليوم مساويًا للرصيد الحالي؟ افعل هذا فقط إذا كان مطابقًا لقواعد شركتك.'))return;form.elements.namedItem('dayStart').value=form.elements.namedItem('balance').value;notify('تم تحديث الحقل. اضغط حفظ لإعادة الحساب')});
