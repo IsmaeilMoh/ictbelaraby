@@ -12,3 +12,10 @@
 .academy-question button.academy-correct{border-color:var(--green);background:var(--accent-soft)}
 .academy-question button.academy-incorrect{border-color:var(--red)}
 @media(max-width:650px){.academy-notes{grid-template-columns:1fr}.academy-tracks{flex-wrap:nowrap;overflow-x:auto;padding-bottom:4px}.academy-tracks button{flex:0 0 auto}.academy-actions>*{flex:1 1 100%;text-align:center}}
+
+/* 6.8.65 — Contextual course-to-tool bridge; theme-aware and mobile friendly */
+.academy-bridge{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;padding:12px 14px;margin:15px 0;border:1px solid var(--line);border-radius:14px;background:var(--surface)}
+.academy-bridge strong{display:block;font-size:14px;color:var(--ink)}
+.academy-bridge p{font-size:12px;color:var(--muted);line-height:1.7;margin:4px 0 0}
+.academy-bridge-link{display:inline-flex;align-items:center;justify-content:center;min-height:40px;padding:8px 12px;border:1px solid var(--green);border-radius:11px;color:var(--ink);font-size:12px;font-weight:700;text-decoration:none}
+@media(max-width:650px){.academy-bridge-link{width:100%}}

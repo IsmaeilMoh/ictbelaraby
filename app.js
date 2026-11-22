@@ -478,6 +478,20 @@ const academyStudy={
 };
 const academyTracks=[{id:'start',label:'الأساسيات',ids:['liq','premium','kz']},{id:'build',label:'بناء النموذج',ids:['structure','fvg','ob']},{id:'advanced',label:'التطبيق المتقدم',ids:['ote','sb']}];
 let academySelected='liq', academyTrack='all';
+// 6.8.65: readonly contextual navigation from research to the corresponding public lesson.
+try { const lessonParam=new URLSearchParams(location.search).get('lesson');
+  if(academyLessons.some(item=>item.id===lessonParam)) academySelected=lessonParam;
+} catch {} 
+const academyDestinations={
+ liq:{url:'research.html?concept=liq',label:'افحص سحب السيولة في مختبر الأبحاث'},
+ structure:{url:'research.html?concept=structure',label:'راجع مفهوم MSS داخل المختبر'},
+ fvg:{url:'research.html?concept=fvg',label:'استكشف FVG في مختبر الأبحاث'},
+ ob:{url:'research.html?concept=ob',label:'وثّق مثال Order Block في مكتبة النماذج'},
+ premium:{url:'research.html?concept=premium',label:'طبّق النطاقات على مخطط تاريخي'},
+ ote:{url:'research.html?concept=ote',label:'راجع مناطق التصحيح على شموع تاريخية'},
+ kz:{url:'./#ict',label:'افتح أوقات جلسات ICT'},
+ sb:{url:'research.html?concept=sb',label:'راجع Silver Bullet مع بيانات تاريخية'}
+};
 function academyDone(){try{const raw=JSON.parse(localStorage.getItem('ict-academy-completed')||'[]');return Array.isArray(raw)?raw.filter(id=>academyLessons.some(l=>l.id===id)):[]}catch{return []}}
 function academyProgressHTML(done){const count=academyLessons.filter(x=>done.includes(x.id)).length;return `تقدمك: <strong>${count} من ${academyLessons.length}</strong> دروس · ${Math.round(count/academyLessons.length*100)}%<div class="academy-progress-track" role="progressbar" aria-label="نسبة إكمال الدروس" aria-valuenow="${count}" aria-valuemin="0" aria-valuemax="${academyLessons.length}"><span style="width:${100*count/academyLessons.length}%"></span></div>`}
 function ictAcademy(){
@@ -491,6 +505,7 @@ function ictAcademy(){
  <article class="academy-content card"><div class="academy-topline"><span class="tag">${escapeHTML(current.tag)}</span><span class="subtle">الدرس ${ix+1} من ${academyLessons.length}</span></div><h2>${escapeHTML(current.title)}</h2><p>${escapeHTML(current.body)}</p>
  <div class="academy-notes"><section><h3>هدف الدرس</h3><p>${escapeHTML(study.goal)}</p></section><section><h3>مثال توضيحي</h3><p>${escapeHTML(study.example)}</p></section><section><h3>خطأ شائع</h3><p>${escapeHTML(study.mistake)}</p></section><section><h3>تدريب على الشارت</h3><p>${escapeHTML(study.practice)}</p></section></div>
  <div class="academy-question"><strong>اختبر فهمك</strong><p>${escapeHTML(current.q)}</p>${current.opts.map((v,i)=>`<button type="button" data-quiz="${i}" data-lesson-id="${current.id}">${escapeHTML(v)}</button>`).join('')}<div id="academy-feedback" role="status" aria-live="polite">${done.includes(current.id)?'✓ أنهيت هذا الدرس سابقًا. يمكنك مراجعته أو إعادة الإجابة.':''}</div></div>
+ <div class="academy-bridge"><div><strong>تطبيق ما تعلمته</strong><p>انتقل إلى الأداة المرتبطة بالدرس. البيانات العامة جاهزة من الموقع؛ اختبر الشروط بنفسك، ولا تُنشأ أي صفقة تلقائيًا.</p></div><a class="academy-bridge-link" href="${academyDestinations[current.id].url}">${escapeHTML(academyDestinations[current.id].label)} ←</a></div>
  <div class="academy-actions"><button type="button" data-academy-next="${next.id}" class="btn">${done.length===academyLessons.length?'مراجعة الدرس التالي':'الدرس التالي غير المكتمل'} ←</button><button type="button" data-academy-revisit="1" class="academy-secondary">مراجعة الدروس المكتملة</button></div><p class="subtle">التقدم محفوظ على جهازك فقط؛ لا يلزم حساب أو رفع ملفات. الأمثلة تعليمية وليست إشارات تداول.</p></article></div>`;
 }
 function academyAnswer(id,index){
