@@ -165,6 +165,51 @@ let sessionCategory='all';
 
 
 // 6.8.67: Only lower homepage tool shortcuts. Protected hero and Market Pulse remain untouched.
+// 6.8.72: Read-only unified search; it searches content already supplied by the website.
+// No uploads, external index, extra public API, or tracking of search queries.
+let siteSearchCategory='all';
+const siteSearchTools=[
+ ['أكاديمية ICT','دروس السيولة MSS FVG Order Blocks OTE Silver Bullet Kill Zones','درس','./#academy'],
+ ['مختبر الأبحاث التاريخية','شموع واختبار الاستراتيجيات آلة الزمن','أداة','research.html'],
+ ['رادار الأسواق وأشعة السوق','حركة الأسعار الارتباط الذهب الدولار','أداة','intelligence.html'],
+ ['حارس الحساب الممول','حسابات المخاطرة الخسارة اليومية الثابتة والمتحركة','أداة','workspace.html'],
+ ['رحلة الصفقة الذكية','دخول وقف خسارة هدف حساب اللوت إدارة المخاطرة','أداة','workflow.html'],
+ ['Trader DNA وسجل الصفقات','إحصائيات أداء المتداول الأرباح الخسائر R','أداة','smart-desk.html#dna'],
+ ['دليل الأصول المالية','الذهب XAUUSD EURUSD GBPUSD USDJPY NAS100 BTCUSD','أداة','assets.html'],
+ ['الأجندة الاقتصادية','الأخبار الاقتصادية المتوقعة عالية التأثير موعد الفائدة CPI NFP','أداة','./#agenda'],
+ ['قراءة نتائج الأخبار','التضخم الوظائف مفاجأة الأخبار الاقتصادي','أداة','./#intelligence'],
+ ['جلسات ICT وKill Zones','جلسة لندن نيويورك Silver Bullet','أداة','./#ict'],
+ ['حاسبات التداول','حجم اللوت المخاطرة العائد إلى المخاطرة','أداة','./#calculators'],
+ ['التوصيات والتحليلات','توصيات شراء بيع التحليلات الفنية الأهداف','أداة','./#recs']
+];
+function siteSearchSection(){return `<section class="site-search" aria-label="البحث في الموقع"><details id="site-search-details"><summary><span class="site-search-icon" aria-hidden="true">⌕</span><span><strong>ابحث في ICT بالعربي</strong><small>دروس، أدوات، توصيات، تحليلات، وأخبار منشورة</small></span><span class="site-search-chevron" aria-hidden="true">⌄</span></summary><div class="site-search-body"><label for="site-search-input">اكتب اسم مفهوم ICT أو أصل أو أداة</label><div class="site-search-controls"><input type="search" id="site-search-input" placeholder="مثلاً: FVG أو الذهب أو التضخم" autocomplete="off" maxlength="100" aria-controls="site-search-results"><select id="site-search-category" aria-label="نوع نتائج البحث"><option value="all">كل المحتوى</option><option value="أداة">الأدوات</option><option value="درس">الدروس</option><option value="توصية">التوصيات</option><option value="تحليل">التحليلات</option><option value="خبر">الأخبار</option><option value="أجندة">الأجندة</option></select></div><p class="site-search-help">البحث في المحتوى المتاح بالموقع؛ لا يستعلم عن الويب ولا يضيف أخبارًا غير منشورة.</p><div id="site-search-results" class="site-search-results" aria-live="polite" aria-atomic="true"><p class="site-search-empty">ابدأ بالكتابة لعرض النتائج.</p></div></div></details></section>`}
+function normalizeSiteSearch(value){return String(value??'').toLowerCase().normalize('NFKC').replace(/[\u064b-\u065f\u0670\u0640]/g,'').replace(/[أإآ]/g,'ا').replace(/ى/g,'ي').replace(/ة/g,'ه').replace(/[^\p{L}\p{N}]+/gu,' ').trim()}
+function siteSearchEntries(){
+ const result=siteSearchTools.map(([title,body,type,url])=>({title,body,type,url}));
+ for(const l of academyLessons) result.push({title:l.title,body:[l.body,academyStudy[l.id]?.goal,academyStudy[l.id]?.example,l.tag].join(' '),type:'درس',url:'./?lesson='+encodeURIComponent(l.id)+'#academy'});
+ for(const r of S.recs||[]){if(r.sample)continue;result.push({title:r.title||r.pair||'توصية',body:[r.pair,r.note,r.dir,r.entry,r.sl,r.tp].join(' '),type:'توصية',url:'./#recs',tab:'signals',when:r.published_at||r.date})}
+ for(const x of S.analyses||[]) result.push({title:x.title||x.asset||'تحليل فني',body:[x.asset,x.summary,x.body,x.timeframe].join(' '),type:'تحليل',url:'./#recs',tab:'analysis',when:x.updated_at||x.published_at});
+ for(const n of S.news||[])result.push({title:n.title||'خبر اقتصادي',body:[n.sum,n.src,n.tag].join(' '),type:'خبر',url:'./#news',when:n.date});
+ const events=[...(S.liveEvents||[]),...(S.nextEvents||[])];const seen=new Set();
+ for(const e of events){const key=[e.id,e.title,e.dt?.getTime?.()].join('|');if(seen.has(key))continue;seen.add(key);result.push({title:e.title||'حدث اقتصادي',body:[e.country,e.currency,e.impact].join(' '),type:'أجندة',url:'./#agenda',when:e.dt?.toISOString?.()})}
+ return result;
+}
+function performSiteSearch(){
+ const input=$('site-search-input'),host=$('site-search-results');if(!input||!host)return;
+ const term=normalizeSiteSearch(input.value),tokens=term.split(/\s+/).filter(Boolean);
+ if(term.length<2){host.innerHTML='<p class="site-search-empty">اكتب حرفين على الأقل لعرض نتائج البحث.</p>';return}
+ const matches=siteSearchEntries().filter(x=>siteSearchCategory==='all'||siteSearchCategory===x.type).map(x=>{
+  const title=normalizeSiteSearch(x.title),body=normalizeSiteSearch(x.body);
+  const score=tokens.reduce((s,t)=>s+(title.includes(t)?5:body.includes(t)?1:0),0);
+  return {...x,score};
+ }).filter(x=>x.score>0).sort((a,b)=>b.score-a.score||(Date.parse(b.when||0)||0)-(Date.parse(a.when||0)||0)).slice(0,16);
+ if(!matches.length){host.innerHTML='<p class="site-search-empty">لا توجد نتائج مطابقة في المحتوى المتاح. جرّب رمز الأصل أو اسم الدرس بالإنجليزية.</p>';return}
+ host.innerHTML=`<p class="site-search-count">عرض ${matches.length} نتيجة كحد أقصى. اختر النتيجة لفتح القسم.</p><div class="site-search-list">${matches.map(x=>`<a class="site-search-result" href="${escapeHTML(x.url)}" ${x.tab?`data-site-search-tab="${escapeHTML(x.tab)}"`:''}><span class="site-search-type">${escapeHTML(x.type)}</span><strong>${escapeHTML(x.title)}</strong><span class="site-search-link" aria-hidden="true">←</span></a>`).join('')}</div>`;
+}
+document.addEventListener('input',e=>{if(e.target.id==='site-search-input')performSiteSearch()});
+document.addEventListener('change',e=>{if(e.target.id==='site-search-category'){siteSearchCategory=e.target.value;performSiteSearch()}});
+document.addEventListener('click',e=>{const item=e.target.closest('[data-site-search-tab]');if(item){state.contentTab=item.dataset.siteSearchTab;state.analysisStatus='all';state.rf='all';if(location.hash==='#recs')render()}});
+
 let homeToolsMode='essential';
 function applyHomeToolsFilter(){
  const panel=document.querySelector('.home-tools-browser');if(!panel)return;
@@ -175,7 +220,7 @@ function applyHomeToolsFilter(){
  const hint=panel.querySelector('#home-tools-hint');if(hint)hint.textContent=homeToolsMode==='essential'?`عرض ${visible} أدوات مختارة من أصل ${cards.length}. اختر «جميع الأدوات» لإظهار البقية.`:`عرض ${visible} من ${cards.length} أداة. جميع الخدمات متاحة من هذه الفلاتر.`;
 }
 function home(){
- return `<section class="welcome welcome-news-layout"><div class="hero-news-column">${heroSlider()}</div><div class="welcome-aside pulse-desk" id="market-pulse" aria-label="ملخص الأسواق والأخبار والجلسات">${marketPulse()}</div></section>${operationsRoom()}
+ return `<section class="welcome welcome-news-layout"><div class="hero-news-column">${heroSlider()}</div><div class="welcome-aside pulse-desk" id="market-pulse" aria-label="ملخص الأسواق والأخبار والجلسات">${marketPulse()}</div></section>${operationsRoom()}${siteSearchSection()}
  <div class="section-title home-tools-title"><div><span class="eyebrow">QUICK ACCESS</span><h2 id="home-tools-heading">مركز التداول</h2></div><span class="subtle">اختر نوع الأداة؛ جميع الخدمات متاحة داخل الموقع</span></div>
  <section class="home-tools-browser" aria-labelledby="home-tools-heading"><div class="home-tools-filters" role="group" aria-label="تصفية أدوات مركز التداول"><button type="button" data-home-tool="essential" aria-pressed="true">الأساسية</button><button type="button" data-home-tool="trade" aria-pressed="false">إدارة التداول</button><button type="button" data-home-tool="market" aria-pressed="false">الأسواق والأخبار</button><button type="button" data-home-tool="learn" aria-pressed="false">التعلم والأبحاث</button><button type="button" data-home-tool="all" aria-pressed="false">جميع الأدوات</button></div><p class="home-tools-hint" id="home-tools-hint" aria-live="polite">أدوات مختارة للبدء؛ بقية الأدوات متاحة من الفلاتر.</p><div class="tool-grid" id="home-tools-grid"><a class="tool-card" href="assets.html" data-tool-category="market" data-tool-featured="false"><span class="tool-glyph">◉</span><strong>دليل الأصول المالية</strong><span>صفحات مستقلة للذهب والعملات والمؤشرات</span><b>تصفح الأصول ←</b></a><a class="tool-card" href="workflow.html" data-tool-category="trade" data-tool-featured="true"><span class="tool-glyph">◈</span><strong>رحلة الصفقة الذكية</strong><span>من التوصية إلى المراجعة والحاسبة وسجل النتائج</span><b>افتح الأداة ←</b></a><a class="tool-card" href="smart-desk.html" data-tool-category="trade" data-tool-featured="true"><span class="tool-glyph">◈</span><strong>غرفة المتداول الذكية</strong><span>Trader DNA، البحث في محتوى الموقع، ومتابعة الأخبار والتوصيات</span><b>افتح الغرفة ←</b></a><a class="tool-card" href="research.html" data-tool-category="learn" data-tool-featured="true"><span class="tool-glyph">▣</span><strong>مختبر الأبحاث التاريخية</strong><span>اختبار الاستراتيجيات وآلة الزمن ومكتبة نماذج ICT</span><b>ابدأ البحث ←</b></a><a class="tool-card" href="intelligence.html" data-tool-category="market" data-tool-featured="true"><span class="tool-glyph">◉</span><strong>مختبر ذكاء الأسواق</strong><span>رادار المتابعة وأشعة السوق ورد فعل الأخبار</span><b>افتح المختبر ←</b></a><a class="tool-card" href="workspace.html" data-tool-category="trade" data-tool-featured="false"><span class="tool-glyph">✦</span><strong>مساحتي الخاصة</strong><span>حارس الحساب الممول ومراجعة الصفقة وتخصيص الأدوات</span><b>افتح مساحتي ←</b></a><a class="tool-card" href="#calculators" data-tool-category="trade" data-tool-featured="false"><span class="tool-glyph">◉</span><strong>حاسبات المخاطرة</strong><span>حجم الصفقة والعائد إلى المخاطرة</span><b>افتح الحاسبات ←</b></a><a class="tool-card" href="#intelligence" data-tool-category="market" data-tool-featured="false"><span class="tool-glyph">◈</span><strong>قراءة نتائج الأخبار</strong><span>قارن نتائج الأحداث الاقتصادية</span><b>استكشف ←</b></a><a class="tool-card" href="#academy" data-tool-category="learn" data-tool-featured="true"><span class="tool-glyph">▣</span><strong>أكاديمية ICT</strong><span>دروس واختبارات تفاعلية</span><b>ابدأ التعلم ←</b></a><a class="tool-card" href="#markets" data-tool-category="market" data-tool-featured="false"><span class="tool-glyph">▥</span><strong>مراقبة الأسواق</strong><span>خريطة حرارية ومخطط تفاعلي</span><b>استكشف ←</b></a><a class="tool-card" href="#agenda" data-tool-category="market" data-tool-featured="false"><span class="tool-glyph">▦</span><strong>الأجندة الاقتصادية</strong><span>بحث وتصفية حسب الأهمية</span><b>استكشف ←</b></a><a class="tool-card" href="#ict" data-tool-category="learn" data-tool-featured="false"><span class="tool-glyph">◎</span><strong>جلسات ICT</strong><span>أوقات نيويورك وKill Zones</span><b>استكشف ←</b></a><a class="tool-card" href="#recs" data-tool-category="trade" data-tool-featured="false"><span class="tool-glyph">↗</span><strong>التوصيات</strong><span>المستويات والحالات والأرشيف</span><b>استكشف ←</b></a></div></section>
  ${notificationCenter('compact')}`;
