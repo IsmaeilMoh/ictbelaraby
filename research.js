@@ -236,7 +236,7 @@ function applyHistorySelection(){
  const symbol=$('public-history-symbol').value,tf=$('public-history-timeframe').value;
  const raw=sourceRows(symbol,tf),step=INTERVAL_MS[tf],kind=feedMarkets[symbol]||'crypto';
  if(!Array.isArray(raw)||!step)throw Error('هذا الأصل أو الإطار غير منشور من المصدر.');
- if(raw.length<60||raw.length>1500)throw Error('عدد الشموع في المصدر غير مناسب.');
+ if(raw.length<60||raw.length>5000)throw Error('عدد الشموع في المصدر غير مناسب.');
  const valid=loadBars('time,open,high,low,close\n'+raw.map(row=>row.join(',')).join('\n'));
  const gaps=valid.reduce((n,b,i)=>n+(i>0&&Date.parse(b.time)-Date.parse(valid[i-1].time)!==step?1:0),0);
  if(kind==='crypto'&&gaps)throw Error('توجد فجوات زمنية في شموع العملات الرقمية؛ تم رفض الاختبار.');
@@ -247,7 +247,7 @@ function applyHistorySelection(){
  const fromMs=from?Date.parse(from+'T00:00:00Z'):-Infinity;
  const toMs=to?Date.parse(to+'T00:00:00Z')+86400000:Infinity;
  const chosen=valid.filter(b=>{const t=Date.parse(b.time);return t>=fromMs&&t<toMs;});
- $('history-coverage').textContent=`تغطية المصدر المتاحة: ${valid[0].time.slice(0,16)} إلى ${valid.at(-1).time.slice(0,16)} UTC · ${valid.length} شمعة · انقطاعات جلسات/سوق ${gaps}. فترة الاختبار: ${chosen.length} شمعة. لا تتوفر شموع خارج هذه الحدود.`;
+ $('history-coverage').textContent=`تغطية المصدر المتاحة: ${valid[0].time.slice(0,16)} إلى ${valid.at(-1).time.slice(0,16)} UTC · ${valid.length} شمعة · انقطاعات جلسات/سوق ${gaps}. العمق يعتمد على رصيد المصدر وتغطيته. فترة الاختبار: ${chosen.length} شمعة. لا تتوفر شموع خارج هذه الحدود.`;
  if(chosen.length<60)throw Error('الفترة المحددة تحتوي أقل من 60 شمعة؛ وسّع نطاق التاريخ أو غيّر الإطار.');
  bars=chosen;results=[];metadata={symbol,timeframe:tf,timezone:'UTC',source:feedSources[symbol]?.source||publicFeed.source,updatedAt:feedSources[symbol]?.updatedAt||publicFeed.updatedAt,marketKind:kind};
  $('data-symbol').value=symbol;
