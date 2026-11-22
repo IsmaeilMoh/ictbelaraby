@@ -1,0 +1,27 @@
+name: Update public historical research candles
+on:
+  schedule:
+    - cron: '41 */6 * * *'
+  workflow_dispatch:
+permissions:
+  contents: write
+concurrency:
+  group: public-historical-candles
+  cancel-in-progress: false
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Retrieve real spot candles
+        run: python scripts/update_historical_candles.py
+      - name: Publish new verified observations
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add historical-candles.json
+          git diff --cached --quiet || (git commit -m 'data: update public research candles' && git pull --rebase && git push)
