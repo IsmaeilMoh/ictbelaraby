@@ -266,7 +266,93 @@ function initEventWatch(){
  asset.addEventListener('change',eventWatchSummary);
  $('event-plan-save').addEventListener('click',eventWatchSave);
  $('event-plan-open').addEventListener('click',eventWatchOpenNews);
- renderEventWatch();
+ renderEventWatch();scenarioRenderUpcoming();
+}
+
+
+// 6.8.97: Local scenario journal. Pre-event assertions and post-event reflections are separate.
+const scenarioKey='ict-event-scenarios-v1';
+let scenarioSelectedId='',scenarioHistoryId='';
+const scenarioFields=['higher','lower','equal','risk'];
+const scenarioLabel={higher:'أعلى من المتوقع',lower:'أقل من المتوقع',equal:'مطابق أو قريب',other:'حركة مختلفة', 'no-trade':'لم أتداول / لم أتابع'};
+function scenarioRecords(){const x=stored(scenarioKey,{});return x&&typeof x==='object'&&!Array.isArray(x)?x:{}}
+function scenarioIdentity(e){return [e?.currency||'',String(e?.title||'').trim().toLowerCase(),e?.date||''].join('|')}
+function scenarioEvent(){return eventWatchUpcoming().find(e=>e.id===scenarioSelectedId)||null}
+function scenarioCurrentRecord(){return scenarioRecords()[scenarioHistoryId]||null}
+function scenarioSourceEvent(record){return combinedNews().find(e=>scenarioIdentity(e)===record.identity)||null}
+function scenarioHasActual(e){return Boolean(e&&e.actual!=null&&!['','—','-','null','undefined','n/a'].includes(String(e.actual).trim().toLowerCase()))}
+function scenarioIsBefore(record){return Number.isFinite(Date.parse(record?.date))&&Date.now()<Date.parse(record.date)}
+function scenarioStatus(id,text){const x=$(id);if(x)x.textContent=text}
+function scenarioSetFields(record){for(const f of scenarioFields){const el=$('scenario-'+f);if(el)el.value=String(record?.fields?.[f]||'').slice(0,240)}}
+function scenarioRenderHistory(){
+ const records=scenarioRecords(),rows=Object.entries(records).filter(([,r])=>r&&r.title&&r.date).sort((a,b)=>String(b[1].savedAt||'').localeCompare(String(a[1].savedAt||''))).slice(0,50);
+ const sel=$('scenario-history'),preferred=scenarioHistoryId;
+ sel.replaceChildren();const empty=document.createElement('option');empty.value='';empty.textContent=rows.length?'اختر السيناريو للمراجعة':'لا توجد سيناريوهات محفوظة';sel.append(empty);
+ for(const [id,r] of rows){const option=document.createElement('option');option.value=id;option.textContent=`${r.currency||''} · ${r.title} · ${when(r.date)}`;sel.add(option)}
+ scenarioHistoryId=rows.some(([id])=>id===preferred)?preferred:(rows[0]?.[0]||'');sel.value=scenarioHistoryId;
+ scenarioRenderReview();
+}
+function scenarioRenderReview(){
+ const r=scenarioCurrentRecord(),snapshot=$('scenario-review-snapshot'),save=$('scenario-review-save');
+ if(!r){snapshot.textContent='لا توجد سيناريوهات محفوظة للمراجعة.';save.disabled=true;$('scenario-observed').value='';$('scenario-review-notes').value='';scenarioStatus('scenario-review-status','');return}
+ const e=scenarioSourceEvent(r),passed=!scenarioIsBefore(r),actual=scenarioHasActual(e)?String(e.actual):null;
+ const compare=actual?compareEvent(e):{comparable:false};
+ const verdict=!actual?'النتيجة الفعلية غير منشورة في المصدر المتاح':compare.comparable?(compare.difference>0?'النتيجة أعلى حسابيًا من المتوقع':compare.difference<0?'النتيجة أقل حسابيًا من المتوقع':'النتيجة مطابقة حسابيًا للتوقع'):'النتيجة منشورة، لكن لا تتوفر مقارنة رقمية صالحة';
+ snapshot.replaceChildren();
+ const title=document.createElement('strong');title.textContent=`${r.currency||''} · ${r.title}`;snapshot.append(title);
+ for(const message of [`الموعد المسجل: ${when(r.date)} · الأصل: ${r.asset||'—'}`,`المتوقع المحفوظ وقت إعداد السيناريو: ${r.forecast||'—'} · الفعلي من المصدر: ${actual||'—'}`,verdict,`خُزنت السيناريوهات: ${when(r.savedAt)}`]){const line=document.createElement('div');line.textContent=message;snapshot.append(line)}
+ for(const field of ['higher','lower','equal','risk']){if(r.fields?.[field]){const line=document.createElement('p');line.textContent=`${field==='risk'?'حدود المخاطرة':scenarioLabel[field]}: ${r.fields[field]}`;snapshot.append(line)}}
+ const observed=$('scenario-observed'),notes=$('scenario-review-notes');observed.value=r.review?.observed||'';notes.value=r.review?.notes||'';
+ observed.disabled=!passed;notes.disabled=!passed;save.disabled=!passed;
+ scenarioStatus('scenario-review-status',passed?'الحدث تجاوز موعده المسجل؛ أضف مراجعتك اليدوية. غياب النتيجة الفعلية لا يمنع تدوين ما شاهدته، لكنه لا يؤكد نتيجتها.':'لم يحن موعد الخبر المسجل بعد. السيناريوهات السابقة محفوظة ومفتوحة للقراءة فقط هنا.');
+}
+function scenarioRestoreEditor(){
+ const e=scenarioEvent(),records=scenarioRecords(),record=e?records[e.id]:null,save=$('scenario-save');
+ if(!e){$('scenario-snapshot').textContent='لا تتوفر أخبار قادمة مناسبة لإنشاء سيناريو الآن.';scenarioSetFields(null);save.disabled=true;scenarioStatus('scenario-save-status','');return}
+ scenarioSetFields(record);
+ $('scenario-snapshot').textContent=`${e.currency} · ${e.title} · ${when(e.date)} · المتوقع المنشور: ${e.forecast} · السابق: ${e.previous} · الأصل: ${$('event-plan-asset').value}`;
+ save.disabled=false;scenarioStatus('scenario-save-status',record?'سيناريو محفوظ. يمكن تعديله حتى موعد الخبر المسجل.':'لم تُحفظ سيناريوهات لهذا الخبر بعد.');
+}
+function scenarioRenderUpcoming(){
+ const pick=$('scenario-event'),items=eventWatchUpcoming(),prev=scenarioSelectedId;
+ const oldOptions=[...pick.options].map(o=>o.value).filter(Boolean).join('|');
+ const newOptions=items.map(e=>e.id).join('|');
+ if(oldOptions===newOptions && items.some(e=>e.id===prev)){scenarioRenderHistory();return}
+ pick.replaceChildren();if(!items.length){const empty=document.createElement('option');empty.value='';empty.textContent='لا توجد أخبار قادمة متاحة';pick.append(empty);scenarioSelectedId='';scenarioRestoreEditor();scenarioRenderHistory();return}
+ items.forEach(e=>{const o=document.createElement('option');o.value=e.id;o.textContent=`${e.currency} · ${e.title} · ${when(e.date)}`;pick.append(o)});
+ scenarioSelectedId=items.some(e=>e.id===prev)?prev:items[0].id;pick.value=scenarioSelectedId;
+ scenarioRestoreEditor();scenarioRenderHistory();
+}
+function scenarioSave(){
+ const e=scenarioEvent();if(!e||Date.parse(e.date)<=Date.now()){scenarioStatus('scenario-save-status','لا يمكن حفظ توقع جديد بعد موعد الخبر.');return}
+ const records=scenarioRecords(),existing=records[e.id];
+ const fields=Object.fromEntries(scenarioFields.map(f=>[f,$('scenario-'+f).value.trim().slice(0,240)]));
+ if(!Object.values(fields).some(Boolean)){scenarioStatus('scenario-save-status','اكتب سيناريو أو حدًا للمخاطرة قبل الحفظ.');return}
+ const entry={id:e.id,identity:scenarioIdentity(e),date:e.date,title:e.title,currency:e.currency,asset:$('event-plan-asset').value,forecast:e.forecast,previous:e.previous,fields,savedAt:new Date().toISOString(),review:existing?.review||null};
+ records[e.id]=entry;
+ const rows=Object.entries(records).sort((a,b)=>String(b[1]?.savedAt||'').localeCompare(String(a[1]?.savedAt||''))).slice(0,50);
+ if(setStored(scenarioKey,Object.fromEntries(rows))){scenarioHistoryId=e.id;scenarioRenderHistory();scenarioStatus('scenario-save-status','تم حفظ السيناريوهات بتاريخ ووقت الحفظ على هذا الجهاز.')}else scenarioStatus('scenario-save-status','تعذر الحفظ المحلي؛ قد تكون المساحة أو صلاحيات التخزين غير متاحة.');
+}
+function scenarioSaveReview(){
+ const records=scenarioRecords(),r=records[scenarioHistoryId];if(!r)return;
+ if(scenarioIsBefore(r)){scenarioStatus('scenario-review-status','مراجعة ما بعد الخبر لا تُحفظ قبل الموعد المسجل.');return}
+ const observed=$('scenario-observed').value,notes=$('scenario-review-notes').value.trim().slice(0,400);
+ if(!observed||!notes){scenarioStatus('scenario-review-status','اختر ما لاحظته على الشارت واكتب درسًا أو ملاحظة قبل الحفظ.');return}
+ r.review={observed,notes,savedAt:new Date().toISOString()};
+ scenarioStatus('scenario-review-status',setStored(scenarioKey,records)?'تم حفظ مراجعة ما بعد الخبر بصورة منفصلة عن السيناريو الأصلي.':'تعذر حفظ المراجعة على الجهاز.');
+}
+function scenarioOpenNews(){
+ const e=scenarioEvent();if(!e)return;
+ eventWatchSelected=e.id;eventWatchOpenNews();
+}
+function initScenarios(){
+ $('scenario-event').addEventListener('change',e=>{scenarioSelectedId=e.target.value;scenarioRestoreEditor()});
+ $('scenario-history').addEventListener('change',e=>{scenarioHistoryId=e.target.value;scenarioRenderReview()});
+ $('scenario-save').addEventListener('click',scenarioSave);
+ $('scenario-review-save').addEventListener('click',scenarioSaveReview);
+ $('scenario-open-news').addEventListener('click',scenarioOpenNews);
+ $('event-plan-asset').addEventListener('change',()=>{const e=scenarioEvent();if(e)scenarioRestoreEditor()});
+ scenarioRenderUpcoming();
 }
 
 async function refreshMarketSources(){
@@ -276,9 +362,9 @@ async function refreshMarketSources(){
  moversAt=m?.updatedAt||null;
  movers=Array.isArray(m?.items)?m.items.filter(x=>allowed.includes(x.symbol)&&Number.isFinite(Number(x.change))).map(x=>({symbol:x.symbol,label:x.label,category:String(x.category||''),quotedAt:x.quotedAt||m?.updatedAt,change:Number(x.change),price:(x.price!=null&&Number.isFinite(Number(x.price))&&Number(x.price)>0)?Number(x.price):null,proxy:Boolean(x.proxy)})):[];
  calendarAt=c?.updated_at||c?.updatedAt||null;events=normalizeEvents(c);
- xrayFeed=x;renderRadar();newsOptions();renderReactionHistory();renderXray();renderEventWatch();
+ xrayFeed=x;renderRadar();newsOptions();renderReactionHistory();renderXray();renderEventWatch();scenarioRenderUpcoming();
 }
 async function boot(){initTabs();$('radar-asset').innerHTML=allowed.map(s=>`<option value="${s}">${s}</option>`).join('');$('radar-asset').value=selected;$('radar-asset').addEventListener('change',e=>selectRadar(e.target.value));const radarSaved=stored(radarPrefsKey,{});for(const [id,key] of [['radar-window','window'],['radar-group','group'],['radar-direction','direction']]){const el=$(id);if(el&&Array.from(el.options).some(o=>o.value===radarSaved[key]))el.value=radarSaved[key];el?.addEventListener('change',()=>{setStored(radarPrefsKey,radarFilter());renderRadar()});}$('save-radar').addEventListener('click',saveChecks);$('reset-radar').addEventListener('click',resetChecks);$('xray-set').addEventListener('change',renderXray);$('xray-symbol').addEventListener('change',renderChart);$('news-select').addEventListener('change',renderNewsReview);initEconomicResults();loadPublicOfficialResults();setInterval(loadPublicOfficialResults,30*60*1000);$('reaction-form').addEventListener('submit',saveReaction);$('export-reactions').addEventListener('click',exportReactions);
- initEventWatch();await refreshMarketSources();setInterval(refreshMarketSources,10*60*1000);}
+ initEventWatch();initScenarios();await refreshMarketSources();setInterval(refreshMarketSources,10*60*1000);}
 
 boot();
