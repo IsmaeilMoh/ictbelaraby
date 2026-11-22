@@ -18,9 +18,11 @@ jobs:
           python-version: '3.12'
       - name: Fetch curated multi-asset quotes
         run: python scripts/update_movers.py
+      - name: Fetch intraday radar candles (optional)
+        run: python scripts/update_radar.py
       - name: Commit updated feed
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add market-movers.json
+          git add market-movers.json market-radar.json
           git diff --cached --quiet || (git commit -m "chore: update market movers" && git pull --rebase && git push)
