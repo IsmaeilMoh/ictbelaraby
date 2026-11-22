@@ -1,0 +1,8 @@
+/* 6.8.89 — Source provenance, limited to smart desk live panel */
+#tab-live .desk-data-provenance{margin:12px 0 17px;min-width:0}
+#tab-live .desk-provenance-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}
+#tab-live .desk-provenance-grid>div{border:1px solid var(--line);border-radius:12px;background:var(--surface);padding:12px;min-width:0;display:flex;flex-direction:column;gap:5px}
+#tab-live .desk-provenance-grid strong{font-size:13px}
+#tab-live .desk-provenance-grid span,#tab-live .desk-provenance-grid small{font-size:11px;line-height:1.7;color:var(--muted);overflow-wrap:anywhere}
+#tab-live .desk-provenance-grid a{font-size:12px;text-decoration:underline;text-underline-offset:3px}
+@media(max-width:660px){#tab-live .desk-provenance-grid{grid-template-columns:1fr}}
