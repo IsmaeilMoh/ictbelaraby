@@ -2,10 +2,35 @@
 <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"><meta name="theme-color" content="#111c20">
 <meta name="description" content="مختبر أبحاث ICT بالعربي: اختبار استراتيجيات على بيانات شموع، إعادة تشغيل تاريخية ومكتبة نماذج شخصية."><title>مختبر الأبحاث التاريخية | ICT بالعربي</title>
 <link rel="stylesheet" href="research-study.css?v=6.8.59"><link rel="icon" href="icon-192.png"><link rel="stylesheet" href="research.css?v=6.8.59"><script defer src="research.js?v=6.8.59"></script><link rel="stylesheet" href="platform.css?v=5.4.0"><script defer src="platform.js?v=5.4.0"></script><link rel="stylesheet" href="unified-theme.css?v=6.8.34"><link rel="stylesheet" href="bento-glass.css?v=6.8.5"><link rel="stylesheet" href="design-consistency.css?v=6.8.6"><link rel="stylesheet" href="interaction-harmony.css?v=6.8.8"><link rel="stylesheet" href="light-contrast.css?v=6.8.11"><link rel="stylesheet" href="ui-icons.css?v=6.8.22">
-<script src="unified-theme.js?v=6.8.31"></script><link rel="stylesheet" href="ui-icons.css?v=6.8.27"><link rel="stylesheet" href="site-unity.css?v=6.8.34"><script defer src="ui-icons.js?v=6.8.27"></script><script defer src="site-unity.js?v=6.8.31"></script><link rel="stylesheet" href="typography.css?v=6.8.29"><link rel="stylesheet" href="site-typography-nav-fix.css?v=6.8.31"><link rel="stylesheet" href="site-font-unified.css?v=6.8.32"><link rel="stylesheet" href="site-font-unified.css?v=6.8.32"><link rel="stylesheet" href="site-font-unified.css?v=6.8.32"><link rel="stylesheet" href="site-font-unified.css?v=6.8.32"><link rel="stylesheet" href="mobile-usability-6868.css?v=6.8.68"></head><body class="ict6868-tools-page">
+<script src="unified-theme.js?v=6.8.31"></script><link rel="stylesheet" href="ui-icons.css?v=6.8.27"><link rel="stylesheet" href="site-unity.css?v=6.8.34"><script defer src="ui-icons.js?v=6.8.27"></script><script defer src="site-unity.js?v=6.8.31"></script><link rel="stylesheet" href="typography.css?v=6.8.29"><link rel="stylesheet" href="site-typography-nav-fix.css?v=6.8.31"><link rel="stylesheet" href="site-font-unified.css?v=6.8.32"><link rel="stylesheet" href="site-font-unified.css?v=6.8.32"><link rel="stylesheet" href="site-font-unified.css?v=6.8.32"><link rel="stylesheet" href="site-font-unified.css?v=6.8.32"><link rel="stylesheet" href="mobile-usability-6868.css?v=6.8.68">
+<style id="ict6880-playbook-styles">
+/* ICT 6.8.80: educational model catalog, scoped entirely to research pattern panel */
+#panel-patterns .ict-playbook{border:1px solid var(--line);background:var(--card,var(--surface,#15252b));border-radius:15px;padding:clamp(12px,2vw,20px);margin:0 0 18px}
+#panel-patterns .ict-playbook-head{display:flex;justify-content:space-between;align-items:start;gap:10px;flex-wrap:wrap}
+#panel-patterns .ict-playbook-head h3{margin:0 0 5px;font-size:1.12rem}
+#panel-patterns .ict-playbook-head p{margin:0 0 12px;line-height:1.8;color:var(--muted)}
+#panel-patterns .ict-playbook-count{font-size:.76rem;padding:5px 10px;border:1px solid var(--line);border-radius:99px;white-space:nowrap}
+#panel-patterns .ict-playbook-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+#panel-patterns details.ict-playbook-item{min-width:0;border:1px solid var(--line);border-radius:12px;background:rgba(130,192,167,.045);overflow:hidden}
+#panel-patterns details.ict-playbook-item summary{cursor:pointer;list-style:none;padding:13px 14px;display:flex;justify-content:space-between;gap:10px;align-items:center}
+#panel-patterns details.ict-playbook-item summary::-webkit-details-marker{display:none}
+#panel-patterns details.ict-playbook-item summary::after{content:'+';font-size:1.2rem;flex:none;color:var(--muted)}
+#panel-patterns details.ict-playbook-item[open] summary::after{content:'−'}
+#panel-patterns .ict-playbook-title{font-weight:800;line-height:1.55;font-size:.92rem}
+#panel-patterns .ict-playbook-subtitle{display:block;color:var(--muted);font-size:.75rem;font-weight:400;margin-top:3px}
+#panel-patterns .ict-playbook-body{padding:0 14px 14px;font-size:.83rem;line-height:1.9;overflow-wrap:anywhere}
+#panel-patterns .ict-playbook-body h4{font-size:.83rem;margin:12px 0 3px;color:var(--ink,#eaf5ef)}
+#panel-patterns .ict-playbook-body ul{margin:3px 0;padding-inline-start:19px}
+#panel-patterns .ict-playbook-body li{margin:2px 0}
+#panel-patterns .ict-playbook-body p{margin:4px 0 9px}
+#panel-patterns .ict-playbook-body a{display:inline-block;margin-top:7px;color:var(--green,#80dfb3);text-decoration:underline;text-underline-offset:4px}
+#panel-patterns .ict-playbook-warning{font-size:.76rem;line-height:1.8;border-inline-start:3px solid #cb934b;padding:9px 12px;margin-top:14px;background:rgba(203,147,75,.08);border-radius:8px}
+#panel-patterns .ict-personal-title{margin:18px 0 12px;font-size:1.07rem}
+@media(max-width:720px){#panel-patterns .ict-playbook-grid{grid-template-columns:1fr}#panel-patterns details.ict-playbook-item summary{padding:11px 12px}#panel-patterns .ict-playbook-body{padding:0 12px 12px}}
+</style></head><body class="ict6868-tools-page">
 <header class="topbar"><div class="wrap header-inner"><a href="./#home" class="brand"><img src="logo-original.jpeg" width="43" height="43" alt="ICT بالعربي"><span><strong>ICT بالعربي</strong></span></a><nav><a href="./#home">الرئيسية</a><a href="intelligence.html">ذكاء الأسواق</a><a href="workspace.html">مساحتي</a></nav><a class="go-home" href="./#home">العودة للموقع ↗</a></div></header>
 <main class="wrap">
-<section class="hero"><div><span class="eyebrow">ICT بالعربي / RESEARCH LAB 6.8.59</span><h1>مختبر الأبحاث التاريخية</h1><p>اختبر قواعد تداول قابلة للقياس، وأعد تشغيل الشموع بدون كشف المستقبل، ثم وثّق نماذجك في مكتبة شخصية.</p></div><div class="hero-note"><span class="signal-dot"></span><div><strong>بيانات جاهزة للبحث</strong><small>تحميل تلقائي من الموقع، دون طلب ملفات من الزائر</small></div></div></section>
+<section class="hero"><div><span class="eyebrow">ICT بالعربي / RESEARCH LAB</span><h1>مختبر الأبحاث التاريخية</h1><p>اختبر قواعد تداول قابلة للقياس، وأعد تشغيل الشموع بدون كشف المستقبل، ثم وثّق نماذجك في مكتبة شخصية.</p></div><div class="hero-note"><span class="signal-dot"></span><div><strong>بيانات جاهزة للبحث</strong><small>تحميل تلقائي من الموقع، دون طلب ملفات من الزائر</small></div></div></section>
 <section id="course-bridge" class="card" hidden aria-label="رابط الدرس التعليمي" style="padding:12px 15px;margin:12px 0;line-height:1.8"><strong id="course-bridge-title"></strong><p id="course-bridge-copy" style="margin:5px 0;color:var(--muted)"></p><a id="course-bridge-back" href="./#academy" class="go-home">العودة للدرس في الأكاديمية ←</a></section>
 <div class="notice">هذه أدوات بحث وتعليم، وليست توصيات ولا نتائج أداء فعلية جاهزة. لا يُستخلص نجاح استراتيجية من عينة واحدة، ويجب الانتباه إلى اختلاف الأسعار والسبريد والانزلاق وجودة البيانات.</div>
 <section class="card data-card" aria-labelledby="data-title"><div class="card-head"><div><span class="eyebrow">DATA SOURCE</span><h2 id="data-title">بيانات تاريخية من الموقع</h2></div></div>
@@ -26,6 +51,45 @@
 <div class="card spaced"><div class="card-head"><h3>مذكرة المتداول أثناء الإعادة</h3><span class="tag">تدوين محلي</span></div><textarea id="replay-notes" rows="3" maxlength="700" placeholder="ماذا رأيت قبل ظهور الشمعة التالية؟"></textarea><div class="actions"><button id="replay-save" class="primary" type="button">حفظ الملاحظة في المكتبة</button></div><div id="replay-message" class="message" role="status"></div></div>
 </section>
 <section class="panel" id="panel-patterns" role="tabpanel" hidden><div class="section-head"><div><span class="eyebrow">ICT PATTERN LIBRARY</span><h2>مكتبة نماذجك العملية</h2><p>وثّق أمثلة حقيقية من مراجعتك، بما فيها النماذج الفاشلة، واحفظها محليًا.</p></div><span class="source-status">أرشيف شخصي</span></div>
+
+<section class="ict-playbook" aria-labelledby="ict6880-playbook-heading">
+  <div class="ict-playbook-head"><div><h3 id="ict6880-playbook-heading">دليل نماذج ICT الجاهز</h3><p>مرجع تعليمي متاح لجميع الزوار مباشرة. افتح أي نموذج لمعرفة شروطه وما يُبطله، ثم استخدم آلة الزمن للتدريب.</p></div><span class="ict-playbook-count">6 نماذج تعليمية</span></div>
+  <div class="ict-playbook-grid">
+    <details class="ict-playbook-item"><summary><span><span class="ict-playbook-title">سحب السيولة + تغيّر الهيكل</span><span class="ict-playbook-subtitle" dir="ltr">Liquidity Sweep + MSS</span></span></summary><div class="ict-playbook-body">
+      <h4>السياق</h4><p>قمة أو قاع واضح نسبيًا قد تتجمع حوله أوامر الوقف، مع تحديد اتجاه السوق على الإطار الأكبر.</p>
+      <h4>شروط التكوين</h4><ul><li>يتجاوز السعر مستوى سيولة محددًا بوضوح.</li><li>يظهر رفض أو عودة داخل النطاق، لا مجرد اختراق عابر.</li><li>يحدث كسر لبنية قصيرة المدى في الاتجاه المعاكس للسحب مع اندفاع ملحوظ.</li></ul>
+      <h4>التأكيد والإبطال</h4><p>تُراجع نقطة الدخول بعد كسر الهيكل، وقد تُستخدم عودة إلى منطقة عدم توازن. يُبطل السيناريو أو يحتاج لإعادة تقييم عندما يستمر السعر خلف مستوى السحب أو يفشل كسر الهيكل وفق القاعدة المحددة مسبقًا.</p>
+      <h4>أخطاء شائعة</h4><p>اعتبار أي ذيل شمعة سحبًا للسيولة، أو تسمية كل كسر صغير MSS، أو الدخول قبل ظهور التأكيد.</p><a href="./#academy">مراجعة درس السيولة وMSS في الأكاديمية ←</a>
+    </div></details>
+    <details class="ict-playbook-item"><summary><span><span class="ict-playbook-title">فجوة القيمة العادلة</span><span class="ict-playbook-subtitle" dir="ltr">Fair Value Gap · FVG</span></span></summary><div class="ict-playbook-body">
+      <h4>شروط التكوين</h4><p>في فجوة صعودية من ثلاث شموع، يكون قاع الشمعة الثالثة أعلى قمة الأولى؛ والفجوة الهبوطية بالعكس. وجود اندفاع سياقي يدعم أهمية المنطقة لكنه لا يضمن احترامها.</p>
+      <h4>التأكيد والإبطال</h4><p>تُحدد حدود الفجوة والإطار الزمني وسياق السيولة مسبقًا، ثم تُراقب العودة ورد الفعل. إذا اخترق السعر المنطقة ولم يُظهر الاستجابة المشروطة أو كسر بنية السيناريو، لا تُعد الفجوة وحدها سببًا للدخول.</p>
+      <h4>أخطاء شائعة</h4><p>رسم فجوة بلا شموع ثلاث واضحة، تجاهل حجم الفجوة مقارنة بالتذبذب، أو اختيار فجوات ناجحة فقط من التاريخ.</p><a href="./#academy">مراجعة درس FVG ←</a>
+    </div></details>
+    <details class="ict-playbook-item"><summary><span><span class="ict-playbook-title">كتلة الأوامر</span><span class="ict-playbook-subtitle" dir="ltr">Order Block</span></span></summary><div class="ict-playbook-body">
+      <h4>السياق</h4><p>تُبحث آخر شمعة معاكسة قبل اندفاع مؤثر يغيّر بنية السعر أو يزيح السيولة، وفق تعريف واضح للنموذج.</p>
+      <h4>شروط التحقق</h4><ul><li>وجود اندفاع أو إزاحة سعرية واضحة بعد المنطقة.</li><li>ارتباط المنطقة ببنية وسياق سيولة مفهومين.</li><li>تحديد حدود المنطقة ومعيار إعادة الاختبار مسبقًا.</li></ul>
+      <h4>الإبطال والأخطاء</h4><p>يفقد النموذج صلاحيته عندما يكسر السعر حد الإبطال المحدد أو يغيب شرط السياق. لا تعتبر كل شمعة عكسية Order Block، ولا تُعد العودة إلى المنطقة ضمانًا لارتدادها.</p><a href="./#academy">مراجعة درس Order Blocks ←</a>
+    </div></details>
+    <details class="ict-playbook-item"><summary><span><span class="ict-playbook-title">الانطلاقة الزمنية Silver Bullet</span><span class="ict-playbook-subtitle" dir="ltr">ICT Silver Bullet</span></span></summary><div class="ict-playbook-body">
+      <h4>السياق</h4><p>نموذج يُراقب خلال نوافذ Silver Bullet المحددة بتوقيت نيويورك، وليس كل فجوة تحدث في أي وقت.</p>
+      <h4>شروط البحث</h4><ul><li>تحقق من نافذة الجلسة والتوقيت الصيفي/الشتوي.</li><li>حدد السيولة القريبة والاتجاه المحتمل.</li><li>ابحث عن اندفاع وFVG مناسبة داخل السياق الزمني المحدد.</li></ul>
+      <h4>الإبطال والأخطاء</h4><p>انتهاء النافذة دون تحقق الشروط يعني غياب النموذج، وليس دعوة لملاحقة السعر. تجاهل الأخبار عالية التأثير أو افتراض أن الوقت وحده يصنع فرصة خطأ شائع.</p><a href="./#ict">عرض جلسات ICT ومواعيدها ←</a>
+    </div></details>
+    <details class="ict-playbook-item"><summary><span><span class="ict-playbook-title">الدخول الأمثل OTE</span><span class="ict-playbook-subtitle" dir="ltr">Optimal Trade Entry · OTE</span></span></summary><div class="ict-playbook-body">
+      <h4>شروط التكوين</h4><p>حدد موجة دافعة واضحة واتجاه قياس فيبوناتشي قبل النظر إلى منطقة التصحيح الشائعة بين 0.62 و0.79 من الموجة.</p>
+      <h4>التأكيد والإبطال</h4><p>منطقة OTE نطاق اهتمام لا إشارة مكتفية بذاتها؛ تتطلب سياق سيولة أو بنية وتأكيدًا مستقلًا. يُبطل السيناريو عند كسر الحد البنيوي الذي حُدد مسبقًا.</p>
+      <h4>أخطاء شائعة</h4><p>تغيير طرفي فيبوناتشي بعد رؤية الحركة، أو رسمه على موجات غير متجانسة، أو تجاهل الوقف والمخاطرة.</p><a href="./#academy">مراجعة درس OTE ←</a>
+    </div></details>
+    <details class="ict-playbook-item"><summary><span><span class="ict-playbook-title">النطاق السعري Premium / Discount</span><span class="ict-playbook-subtitle" dir="ltr">Premium &amp; Discount</span></span></summary><div class="ict-playbook-body">
+      <h4>تعريف النموذج</h4><p>اختر قمة وقاع نطاق سعري ذي معنى؛ يُقسم المستوى 50% النطاق إلى نصف علوي Premium ونصف سفلي Discount.</p>
+      <h4>الاستخدام الصحيح</h4><p>يُستخدم هذا التقسيم لتقييم موقع السعر بالنسبة إلى نطاق محدد وسياق الاتجاه والسيولة، لا للتنبؤ وحده بالانعكاس.</p>
+      <h4>الإبطال والأخطاء</h4><p>إذا تغيّر النطاق المرجعي أو اخترق السعر بنيته، يجب تحديث الفرضية. استخدام أي قمتين عشوائيتين أو افتراض أن Discount شراء تلقائيًا من أكثر الأخطاء شيوعًا.</p><a href="./#academy">مراجعة درس Premium &amp; Discount ←</a>
+    </div></details>
+  </div>
+  <p class="ict-playbook-warning">هذه نماذج تفسيرية وتعريفات تعليمية؛ تختلف تفاصيلها بين تطبيقات ICT. لا تختبر المكتبة هذه النماذج آليًا ولا تعرض نسب نجاح لها. مختبر الاستراتيجية الحالي يختبر تقريبًا حسابيًا محددًا فقط، ويظل حجم العينة وتكاليف التداول عاملين أساسيين في تقييم النتائج.</p>
+</section>
+<h3 class="ict-personal-title">مكتبتي الشخصية — أمثلة المتداول</h3>
 <div class="lab-grid"><form id="pattern-form" class="card"><div class="card-head"><h3>إضافة نموذج</h3><span class="tag">بدون نشر عام</span></div><div class="field-grid"><label class="field">الأصل<input name="asset" required maxlength="18" placeholder="XAUUSD"></label><label class="field">الإطار الزمني<input name="timeframe" required maxlength="15" placeholder="15m"></label><label class="field">تاريخ المثال<input type="date" name="date" required></label><label class="field">نوع النموذج<select name="setup"><option>Liquidity Sweep + MSS</option><option>FVG Retracement</option><option>Silver Bullet</option><option>Order Block</option><option>نموذج ICT آخر</option></select></label><label class="field">النتيجة<select name="outcome"><option>قيد الدراسة</option><option>ناجح</option><option>فاشل</option><option>ملغى</option></select></label><label class="field">رابط شارت (اختياري)<input type="url" name="chart" placeholder="https://www.tradingview.com/..." maxlength="400"></label></div><label class="field">ملاحظاتك<textarea name="notes" required maxlength="1000" rows="4" placeholder="ما الذي تحقق؟ ما سبب فشل أو نجاح النموذج؟"></textarea></label><button class="primary" type="submit">حفظ النموذج</button><div id="pattern-message" role="status" class="message"></div></form>
 <div class="card"><div class="card-head"><h3>أرشيف الأمثلة</h3><span id="pattern-count" class="tag">0 نموذج</span></div><div class="pattern-toolbar"><label class="field">تصفية النتيجة<select id="pattern-filter"><option value="all">الكل</option><option>ناجح</option><option>فاشل</option><option>قيد الدراسة</option><option>ملغى</option></select></label><button type="button" class="ghost" id="pattern-export">تصدير JSON</button><label class="ghost import-label">استعادة نماذجي (اختياري)<input type="file" id="pattern-import" accept=".json,application/json" hidden></label></div><div id="pattern-list" class="pattern-list">لا توجد أمثلة محفوظة بعد.</div></div></div>
 </section></main><footer class="wrap footer">ينطوي التداول على مخاطر عالية، تداول بحكمة. © ICT بالعربي · <a href="./#home">الرئيسية</a></footer>
