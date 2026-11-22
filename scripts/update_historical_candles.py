@@ -12,18 +12,19 @@ def get(symbol):
     errors=[]
     for endpoint in HOSTS:
         try:
-            url=endpoint+'?'+urllib.parse.urlencode({'symbol':symbol,'interval':'15m','limit':500})
+            url=endpoint+'?'+urllib.parse.urlencode({'symbol':symbol,'interval':'15m','limit':1000})
             req=urllib.request.Request(url,headers={'User-Agent':'Mozilla/5.0 (ICTArabic research publication)'})
             with urllib.request.urlopen(req,timeout=16) as r: data=json.load(r)
             if not isinstance(data,list): raise ValueError('Malformed klines')
             rows=[]
             for x in data:
-                if not isinstance(x,list) or len(x)<5: continue
+                if not isinstance(x,list) or len(x)<7: continue
+                if int(x[6]) >= int(dt.datetime.now(dt.timezone.utc).timestamp()*1000): continue
                 t=dt.datetime.fromtimestamp(int(x[0])/1000,dt.timezone.utc).isoformat().replace('+00:00','Z')
                 o,h,l,c=[float(v) for v in x[1:5]]
                 if min(o,h,l,c)<=0 or h<max(o,c,l) or l>min(o,c,h): raise ValueError('Bad candle')
                 rows.append([t,o,h,l,c])
-            if len(rows)<300 or any((dt.datetime.fromisoformat(rows[i][0].replace('Z','+00:00'))-dt.datetime.fromisoformat(rows[i-1][0].replace('Z','+00:00'))).total_seconds()!=900 for i in range(1,len(rows))):
+            if len(rows)<600 or any((dt.datetime.fromisoformat(rows[i][0].replace('Z','+00:00'))-dt.datetime.fromisoformat(rows[i-1][0].replace('Z','+00:00'))).total_seconds()!=900 for i in range(1,len(rows))):
                 raise ValueError('Missing or noncontiguous candles')
             return rows
         except Exception as exc:errors.append(str(exc))
