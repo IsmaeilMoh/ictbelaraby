@@ -10,9 +10,18 @@ function cleanDate(v){const d=new Date(v);if(!Number.isFinite(d.getTime())||!/(?
 function loadBars(content){const records=parseCSV(content.replace(/^\ufeff/,''));if(records.length<21)throw Error('يلزم 20 شمعة على الأقل مع صف العناوين.');if(records.length>20001)throw Error('الحد الأقصى 20 ألف شمعة.');const names=records[0].map(x=>x.toLowerCase().replace(/\s/g,''));const get=k=>names.indexOf(k);for(const k of ['time','open','high','low','close'])if(get(k)<0)throw Error('عمود مفقود: '+k);const res=[];for(let j=1;j<records.length;j++){const r=records[j];const time=cleanDate(r[get('time')]);const nums=['open','high','low','close'].map(k=>Number(r[get(k)]));if(nums.some((n,idx)=>!r[get(['open','high','low','close'][idx])]||!Number.isFinite(n)||n<=0))throw Error('سعر غير صالح في الصف '+(j+1));const [open,high,low,close]=nums;if(high<Math.max(open,close,low)||low>Math.min(open,close,high))throw Error('OHLC غير متسق في الصف '+(j+1));if(res.length&&time<=res[res.length-1].time)throw Error('يجب أن تكون الشموع مرتبة زمنيًا دون تكرار، عند الصف '+(j+1));res.push({time,open,high,low,close});}return res;}
 function fmt(n,d=3){return Number(n).toLocaleString('en-US',{maximumFractionDigits:d});}
 function number(id,min,max,integer=false){const v=Number($(id).value);if(!Number.isFinite(v)||v<min||v>max||(integer&&!Number.isInteger(v)))throw Error('قيمة غير صالحة: '+id);return v;}
-function setting(){return{lookback:number('lookback',3,50,true),structure:number('structure',2,15,true),maxAge:number('sweep-age',0,15,true),rr:number('rr',.5,10),hold:number('hold',1,250,true),fee:number('fee',0,1),side:$('trade-side').value};}
+function setting(){return{lookback:number('lookback',3,50,true),structure:number('structure',2,15,true),maxAge:number('sweep-age',0,15,true),rr:number('rr',.5,10),hold:number('hold',1,250,true),fee:number('fee',0,1),side:$('trade-side').value,session:$('research-session').value};}
 function recentSweep(i,side,opts){let hit=-1,extreme=null;const minAt=Math.max(opts.lookback+1,i-opts.maxAge);for(let k=i;k>=minAt;k--){const prev=bars.slice(k-opts.lookback,k);if(prev.length<opts.lookback)continue;if(side==='long'){const threshold=Math.min(...prev.map(x=>x.low));if(bars[k].low<threshold&&bars[k].close>threshold){hit=k;extreme=bars[k].low;break;}}else{const threshold=Math.max(...prev.map(x=>x.high));if(bars[k].high>threshold&&bars[k].close<threshold){hit=k;extreme=bars[k].high;break;}}}return hit>=0?{hit,extreme}:null;}
-function signal(i,side,opts){if(i<Math.max(opts.lookback+opts.maxAge+2,opts.structure+2,4))return null;const sw=recentSweep(i,side,opts);if(!sw)return null;const bar=bars[i],swing=bars.slice(i-opts.structure,i);if(side==='long'){
+const NY_CLOCK = new Intl.DateTimeFormat('en-GB',{timeZone:'America/New_York',hour:'2-digit',minute:'2-digit',hourCycle:'h23'});
+function inSession(time,session){if(session==='all')return true;const parts=NY_CLOCK.formatToParts(new Date(time));const h=Number(parts.find(p=>p.type==='hour')?.value),m=Number(parts.find(p=>p.type==='minute')?.value);if(!Number.isFinite(h+m))return false;const minute=h*60+m;const bounds={london:[120,300],newyork:[420,600],silver:[600,660]}[session];return !!bounds&&minute>=bounds[0]&&minute<bounds[1];}
+function signal(i,side,opts){
+ if(!inSession(bars[i].time,opts.session))return null;
+ // Do not build a signal using pre-closure candles when markets have been shut.
+ if(metadata.marketKind && metadata.marketKind!=='crypto'){
+  const step=INTERVAL_MS[metadata.timeframe],lower=Math.max(1,i-Math.max(opts.lookback+opts.maxAge+3,opts.structure+3));
+  for(let k=lower;k<=i;k++)if(Date.parse(bars[k].time)-Date.parse(bars[k-1].time)>step*1.5)return null;
+ }
+if(i<Math.max(opts.lookback+opts.maxAge+2,opts.structure+2,4))return null;const sw=recentSweep(i,side,opts);if(!sw)return null;const bar=bars[i],swing=bars.slice(i-opts.structure,i);if(side==='long'){
  if(!(bar.close>Math.max(...swing.map(x=>x.high))))return null;
  if(!(bar.low>bars[i-2].high))return null;
  const stop=Math.min(...bars.slice(sw.hit,i+1).map(x=>x.low));return{stop,side,signalAt:i,sweepAt:sw.hit};
@@ -20,7 +29,7 @@ function signal(i,side,opts){if(i<Math.max(opts.lookback+opts.maxAge+2,opts.stru
  if(!(bar.close<Math.min(...swing.map(x=>x.low))))return null;
  if(!(bar.high<bars[i-2].low))return null;
  const stop=Math.max(...bars.slice(sw.hit,i+1).map(x=>x.high));return{stop,side,signalAt:i,sweepAt:sw.hit};}
-function backtest(){if(!bars.length)throw Error('بيانات الشموع غير متاحة بعد؛ راجع حالة المصدر.');const opts=setting();const out=[];const start=Math.max(opts.lookback+opts.maxAge+3,opts.structure+3,5);const sides=opts.side==='both'?['long','short']:[opts.side];for(let i=start;i<bars.length-1;){let sig=null;for(const side of sides){sig=signal(i,side,opts);if(sig)break;}if(!sig){i++;continue;}const entryAt=i+1,entry=bars[entryAt].open,side=sig.side,risk=side==='long'?entry-sig.stop:sig.stop-entry;if(!(risk>0&&Number.isFinite(risk))){i++;continue;}const tp=side==='long'?entry+risk*opts.rr:entry-risk*opts.rr;if(tp<=0){i++;continue;}const last=Math.min(bars.length-1,entryAt+opts.hold-1);let closeAt=last,exit=bars[last].close,reason='timeout';for(let k=entryAt;k<=last;k++){const b=bars[k];const slHit=side==='long'?b.low<=sig.stop:b.high>=sig.stop;const tpHit=side==='long'?b.high>=tp:b.low<=tp;if(slHit){closeAt=k;exit=b.open<=sig.stop&&side==='long'?b.open:b.open>=sig.stop&&side==='short'?b.open:sig.stop;reason=tpHit?'both→SL':'SL';break;}if(tpHit){closeAt=k;exit=tp;reason='TP';break;}}const gross=(side==='long'?(exit-entry):(entry-exit))/risk;out.push({side,signalTime:bars[i].time,entryTime:bars[entryAt].time,exitTime:bars[closeAt].time,entry,stop:sig.stop,tp,exit,grossR:gross,netR:gross-opts.fee,reason,sweepTime:bars[sig.sweepAt].time});i=Math.max(i+1,closeAt+1);}return out;}
+function backtest(){if(!bars.length)throw Error('بيانات الشموع غير متاحة بعد؛ راجع حالة المصدر.');const opts=setting();if(opts.session!=='all'&&metadata.timeframe==='1d')throw Error('لا يمكن تطبيق Kill Zones على شموع يومية؛ اختر إطارًا داخل اليوم.');const out=[];const start=Math.max(opts.lookback+opts.maxAge+3,opts.structure+3,5);const sides=opts.side==='both'?['long','short']:[opts.side];for(let i=start;i<bars.length-1;){let sig=null;for(const side of sides){sig=signal(i,side,opts);if(sig)break;}if(!sig){i++;continue;}const entryAt=i+1,entry=bars[entryAt].open,side=sig.side,risk=side==='long'?entry-sig.stop:sig.stop-entry;if(!(risk>0&&Number.isFinite(risk))){i++;continue;}const tp=side==='long'?entry+risk*opts.rr:entry-risk*opts.rr;if(tp<=0){i++;continue;}const last=Math.min(bars.length-1,entryAt+opts.hold-1);let closeAt=last,exit=bars[last].close,reason='timeout';for(let k=entryAt;k<=last;k++){const b=bars[k];const slHit=side==='long'?b.low<=sig.stop:b.high>=sig.stop;const tpHit=side==='long'?b.high>=tp:b.low<=tp;if(slHit){closeAt=k;exit=b.open<=sig.stop&&side==='long'?b.open:b.open>=sig.stop&&side==='short'?b.open:sig.stop;reason=tpHit?'both→SL':'SL';break;}if(tpHit){closeAt=k;exit=tp;reason='TP';break;}}const gross=(side==='long'?(exit-entry):(entry-exit))/risk;out.push({side,signalTime:bars[i].time,entryTime:bars[entryAt].time,exitTime:bars[closeAt].time,entry,stop:sig.stop,tp,exit,grossR:gross,netR:gross-opts.fee,reason,sweepTime:bars[sig.sweepAt].time});i=Math.max(i+1,closeAt+1);}return out;}
 function stats(trades){const wins=trades.filter(x=>x.netR>0),losses=trades.filter(x=>x.netR<=0);const net=trades.reduce((t,x)=>t+x.netR,0);let equity=0,peak=0,maxDD=0;for(const t of trades){equity+=t.netR;peak=Math.max(peak,equity);maxDD=Math.max(maxDD,peak-equity);}const grossPos=trades.reduce((s,x)=>s+Math.max(0,x.netR),0),grossNeg=trades.reduce((s,x)=>s+Math.max(0,-x.netR),0);return[{name:'عدد الصفقات',v:String(trades.length)},{name:'نسبة الصفقات الرابحة',v:fmt(100*wins.length/trades.length,1)+'%'},{name:'صافي العائد',v:fmt(net,2)+' R'},{name:'متوسط الصفقة',v:fmt(net/trades.length,3)+' R'},{name:'أكبر تراجع متسلسل',v:fmt(maxDD,2)+' R'},{name:'Profit Factor',v:grossNeg>0?fmt(grossPos/grossNeg,2):'غير محدد'}];}
 function sampleMetrics(trades){
  const n=trades.length, net=trades.reduce((sum,t)=>sum+t.netR,0), wins=trades.filter(t=>t.netR>0).length;
@@ -56,12 +65,12 @@ $('export-trades').addEventListener('click',()=>{if(!results.length)return;const
 // 6.8.98: dataset catalog is taken from verified published arrays; no fictitious forex/CFD prices.
 const INTERVAL_MS={'5m':300000,'15m':900000,'1h':3600000,'4h':14400000,'1d':86400000};
 const INTERVAL_LABEL={'5m':'5 دقائق','15m':'15 دقيقة','1h':'ساعة','4h':'4 ساعات','1d':'يوم'};
-let publicFeed=null,feedBusy=false,loadToken=0;
+let publicFeed=null,feedBusy=false,loadToken=0,feedSources={},feedMarkets={};
 function availableCatalog(feed){
  const catalog={};
- if(feed?.version===2&&feed?.source==='Binance spot public API'&&feed?.assets&&typeof feed.assets==='object'){
+ if(feed?.version===2&&['Binance spot public API','Research verified multi-source'].includes(feed?.source)&&feed?.assets&&typeof feed.assets==='object'){
   for(const [symbol,intervals] of Object.entries(feed.assets)){
-   if(!/^[A-Z0-9]{3,15}$/.test(symbol)||!intervals||typeof intervals!=='object'||Array.isArray(intervals))continue;
+   if(!/^[A-Z0-9_]{3,24}$/.test(symbol)||!intervals||typeof intervals!=='object'||Array.isArray(intervals))continue;
    const list=Object.keys(intervals).filter(tf=>INTERVAL_MS[tf]&&Array.isArray(intervals[tf])&&intervals[tf].length>=60);
    if(list.length)catalog[symbol]=list;
   }
@@ -86,37 +95,60 @@ function sourceRows(symbol,tf){const feed=publicFeed;return feed?.version===2?fe
 function setHistoryFailure(message){bars=[];results=[];metadata={};stopReplay();$('backtest-results').textContent='لا يمكن احتساب اختبار دون شموع موثوقة ضمن الفترة المختارة.';$('backtest-trades').textContent='';$('export-trades').disabled=true;setStatus('data-status',message,true);drawReplay();}
 function applyHistorySelection(){
  const symbol=$('public-history-symbol').value,tf=$('public-history-timeframe').value;
- const raw=sourceRows(symbol,tf),step=INTERVAL_MS[tf];
+ const raw=sourceRows(symbol,tf),step=INTERVAL_MS[tf],kind=feedMarkets[symbol]||'crypto';
  if(!Array.isArray(raw)||!step)throw Error('هذا الأصل أو الإطار غير منشور من المصدر.');
  if(raw.length<60||raw.length>1500)throw Error('عدد الشموع في المصدر غير مناسب.');
  const valid=loadBars('time,open,high,low,close\n'+raw.map(row=>row.join(',')).join('\n'));
- if(valid.some((b,i)=>i>0&&Date.parse(b.time)-Date.parse(valid[i-1].time)!==step))throw Error('توجد فجوات زمنية في الشموع؛ تم رفض اختبار السلسلة.');
+ const gaps=valid.reduce((n,b,i)=>n+(i>0&&Date.parse(b.time)-Date.parse(valid[i-1].time)!==step?1:0),0);
+ if(kind==='crypto'&&gaps)throw Error('توجد فجوات زمنية في شموع العملات الرقمية؛ تم رفض الاختبار.');
+ // Exchange closures in forex/indices are genuine non-trading intervals, never synthetic bars.
+ if(kind!=='crypto'&&valid.some((b,i)=>i>0&&(Date.parse(b.time)-Date.parse(valid[i-1].time)<step||Date.parse(b.time)-Date.parse(valid[i-1].time)>step*120)))throw Error('فجوات زمنية غير مقبولة في مصدر السوق.');
  const from=$('public-history-from').value,to=$('public-history-to').value;
  if(from&&to&&from>to)throw Error('تاريخ البداية يجب أن يسبق تاريخ النهاية.');
  const fromMs=from?Date.parse(from+'T00:00:00Z'):-Infinity;
  const toMs=to?Date.parse(to+'T00:00:00Z')+86400000:Infinity;
  const chosen=valid.filter(b=>{const t=Date.parse(b.time);return t>=fromMs&&t<toMs;});
- $('history-coverage').textContent=`تغطية المصدر المتاحة: ${valid[0].time.slice(0,16)} إلى ${valid.at(-1).time.slice(0,16)} UTC · ${valid.length} شمعة. فترة الاختبار: ${chosen.length} شمعة. لا تتوفر شموع خارج هذه الحدود.`;
+ $('history-coverage').textContent=`تغطية المصدر المتاحة: ${valid[0].time.slice(0,16)} إلى ${valid.at(-1).time.slice(0,16)} UTC · ${valid.length} شمعة · انقطاعات جلسات/سوق ${gaps}. فترة الاختبار: ${chosen.length} شمعة. لا تتوفر شموع خارج هذه الحدود.`;
  if(chosen.length<60)throw Error('الفترة المحددة تحتوي أقل من 60 شمعة؛ وسّع نطاق التاريخ أو غيّر الإطار.');
- bars=chosen;results=[];metadata={symbol,timeframe:tf,timezone:'UTC',source:publicFeed.source,updatedAt:publicFeed.updatedAt};
+ bars=chosen;results=[];metadata={symbol,timeframe:tf,timezone:'UTC',source:feedSources[symbol]?.source||publicFeed.source,updatedAt:feedSources[symbol]?.updatedAt||publicFeed.updatedAt,marketKind:kind};
  $('data-symbol').value=symbol;
  $('backtest-trades').textContent='';$('export-trades').disabled=true;resetReplay();
- setStatus('data-status',`تم التحقق من ${bars.length} شمعة حقيقية · ${symbol} · ${tf} · ${publicFeed.source} · تحديث الملف ${publicFeed.updatedAt}`);
+ setStatus('data-status',`تم التحقق من ${bars.length} شمعة حقيقية · ${symbol} · ${tf} · ${metadata.source} · تحديث الملف ${metadata.updatedAt}`);
  results=backtest();showResults();
+}
+async function readHistoryFile(name,optional=false){
+ const response=await fetch(name+'?t='+Date.now(),{cache:'no-store'});
+ if(!response.ok){if(optional)return null;throw Error('تعذر الوصول إلى '+name);}
+ const feed=await response.json();const age=Date.now()-Date.parse(feed.updatedAt);
+ if(!Number.isFinite(age)||age< -600000||age>48*3600000)throw Error('ملف '+name+' قديم أو يفتقد تاريخ تحديث صالح.');
+ return feed;
 }
 async function loadPublicHistory(){
  if(feedBusy)return;
- feedBusy=true;const token=++loadToken;stopReplay();setStatus('data-status','جارٍ قراءة ملف البيانات العامة والتحقق منه…');
+ feedBusy=true;const token=++loadToken;stopReplay();setStatus('data-status','جارٍ قراءة مصادر البيانات والتحقق من شموعها…');
  try{
-  const response=await fetch('historical-candles.json?t='+Date.now(),{cache:'no-store'});
-  if(!response.ok)throw Error('تعذر الوصول إلى ملف البيانات العامة.');
-  const feed=await response.json();
-  const age=Date.now()-Date.parse(feed.updatedAt);
-  if(!Number.isFinite(age)||age< -600000||age>48*3600000)throw Error('ملف البيانات أقدم من 48 ساعة أو يفتقد تاريخ تحديث صالح.');
-  if(!Object.keys(availableCatalog(feed)).length)throw Error('لم ينشر المصدر بيانات مدعومة قابلة للاختبار.');
+  // External feed is optional; a failing provider must not disable the crypto feed.
+  const [primary,external]=await Promise.allSettled([
+   readHistoryFile('historical-candles.json'),readHistoryFile('historical-multi-market.json',true)
+  ]);
+  const crypto=primary.status==='fulfilled'?primary.value:null;
+  const cross=external.status==='fulfilled'?external.value:null;
+  const validCrypto=crypto&&Object.keys(availableCatalog(crypto)).length>0;
+  const validCross=cross&&cross.version===2&&cross.source==='Twelve Data time_series'&&cross.assets&&typeof cross.assets==='object';
+  const sources={},markets={},assets={};
+  if(validCrypto){for(const [name,rows] of Object.entries(crypto.assets)){assets[name]=crypto.version===2?rows:{'15m':rows};sources[name]={source:crypto.source,updatedAt:crypto.updatedAt};markets[name]='crypto';}}
+  if(validCross){for(const [name,rows] of Object.entries(cross.assets)){
+    if(!/^[A-Z0-9_]{3,24}$/.test(name)||!rows||typeof rows!=='object'||Array.isArray(rows))continue;
+    const allowed=Object.keys(rows).filter(tf=>INTERVAL_MS[tf]&&Array.isArray(rows[tf])&&rows[tf].length>=60);
+    if(!allowed.length)continue;
+    assets[name]=Object.fromEntries(allowed.map(tf=>[tf,rows[tf]]));
+    sources[name]={source:'Twelve Data time_series',updatedAt:cross.updatedAt};markets[name]=cross.marketKinds?.[name]||'other';
+  }}
+  if(!Object.keys(assets).length)throw Error('لا تتوفر شموع حديثة قابلة للاختبار من المصادر.');
   if(token!==loadToken)return;
-  publicFeed=feed;updateCatalog();
-  try{applyHistorySelection();}catch(e){setHistoryFailure(e.message);}
+  publicFeed={version:2,source:'Research verified multi-source',updatedAt:new Date().toISOString(),assets};feedSources=sources;feedMarkets=markets;
+  const label=$('market-data-provenance');if(label)label.textContent=validCross?'مصادر متاحة: Binance Spot للعملات الرقمية وTwelve Data للذهب/الفوركس/مراجع المؤشرات بحسب التغطية الفعلية. أسماء مراجع المؤشرات النقدية ليست عقود NAS100/US500/DJ30.':'لم تُنشر بيانات الذهب والفوركس والمؤشرات بعد؛ يلزم تفعيل TWELVEDATA_API_KEY وتشغيل مهمة تحديث الأسواق المتعددة، مع صلاحية وترخيص مناسبين.';
+  updateCatalog();try{applyHistorySelection();}catch(e){setHistoryFailure(e.message);}
  }catch(error){publicFeed=null;setHistoryFailure('البيانات غير متاحة تلقائيًا: '+error.message);}
  finally{feedBusy=false;}
 }
