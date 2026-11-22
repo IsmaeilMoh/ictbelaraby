@@ -111,7 +111,7 @@ function showRuleComparison(){
   node.innerHTML='<p class="micro-note">مقارنة أربع صيغ على نفس الأصل والإطار ونفس التكاليف. النتائج على آخر 30% من الشموع فقط، وقد تتأثر بانحياز الاختيار عند تكرار التجارب. لا تساوي احتمالات نجاح مستقبلية.</p><div class="research-samples">'+cards.join('')+'</div>';
  }finally{[mss.checked,fvg.checked]=before;}
 }
-$('run-test').addEventListener('click',()=>{try{results=backtest();showResults();$('rule-comparison').textContent='اضغط مقارنة القواعد لرؤية أثر تغيير التأكيدات.';$('risk-sensitivity').textContent='اضغط اختبار الحساسية لمراجعة تغير النتائج مع الوقف والهدف.';}catch(e){results=[];setStatus('data-status',e.message,true);$('export-trades').disabled=true;}});
+$('run-test').addEventListener('click',()=>{try{results=backtest();showResults();$('rule-comparison').textContent='اضغط مقارنة القواعد لرؤية أثر تغيير التأكيدات.';$('risk-sensitivity').textContent='اضغط اختبار الحساسية لمراجعة تغير النتائج مع الوقف والهدف.';$('research-stability').textContent='اضغط فحص الاستقرار لتحليل توزيع النتائج على الفترات التاريخية.';}catch(e){results=[];setStatus('data-status',e.message,true);$('export-trades').disabled=true;}});
 function compareRiskSensitivity(){
  const node=$('risk-sensitivity');if(!node)return;
  if(bars.length<50)throw Error('عدد الشموع غير كافٍ لاختبار الحساسية.');
@@ -133,6 +133,72 @@ function compareRiskSensitivity(){
 }
 $('compare-risk').addEventListener('click',()=>{try{compareRiskSensitivity();}catch(e){setStatus('data-status',e.message,true);}});
 $('compare-rules').addEventListener('click',()=>{try{showRuleComparison();}catch(e){setStatus('data-status',e.message,true);}});
+
+// 6.9.02: Observed-sample diagnostics, not a forecast or optimization selector.
+// Wilson interval is defined for binary outcomes only; it is NOT a confidence band for expectancy.
+function wilson95(successes,n){
+ if(!n)return null;
+ const z=1.95996398454,p=successes/n,den=1+z*z/n;
+ const mid=(p+z*z/(2*n))/den;
+ const half=z*Math.sqrt((p*(1-p)+z*z/(4*n))/n)/den;
+ return [Math.max(0,100*(mid-half)),Math.min(100,100*(mid+half))];
+}
+function stabilityDiagnostics(trades,candles){
+ if(!candles.length)return {segments:[],n:0,warnings:['لا توجد بيانات تاريخية كافية.']};
+ const limits=[0,Math.floor(candles.length/3),Math.floor(2*candles.length/3),candles.length];
+ const segments=[];
+ for(let j=0;j<3;j++){
+  const first=candles[limits[j]],last=candles[limits[j+1]-1];
+  if(!first||!last)continue;
+  const start=first.time,end=j===2?null:candles[limits[j+1]].time;
+  // A trade is attributed to its ENTRY segment; separate exit overlap is disclosed.
+  const group=trades.filter(t=>t.entryTime>=start&&(end===null||t.entryTime<end));
+  const m=sampleMetrics(group);
+  const win=wilson95(m.wins,m.n);
+  segments.push({start:first.time,end:last.time,m,win});
+ }
+ const n=trades.length,winCount=trades.filter(t=>t.netR>0).length;
+ const allWin=wilson95(winCount,n);
+ const warnings=[];
+ if(candles.length<1000)warnings.push('أقل من 1000 شمعة في الفترة المختارة؛ نطاق السوق المدروس محدود.');
+ if(n<30)warnings.push('أقل من 30 صفقة إجمالًا؛ أي نسبة ربح أو متوسط R عرضة لتقلب كبير.');
+ if(segments.some(s=>s.m.n<15))warnings.push('توجد فترة تحتوي أقل من 15 صفقة؛ لا يمكن تقييم ثبات الأداء بين الفترات بثقة.');
+ const populated=segments.filter(s=>s.m.n>0);
+ if(populated.length<3)warnings.push('لم تظهر صفقات في الفترات الثلاث جميعها، لذا لا يمكن المقارنة الزمنية المتوازنة.');
+ if(populated.some(s=>s.m.expectancy>0)&&populated.some(s=>s.m.expectancy<0))warnings.push('تغيرت إشارة متوسط R بين الفترات؛ النتائج ليست مستقرة تاريخيًا ضمن هذه العينة.');
+ // Measuring concentration without classifying future profitability.
+ const positive=segments.filter(s=>s.m.net>0).reduce((a,s)=>a+s.m.net,0);
+ const largest=segments.reduce((a,s)=>Math.max(a,s.m.net),0);
+ const concentration=positive>0?largest/positive:null;
+ if(concentration!==null&&concentration>.7)warnings.push('أكثر من 70% من مجموع أرباح الفترات الرابحة يأتي من فترة واحدة؛ النتيجة شديدة التركّز زمنيًا.');
+ if(trades.some(t=>t.entryTime<t.exitTime&&segments.some(s=>t.entryTime>=s.start&&t.entryTime<=s.end&&t.exitTime>s.end)))warnings.push('بعض الصفقات امتدت عبر حدود الفترات؛ نُسبت نتائجها إلى فترة الدخول، لا إلى فترة الخروج.');
+ warnings.push('هذا وصف للعينة نفسها، وليس اختبارًا مستقلًا ولا تقديرًا لاحتمال الربح مستقبلًا. نطاق Wilson يفترض ملاحظات ثنائية مستقلة تقريبًا؛ الترابط بين الصفقات قد يجعله ضيقًا أكثر من اللازم.');
+ return {segments,n,allWin,concentration,warnings};
+}
+function showStability(){
+ const node=$('research-stability');if(!node)return;
+ if(!bars.length){node.textContent='لا توجد بيانات منشورة قابلة للتحليل.';return;}
+ const current=backtest(); // recompute from current controls, not stale results
+ results=current;showResults();
+ const d=stabilityDiagnostics(current,bars);
+ const overall=sampleMetrics(current);
+ const cols=d.segments.map((s,i)=>{
+  const title=['الثلث الزمني الأول','الثلث الزمني الأوسط','الثلث الزمني الأخير'][i];
+  return `<div class="research-sample-card"><strong>${title}</strong><div class="research-sample-metrics">`+
+  `<span>الفترة: <b dir="ltr">${esc(s.start.slice(0,10))} — ${esc(s.end.slice(0,10))}</b></span>`+
+  `<span>الصفقات: <b>${s.m.n}</b></span>`+
+  `<span>متوسط R: <b>${metricValue(s.m.expectancy,3,' R')}</b></span>`+
+  `<span>صافي R: <b>${metricValue(s.m.net,2,' R')}</b></span>`+
+  `<span>أقصى تراجع: <b>${metricValue(s.m.dd,2,' R')}</b></span>`+
+  `<span>نطاق 95% لنسبة الفوز: <b>${s.win?fmt(s.win[0],1)+'% – '+fmt(s.win[1],1)+'%':'غير محدد'}</b></span></div></div>`;
+ });
+ node.innerHTML=`<div class="card-head"><h3>فحص استقرار النتائج عبر التاريخ</h3><span class="tag">تشخيص وصفي</span></div>`+
+ `<p class="micro-note">الثلثات متساوية في عدد الشموع، لا في عدد الصفقات. الإحصاءات مبنية على صفقات دخلت داخل كل فترة. التكاليف كما ضُبطت في محرك الاختبار، وأي نقص في المصدر يؤثر في الاستنتاج.</p>`+
+ `<p class="micro-note">إجمالي الصفقات: <b>${d.n}</b> · متوسط العينة: <b>${metricValue(overall.expectancy,3,' R')}</b> · نطاق Wilson التقريبي 95% لنسبة الصفقات الرابحة: <b>${d.allWin?fmt(d.allWin[0],1)+'% – '+fmt(d.allWin[1],1)+'%':'غير محدد'}</b>.</p>`+
+ `<div class="research-samples">${cols.join('')}</div>`+
+ `<p class="research-warning">${d.warnings.map(esc).join(' ')}</p>`;
+}
+$('check-stability').addEventListener('click',()=>{try{showStability();}catch(e){setStatus('data-status',e.message,true);}});
 
 $('export-trades').addEventListener('click',()=>{if(!results.length)return;const columns=['side','signalTime','entryTime','exitTime','entry','stop','tp','exit','grossR','netR','reason','sweepTime'];download('ict-backtest-trades.csv',[columns.join(','),...results.map(t=>columns.map(k=>String(t[k]).replaceAll(',',' ')).join(','))].join('\r\n'),'text/csv;charset=utf-8');});
 // 6.8.98: dataset catalog is taken from verified published arrays; no fictitious forex/CFD prices.
@@ -165,7 +231,7 @@ function updateCatalog(){
  return symbols.length>0;
 }
 function sourceRows(symbol,tf){const feed=publicFeed;return feed?.version===2?feed.assets?.[symbol]?.[tf]:feed?.assets?.[symbol];}
-function setHistoryFailure(message){bars=[];results=[];metadata={};stopReplay();$('backtest-results').textContent='لا يمكن احتساب اختبار دون شموع موثوقة ضمن الفترة المختارة.';$('backtest-trades').textContent='';$('export-trades').disabled=true;setStatus('data-status',message,true);drawReplay();}
+function setHistoryFailure(message){bars=[];results=[];metadata={};stopReplay();$('backtest-results').textContent='لا يمكن احتساب اختبار دون شموع موثوقة ضمن الفترة المختارة.';$('backtest-trades').textContent='';$('export-trades').disabled=true;$('research-stability').textContent='فحص الاستقرار غير متاح دون بيانات موثوقة.';setStatus('data-status',message,true);drawReplay();}
 function applyHistorySelection(){
  const symbol=$('public-history-symbol').value,tf=$('public-history-timeframe').value;
  const raw=sourceRows(symbol,tf),step=INTERVAL_MS[tf],kind=feedMarkets[symbol]||'crypto';
@@ -185,7 +251,7 @@ function applyHistorySelection(){
  if(chosen.length<60)throw Error('الفترة المحددة تحتوي أقل من 60 شمعة؛ وسّع نطاق التاريخ أو غيّر الإطار.');
  bars=chosen;results=[];metadata={symbol,timeframe:tf,timezone:'UTC',source:feedSources[symbol]?.source||publicFeed.source,updatedAt:feedSources[symbol]?.updatedAt||publicFeed.updatedAt,marketKind:kind};
  $('data-symbol').value=symbol;
- $('backtest-trades').textContent='';$('export-trades').disabled=true;resetReplay();
+ $('backtest-trades').textContent='';$('export-trades').disabled=true;$('research-stability').textContent='اضغط فحص الاستقرار لتحليل البيانات المختارة.';resetReplay();
  setStatus('data-status',`تم التحقق من ${bars.length} شمعة حقيقية · ${symbol} · ${tf} · ${metadata.source} · تحديث الملف ${metadata.updatedAt}`);
  results=backtest();showResults();
 }
