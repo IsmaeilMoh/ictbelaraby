@@ -1,5 +1,5 @@
 {
-  "updatedAt": "2026-11-22T08:35:43.028106Z",
+  "updatedAt": "2026-11-22T09:33:33.435113Z",
   "source": "Yahoo Finance public chart feed (unofficial)",
   "intervalMinutes": 5,
   "windowBasis": "5-minute chart close comparisons",
@@ -10,22 +10,11 @@
       "label": "Bitcoin",
       "category": "crypto",
       "proxy": false,
-      "quotedAt": "2026-11-22T08:35:39Z",
-      "price": 60089.66015625,
-      "5": 0.53641,
-      "15": 0.71446,
-      "60": 1.99962
-    },
-    {
-      "symbol": "ETHUSD",
-      "label": "Ethereum",
-      "category": "crypto",
-      "proxy": false,
-      "quotedAt": "2026-11-22T08:35:37Z",
-      "price": 1689.89001465,
-      "5": 0.42848,
-      "15": 0.44759,
-      "60": 1.82023
+      "quotedAt": "2026-11-22T09:33:31Z",
+      "price": 59855.328125,
+      "5": -0.02354,
+      "15": -0.06929,
+      "60": -0.4342
     }
   ]
 }
