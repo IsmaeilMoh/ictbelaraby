@@ -1,0 +1,22 @@
+/* ICT بالعربي 6.8.82 — scoped practical playbook for ICT sessions only. */
+#app .ict-practical-guides { margin:22px 0; min-width:0; }
+#app .ict-practical-guides-head { display:flex; align-items:end; justify-content:space-between; gap:12px; }
+#app .ict-practical-guides-head h2 { font-size:clamp(19px,2vw,23px); margin:3px 0 8px; }
+#app .ict-guide-lead,#app .ict-guide-disclaimer { color:var(--muted); font-size:12px; line-height:1.9; margin:5px 0 12px; }
+#app .ict-guide-grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:10px; }
+#app .ict-guide-card { border:1px solid var(--line); background:var(--surface); border-radius:14px; min-width:0; overflow:hidden; }
+#app .ict-guide-card summary { display:flex; align-items:center; justify-content:space-between; padding:14px; gap:8px; cursor:pointer; list-style:none; min-height:50px; }
+#app .ict-guide-card summary::-webkit-details-marker { display:none; }
+#app .ict-guide-card summary strong { font-size:13px; overflow-wrap:anywhere; }
+#app .ict-guide-card summary span { opacity:.7; transition:transform .2s; }
+#app .ict-guide-card[open] summary span { transform:rotate(180deg); }
+#app .ict-guide-details { border-top:1px solid var(--line); padding:8px 14px 13px; }
+#app .ict-guide-details h3 { font-size:13px; margin:12px 0 5px; }
+#app .ict-guide-details p,#app .ict-guide-details li { font-size:12px; line-height:1.85; color:var(--muted); overflow-wrap:anywhere; }
+#app .ict-guide-details ol { padding-inline-start:20px; margin:5px 0 9px; }
+#app .ict-guide-avoid { border-inline-start:2px solid var(--green); padding-inline-start:9px; margin-bottom:0; }
+#app .ict-guide-links { display:flex; flex-wrap:wrap; gap:8px; margin-top:11px; }
+#app .ict-guide-links a { border:1px solid var(--line); border-radius:9px; padding:8px 12px; font-size:12px; background:var(--surface); }
+#app .ict-guide-links a:hover,#app .ict-guide-links a:focus-visible { border-color:var(--green); }
+@media(max-width:900px){#app .ict-guide-grid{grid-template-columns:1fr}}
+@media(max-width:600px){#app .ict-practical-guides-head{display:block}#app .ict-guide-card summary{padding:12px}#app .ict-guide-links a{flex:1 1 auto;text-align:center}}
