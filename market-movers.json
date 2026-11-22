@@ -1,5 +1,5 @@
 {
-  "updatedAt": "2026-11-22T14:35:52.011242Z",
+  "updatedAt": "2026-11-22T15:29:27.427037Z",
   "source": "Yahoo Finance public chart feed (unofficial)",
   "changeBasis": "Yahoo chart previous close; not uniform 24h",
   "items": [
@@ -137,9 +137,9 @@
       "symbol": "BTCUSD",
       "label": "Bitcoin",
       "category": "crypto",
-      "change": -3.8439,
-      "price": 60566.07,
-      "quotedAt": "2026-11-22T14:35:48Z",
+      "change": -3.4188,
+      "price": 60833.86,
+      "quotedAt": "2026-11-22T15:29:21Z",
       "proxy": false,
       "url": "https://www.tradingview.com/symbols/BTCUSD/"
     },
@@ -147,9 +147,9 @@
       "symbol": "ETHUSD",
       "label": "Ethereum",
       "category": "crypto",
-      "change": -4.1577,
-      "price": 1700.96,
-      "quotedAt": "2026-11-22T14:35:47Z",
+      "change": -3.2629,
+      "price": 1716.84,
+      "quotedAt": "2026-11-22T15:29:26Z",
       "proxy": false,
       "url": "https://www.tradingview.com/symbols/ETHUSD/"
     }
