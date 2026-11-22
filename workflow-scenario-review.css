@@ -1,0 +1,17 @@
+/* ICT 6.8.83 — optional scenario review, within the existing checklist only. */
+.ict-scenario-review{margin:14px 0;border:1px solid var(--stroke,#314b52);border-radius:13px;background:var(--surface,#20333a);overflow:hidden}
+.ict-scenario-review summary{padding:13px;cursor:pointer;list-style:none;display:flex;justify-content:space-between;gap:10px;align-items:center;flex-wrap:wrap}
+.ict-scenario-review summary::-webkit-details-marker{display:none}
+.ict-scenario-review summary strong{font-size:14px}
+.ict-scenario-review summary span,.ict-scenario-intro{color:var(--muted,#afc6bd);font-size:12px}
+.ict-scenario-intro{margin:0 14px 12px;line-height:1.85}
+.ict-scenario-grid{padding:0 14px;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.ict-scenario-grid label,.ict-scenario-note{display:grid;gap:6px;font-weight:700;color:var(--muted,#afc6bd);font-size:12px;min-width:0}
+.ict-scenario-grid select{width:100%;min-width:0}
+.ict-scenario-note{margin:12px 14px}
+.ict-scenario-summary{margin:10px 14px;padding:11px;border:1px solid var(--stroke,#314b52);border-radius:10px;font-size:12px;line-height:1.8}
+.ict-scenario-summary[data-status=warning]{border-color:#b37d58}
+.ict-scenario-summary[data-status=reviewed]{border-color:#6dae91}
+.ict-scenario-links{display:flex;flex-wrap:wrap;gap:8px;padding:0 14px 14px}
+.ict-scenario-links a{border:1px solid var(--stroke,#314b52);padding:7px 10px;border-radius:9px;text-decoration:none;font-size:12px}
+@media(max-width:650px){.ict-scenario-grid{grid-template-columns:1fr}.ict-scenario-review summary{align-items:flex-start;flex-direction:column}.ict-scenario-links a{flex:1;text-align:center}}
