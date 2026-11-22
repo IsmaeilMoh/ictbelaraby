@@ -1,0 +1,8 @@
+/* 6.8.55 — Compact radar filters, same site design. */
+.radar-toolbar{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin-bottom:15px;padding:14px 18px}
+.radar-toolbar label{min-width:0;display:flex;flex-direction:column;gap:6px;color:var(--muted);font-size:12px}
+.radar-toolbar select{width:100%;font-size:13px}
+.radar-summary{grid-column:1/-1;font-size:12px;color:var(--muted);line-height:1.7}
+.radar-layout .snapshot-val{flex-wrap:wrap}.radar-layout .snapshot-val span{font-size:12px}
+.radar-layout .leader-list{margin-top:13px}.radar-layout .leader{min-width:0;gap:8px}.radar-layout .leader b{font-variant-numeric:tabular-nums;white-space:nowrap}
+@media(max-width:600px){.radar-toolbar{grid-template-columns:repeat(2,minmax(0,1fr));gap:9px;padding:12px}.radar-toolbar label:first-child{grid-column:1/-1}.radar-toolbar select{padding:9px 8px}.radar-summary{font-size:11px}.radar-layout .leader-list{grid-template-columns:repeat(2,minmax(0,1fr))}}
