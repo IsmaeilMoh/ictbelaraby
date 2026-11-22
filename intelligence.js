@@ -27,7 +27,7 @@ function resetChecks(){const all=stored(reviewKey,{});delete all[selected];setSt
 const radarPrefsKey='ict-radar-v6855-filters';
 function radarFilter(){return {window:$('radar-window')?.value||'15',group:$('radar-group')?.value||'all',direction:$('radar-direction')?.value||'all'};}
 function radarDatum(item,win){
- if(win==='previous')return Number.isFinite(item?.change)?{value:item.change,time:item.quotedAt||moversAt,basis:'الإغلاق السابق',proxy:item.proxy}:null;
+ if(win==='previous')return Number.isFinite(item?.change)&&elapsed(moversAt)<=90*60000&&elapsed(item?.quotedAt||moversAt)<=90*60000?{value:item.change,time:item.quotedAt||moversAt,basis:'الإغلاق السابق',proxy:item.proxy}:null;
  const r=radarRows.find(x=>x.symbol===item?.symbol);
  const value=r?.[win];
  if(!Number.isFinite(value)||elapsed(r?.quotedAt)>45*60000||elapsed(radarAt)>45*60000)return null;
@@ -39,10 +39,10 @@ function renderRadar(){
    .filter(x=>x.metric&&(filter.direction==='all'||filter.direction==='up'&&x.metric.value>0||filter.direction==='down'&&x.metric.value<0))
    .sort((a,b)=>Math.abs(b.metric.value)-Math.abs(a.metric.value));
  const good=candidates.length>0;const age=filter.window==='previous'?elapsed(moversAt):elapsed(radarAt);
- const reliable=age<45*60000;
- $('radar-feed-status').textContent=good?`آخر تحديث ${when(filter.window==='previous'?moversAt:radarAt)} · ${reliable?'بيانات دورية':'بيانات قديمة'}`:'لا توجد قياسات حديثة لهذا الاختيار';
+ const reliable=age<(filter.window==='previous'?90:45)*60000;
+ $('radar-feed-status').textContent=good?`آخر تحديث ${when(filter.window==='previous'?moversAt:radarAt)} · ${reliable?'بيانات دورية':'بيانات قديمة'}`:'البيانات غير متاحة أو متأخرة؛ لا نعرض حركة قديمة بوصفها حديثة';
  $('radar-feed-status').classList.toggle('bad',!good||!reliable);
- $('radar-summary').textContent=good?`${candidates.length} أصل متاح · ${candidates.filter(x=>x.metric.value>0).length} صاعد · ${candidates.filter(x=>x.metric.value<0).length} هابط · قياس ${filter.window==='previous'?'من الإغلاق السابق':filter.window+' دقيقة'}`:'لا تتوفر شموع حديثة كافية لهذه النافذة. اختر «الإغلاق السابق» أو أعد المحاولة بعد تحديث المصدر.';
+ $('radar-summary').textContent=good?`${candidates.length} أصل متاح · ${candidates.filter(x=>x.metric.value>0).length} صاعد · ${candidates.filter(x=>x.metric.value<0).length} هابط · قياس ${filter.window==='previous'?'من الإغلاق السابق':filter.window+' دقيقة'}`:'لا تتوفر بيانات حديثة لهذا الاختيار. راجع وقت آخر تحديث أو انتظر تجدد المصدر؛ في العطلات قد تكون الأسواق مغلقة.';
  const row=base.find(x=>x.symbol===selected),metric=row?radarDatum(row,filter.window):null;
  const number=(n)=>`${n>0?'+':''}${n.toFixed(2)}%`;
  $('radar-snapshot').innerHTML=row?`<div class="snapshot-name"><strong dir="ltr">${esc(row.symbol)}</strong><small>${esc(row.label||'')}</small></div><div class="snapshot-val"><b>${Number.isFinite(row.price)?fmt(row.price):'—'}</b><span class="${metric?(metric.value>=0?'up':'down'):''}">${metric?number(metric.value):'لا تتوفر مقارنة حديثة'}</span></div><div class="micro-note">${metric?`تغير ${esc(metric.basis)} · وقت آخر شمعة ${when(metric.time)}.`:'لا توجد شموع كافية لهذه النافذة أو توقفت جلسة التداول.'} ${row.proxy?'الرمز عقد مرجعي وقد يختلف عن السعر الفوري.':''}</div><a target="_blank" rel="noopener noreferrer" href="${chart(tv[selected])}">فتح شارت TradingView ↗</a>`:'<p class="empty">لا تتوفر لقطة سعر لهذا الأصل في الملف الحالي.</p>';
@@ -179,7 +179,7 @@ function renderXrayData(){
  const latest=Date.parse(xrayFeed?.updatedAt),tooOld=!Number.isFinite(latest)||Date.now()-latest>36*60*60*1000;
  state.textContent=!data.length?'البيانات غير منشورة بعد':`تحديث ${when(xrayFeed.updatedAt)}${tooOld?' · قديم':''}`;
  state.classList.toggle('bad',!data.length||tooOld);
- if(!data.length){node.innerHTML='<p class="empty">بيانات المقارنة غير متاحة حاليًا. سيتم عرضها تلقائيًا بعد نجاح مهمة تحديث المصدر على الموقع، دون حاجة إلى أي ملف من الزائر.</p>';return}
+ if(!data.length||tooOld){node.innerHTML=tooOld&&data.length?'<p class="empty">بيانات المقارنة اليومية متأخرة؛ أوقفنا مؤقتًا حساب الارتباط والتغيرات حتى يتجدد المصدر. قد يكون السوق في عطلة، ويمكنك فتح الشارت المرجعي أعلاه.</p>':'<p class="empty">بيانات المقارنة غير متاحة حاليًا. سيتم عرضها تلقائيًا بعد نجاح مهمة تحديث المصدر على الموقع، دون حاجة إلى أي ملف من الزائر.</p>';return}
  const picked=all.find(x=>x.tv===$('xray-symbol').value)||all[0];
  const base=data.find(x=>x.symbol===picked.symbol);const baseReturns=xrayReturns(base);
  const recent=baseReturns.at(-1);
@@ -193,7 +193,16 @@ function renderXrayData(){
  }).join('')}</div><p class="micro-note">الارتباط محسوب من العوائد اليومية ذات التاريخ المشترك فقط (حد أقصى 20 ملاحظة)، ولا يعني تبعية أو توافقًا آنيًا. ${tooOld?'بيانات المصدر متأخرة؛ لا تستخدمها كإشارة لحظية.':''} ${!base?'لا تتوفر سلسلة مرجعية لهذا الرمز؛ لا يمكن حساب ارتباطاته.':''}</p>`;
 }
 
+async function refreshMarketSources(){
+ const [m,c,r,n,x]=await Promise.all(['market-movers.json','calendar-live.json','market-radar.json','calendar-next.json','market-xray.json'].map(json));
+ nextEvents=normalizeEvents(n);radarAt=r?.updatedAt||null;
+ radarRows=Array.isArray(r?.items)?r.items.filter(x=>allowed.includes(x.symbol)&&typeof x.quotedAt==='string').map(x=>({symbol:x.symbol,quotedAt:x.quotedAt,proxy:Boolean(x.proxy),...Object.fromEntries(['5','15','60'].map(k=>[k,Number.isFinite(Number(x[k]))&&x[k]!=null?Number(x[k]):null]))})):[];
+ moversAt=m?.updatedAt||null;
+ movers=Array.isArray(m?.items)?m.items.filter(x=>allowed.includes(x.symbol)&&Number.isFinite(Number(x.change))).map(x=>({symbol:x.symbol,label:x.label,category:String(x.category||''),quotedAt:x.quotedAt||m?.updatedAt,change:Number(x.change),price:(x.price!=null&&Number.isFinite(Number(x.price))&&Number(x.price)>0)?Number(x.price):null,proxy:Boolean(x.proxy)})):[];
+ calendarAt=c?.updated_at||c?.updatedAt||null;events=normalizeEvents(c);
+ xrayFeed=x;renderRadar();newsOptions();renderReactionHistory();renderXray();
+}
 async function boot(){initTabs();$('radar-asset').innerHTML=allowed.map(s=>`<option value="${s}">${s}</option>`).join('');$('radar-asset').value=selected;$('radar-asset').addEventListener('change',e=>selectRadar(e.target.value));const radarSaved=stored(radarPrefsKey,{});for(const [id,key] of [['radar-window','window'],['radar-group','group'],['radar-direction','direction']]){const el=$(id);if(el&&Array.from(el.options).some(o=>o.value===radarSaved[key]))el.value=radarSaved[key];el?.addEventListener('change',()=>{setStored(radarPrefsKey,radarFilter());renderRadar()});}$('save-radar').addEventListener('click',saveChecks);$('reset-radar').addEventListener('click',resetChecks);$('xray-set').addEventListener('change',renderXray);$('xray-symbol').addEventListener('change',renderChart);$('news-select').addEventListener('change',renderNewsReview);initEconomicResults();loadPublicOfficialResults();setInterval(loadPublicOfficialResults,30*60*1000);$('reaction-form').addEventListener('submit',saveReaction);$('export-reactions').addEventListener('click',exportReactions);
- const [m,c,r,n]=await Promise.all([json('market-movers.json'),json('calendar-live.json'),json('market-radar.json'),json('calendar-next.json')]);nextEvents=normalizeEvents(n);radarAt=r?.updatedAt||null;radarRows=Array.isArray(r?.items)?r.items.filter(x=>allowed.includes(x.symbol)&&typeof x.quotedAt==='string').map(x=>({symbol:x.symbol,quotedAt:x.quotedAt,proxy:Boolean(x.proxy),...Object.fromEntries(['5','15','60'].map(k=>[k,Number.isFinite(Number(x[k]))&&x[k]!=null?Number(x[k]):null]))})):[];moversAt=m?.updatedAt||null;movers=Array.isArray(m?.items)?m.items.filter(x=>allowed.includes(x.symbol)&&Number.isFinite(Number(x.change))).map(x=>({symbol:x.symbol,label:x.label,category:String(x.category||''),quotedAt:x.quotedAt||m?.updatedAt,change:Number(x.change),price:(x.price!=null&&Number.isFinite(Number(x.price))&&Number(x.price)>0)?Number(x.price):null,proxy:Boolean(x.proxy)})):[];calendarAt=c?.updated_at||c?.updatedAt||null;events=normalizeEvents(c);renderRadar();newsOptions();renderReactionHistory();xrayFeed=await json('market-xray.json');renderXray();}
+ await refreshMarketSources();setInterval(refreshMarketSources,10*60*1000);}
 
 boot();
