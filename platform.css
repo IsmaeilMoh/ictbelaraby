@@ -18,3 +18,6 @@ html{scroll-padding-top:22px}
 @media print{.ict54-hub{display:none}}
 /* Common baseline for keyboard users, without changing component positioning. */
 :where(a,button,input,select,textarea):focus-visible{outline:2px solid #83ddb1!important;outline-offset:2px}
+
+/* 6.8.78: hide shared upper toolbar on ALL mobile site pages. Laptop keeps existing bar. */
+@media(max-width:760px){.ict54-hub{display:none!important}}
