@@ -55,29 +55,20 @@ function renderRadarEvents(){const currency=selected==='XAUUSD'||selected==='XAG
 function renderXray(){const name=$('xray-set').value,group=sets[name]||sets.gold,all=[...group.symbols.map(s=>({symbol:s,tv:tv[s]})),...group.extras];const picker=$('xray-symbol'),previous=picker.value;picker.innerHTML=all.map(x=>`<option value="${esc(x.tv)}">${esc(x.symbol)} · ${esc(x.tv)}</option>`).join('');if(all.some(x=>x.tv===previous))picker.value=previous;renderChart();}
 function renderChart(){const name=$('xray-set').value,group=sets[name]||sets.gold,all=[...group.symbols.map(s=>({symbol:s,tv:tv[s]})),...group.extras],v=$('xray-symbol').value;if(!all.some(x=>x.tv===v))return;$('xray-code').textContent=v;$('xray-open').href=chart(v);$('xray-context').textContent=group.note;$('xray-peers').innerHTML=all.map(x=>`<button class="peer ${x.tv===v?'active':''}" type="button" data-tv="${esc(x.tv)}"><strong dir="ltr">${esc(x.symbol)}</strong><small dir="ltr">${esc(x.tv)}</small></button>`).join('');$('xray-peers').querySelectorAll('button').forEach(b=>b.addEventListener('click',()=>{$('xray-symbol').value=b.dataset.tv;renderChart()}));$('xray-questions').innerHTML=group.questions.map(q=>`<p>◈ ${esc(q)}</p>`).join('');const widget=$('xray-widget');widget.innerHTML='<div class="tradingview-widget-container"><div class="tradingview-widget-container__widget"></div></div>';const script=document.createElement('script');script.type='text/javascript';script.async=true;script.src='https://s3.tradingview.com/external-embedding/embed-widget-symbol-overview.js';script.textContent=JSON.stringify({symbols:[[v,v+'|1D']],chartOnly:false,width:'100%',height:'100%',locale:'en',colorTheme:'dark',autosize:true,showVolume:false,showMA:false,hideDateRanges:false,hideMarketStatus:false,hideSymbolLogo:false,scalePosition:'right',scaleMode:'Normal',fontFamily:'Arial',fontSize:'11',noTimeScale:false,valuesTracking:'1',changeMode:'price-and-percent',chartType:'area',lineWidth:2,lineType:0,dateRanges:['1d|1','1m|30','3m|60','12m|1D']});widget.querySelector('.tradingview-widget-container').appendChild(script);}
 function numeric(x){let s=String(x??'').trim().replace(/[,\s]/g,'');const isPercent=s.endsWith('%');s=s.replace(/[%KMB]$/i,'');let multiplier=1;if(/[KMB]$/i.test(String(x).trim())){const z=String(x).trim().slice(-1).toUpperCase();multiplier={K:1e3,M:1e6,B:1e9}[z]||1;}if(!/^[+-]?(?:\d+(?:\.\d*)?|\.\d+)$/.test(s))return null;const n=Number(s)*multiplier;return Number.isFinite(n)?{value:n,unit:isPercent?'percent':'number'}:null;}
-// Economic Results Engine 6.8.42 — local, user-imported Forex Factory results.
-// No private probe artifact is fetched or published to the public website.
-const economicResultsKey='ict-economic-results-private-v1';
+// Public data only: visitors never need to import economic results.
 function savedPriority(){try{const v=localStorage.getItem('ict-economic-news-priority-v1');return ['important','high','all'].includes(v)?v:'important'}catch{return 'important'}}
-let economicResults=[],resultsUpdatedAt=null,newsFilter=savedPriority();
+let newsFilter=savedPriority(),officialRows=[],nextEvents=[],publicUpdatedAt=null;
 function priorityRows(rows,mode=newsFilter){return window.ICTCalendarConsensus?.priorityFilter(rows,mode)||rows.filter(e=>mode==='all'||(mode==='high'?e.impact==='high':['high','medium'].includes(e.impact)))}
-
-const validResultsRow=r=>r&&typeof r==='object'&&typeof r.id==='string'&&r.id.length<160&&typeof r.title==='string'&&r.title.length<260&&typeof r.date==='string'&&Number.isFinite(Date.parse(r.date))&&r.values&&typeof r.values==='object'&&String(r.source||'')==='Forex Factory';
-function resultRows(input){
- const raw=Array.isArray(input?.events)?input.events:[];
- if(raw.length>15000)throw Error('الملف كبير بصورة غير متوقعة.');
- return raw.filter(validResultsRow).map(r=>({
- id:r.id,date:r.date,title:r.title,currency:String(r.country||'').toUpperCase().slice(0,8),
- impact:String(r.impact||'unknown').toLowerCase(),actual:String(r.values.actual??'—'),
- forecast:String(r.values.forecast??'—'),previous:String(r.values.previous??'—'),
- source:'Forex Factory',comparison:r.comparison&&typeof r.comparison==='object'?r.comparison:null,
- firstSeenAt:r.firstSeenAt||null,lastSeenAt:r.lastSeenAt||null,
- revisions:Array.isArray(r.revisions)?r.revisions.slice(-25):[]
- })).filter(r=>r.actual!=='—'&&r.actual!=='null'&&r.actual!==''&&r.currency);
-}
-function readResults(){
- try{const s=localStorage.getItem(economicResultsKey);if(!s)return [];
- const parsed=JSON.parse(s);return resultRows(parsed)}catch{return []}
+function combinedNews(){
+ const map=new Map();
+ for(const e of [...events,...nextEvents,...officialRows]){
+  if(!e||!e.date||!e.title)continue;
+  const key=[e.currency,String(e.title).trim().toLowerCase(),e.date].join('|');
+  const old=map.get(key);
+  // Prefer a real published Actual over a placeholder; never infer missing values.
+  if(!old || (String(old.actual||'—')==='—' && String(e.actual||'—')!=='—'))map.set(key,e);
+ }
+ return [...map.values()].sort((a,b)=>Date.parse(b.date)-Date.parse(a.date));
 }
 function compareEvent(e){
  if(!e)return {comparable:false};
@@ -88,14 +79,8 @@ function compareEvent(e){
  const f=numeric(e.forecast),a=numeric(e.actual);
  return f&&a&&f.unit===a.unit?{comparable:true,difference:a.value-f.value,unit:f.unit==='percent'?'percentage-points':'absolute'}:{comparable:false};
 }
-function resultsStatus(message,isError=false){
- const node=$('results-local-status');if(node){node.textContent=message;node.classList.toggle('bad',isError)}
-}
-function refreshResultsStatus(){
- const comparable=economicResults.filter(e=>compareEvent(e).comparable).length;
- resultsStatus(economicResults.length?`النتائج المحفوظة على هذا الجهاز: ${economicResults.length} | قابلة للمقارنة: ${comparable} | آخر استيراد: ${when(resultsUpdatedAt)}`:'لم تُستورد نتائج بعد. اختر ملف economic-results-preview.json من GitHub Artifacts.');
-}
-// The public BLS feed is separate from visitor-imported Forex Factory records.
+function resultsStatus(message,isError=false){const node=$('results-local-status');if(node){node.textContent=message;node.classList.toggle('bad',isError)}}
+function refreshResultsStatus(){const pool=combinedNews(),actual=pool.filter(e=>!['—','', 'null'].includes(String(e.actual??'—'))).length;resultsStatus(pool.length?`بيانات الموقع: ${pool.length} حدث · ${actual} نتيجة فعلية متاحة · لا يلزم استيراد ملفات`:'لا تتوفر أخبار عامة من المصدر حاليًا؛ لا توجد أرقام مفترضة.',!pool.length)}
 async function loadPublicOfficialResults(){
  const node=$('official-news-results');if(!node)return;
  try{
@@ -105,6 +90,8 @@ async function loadPublicOfficialResults(){
   const feed=await response.json();
   if(feed?.source!=='BLS'||feed.status!=='ok'||!Array.isArray(feed.events))throw Error('bad feed');
   const valid=feed.events.filter(e=>e&&e.source==='BLS'&&e.period&&Number.isFinite(Number(e.actual))&&['%','K'].includes(e.unit));
+  // Official BLS observations are rendered in their own section; do not fake a publication timestamp for historical periods.
+  publicUpdatedAt=feed.updatedAt||null;
   if(!valid.length)throw Error('no observations');
   await Promise.all([window.ICTEditorialForecasts?.load(),window.ICTCalendarConsensus?.load()]);
   const stages=priorityRows(window.ICTCalendarConsensus?.lifecycle(valid)||[]).slice(0,18);
@@ -116,10 +103,10 @@ async function loadPublicOfficialResults(){
   node.innerHTML=groupHtml+stageHtml+`<div class="card-head"><h3>نتائج اقتصادية رسمية — BLS</h3><span class="tag">تحديث تلقائي · أمريكية فقط</span></div><p class="micro-note">آخر جلب ${esc(feed.updatedAt||'غير متاح')} · الفترة هي فترة الإحصاء، لا ساعة صدور الخبر. التوقعات من السجل التحريري أو الأجندة القائمة عند التطابق الصارم؛ وتُميَّز القيم غير المحفوظة قبل النشر.</p><div class="results-official-grid">${valid.map(e=>`<article class="card" style="margin:8px 0;padding:12px"><h3>${esc(e.title)}</h3><p class="micro-note">USD · ${esc(e.period)} · المصدر BLS</p><div class="metrics"><div><small>السابق</small><strong dir="ltr">${e.previous===null?'—':esc(e.previous)+esc(e.unit)}</strong></div><div><small>المتوقع</small><strong dir="ltr">${(window.ICTEditorialForecasts?.find(e)||window.ICTCalendarConsensus?.find(e))?esc((window.ICTEditorialForecasts?.find(e)||window.ICTCalendarConsensus?.find(e)).value)+esc(e.unit):'—'}</strong></div><div><small>الفعلي</small><strong dir="ltr">${esc(e.actual)}${esc(e.unit)}</strong></div></div><p class="micro-note">${(window.ICTEditorialForecasts?.find(e)||window.ICTCalendarConsensus?.find(e))?`المصدر: ${esc((window.ICTEditorialForecasts?.find(e)||window.ICTCalendarConsensus?.find(e)).source)} · ${window.ICTCalendarConsensus?.find(e)?.verifiedBeforeRelease===false&&!window.ICTEditorialForecasts?.find(e)?'مقارنة حسابية مرجعية: لم يُثبت حفظ التوقع قبل صدور الخبر.':'مقارنة بتوقع محفوظ قبل النشر.'} الفرق: ${((window.ICTEditorialForecasts?.find(e)?window.ICTEditorialForecasts.difference(e):window.ICTCalendarConsensus.comparison(e)?.difference)||0)>0?'+':''}${esc(String(window.ICTEditorialForecasts?.find(e)?window.ICTEditorialForecasts.difference(e):window.ICTCalendarConsensus.comparison(e)?.difference))} ${e.unit==='%'?'نقطة مئوية':esc(e.unit)}. ${esc(window.ICTCalendarConsensus?.interpretation(e)||'')}`:'لا يتوفر توقع مطابق لهذه الفترة.'} لا تمثل النتائج إشارة تداول. ${escapeHTML(window.ICTNewsImpact?.analyze({title:e.title,currency:'USD',stage:'released',actual:String(e.actual)+e.unit,forecast:(window.ICTEditorialForecasts?.find(e)||window.ICTCalendarConsensus?.find(e))?String((window.ICTEditorialForecasts?.find(e)||window.ICTCalendarConsensus?.find(e)).value)+e.unit:'—',verifiedBeforeRelease:(window.ICTEditorialForecasts?.find(e)||window.ICTCalendarConsensus?.find(e))?.verifiedBeforeRelease}).detail||'')}</p></article>`).join('')}</div>`;
  }catch{
    const staged=priorityRows(window.ICTCalendarConsensus?.lifecycle([])||[]).slice(0,18);
-   node.innerHTML='<div class="card-head"><h3>الأخبار القادمة والنتائج المنتظرة</h3></div>'+(staged.length?staged.map(e=>`<div class="card" style="padding:12px;margin:8px 0"><strong>${esc(e.currency)} · ${esc(e.title)}</strong><p class="micro-note">${e.impact==='high'?'تأثير مرتفع':e.impact==='medium'?'تأثير متوسط':'تأثير آخر'} · ${when(e.date)} · ${e.stage==='upcoming'?'قادم':'بانتظار النتيجة'}</p><div class="metrics"><div><small>السابق</small><strong>${esc(e.previous)}</strong></div><div><small>المتوقع</small><strong>${esc(e.forecast)}</strong></div><div><small>الفعلي</small><strong>—</strong></div></div></div>`).join(''):'<p class="micro-note">لا توجد أحداث متاحة حاليًا في الأجندة.</p>')+'<p class="micro-note">بيانات BLS الرسمية غير متاحة حاليًا. لا تُعرض نتائج مفترضة.</p>';
+   node.innerHTML='<div class="card-head"><h3>الأخبار القادمة والنتائج المنتظرة</h3></div>'+(staged.length?staged.map(e=>`<div class="card" style="padding:12px;margin:8px 0"><strong>${esc(e.currency)} · ${esc(e.title)}</strong><p class="micro-note">${e.impact==='high'?'تأثير مرتفع':e.impact==='medium'?'تأثير متوسط':'تأثير آخر'} · ${when(e.date)} · ${e.stage==='upcoming'?'قادم':'بانتظار النتيجة'}</p><div class="metrics"><div><small>السابق</small><strong>${esc(e.previous)}</strong></div><div><small>المتوقع</small><strong>${esc(e.forecast)}</strong></div><div><small>الفعلي</small><strong>—</strong></div></div></div>`).join(''):'<p class="micro-note">لا توجد أحداث صالحة حاليًا في الأجندة العامة.</p>')+'<p class="micro-note">بيانات BLS الرسمية غير متاحة حاليًا. لا تُعرض نتائج مفترضة.</p>';
  }
 }
-function eventPool(){return economicResults.length?economicResults:events}
+function eventPool(){return combinedNews()}
 function filteredNews(){
  const pool=eventPool(),q=String($('news-query')?.value||'').trim().toLowerCase(),currency=$('news-currency')?.value||'';
  return pool.filter(e=>(!q||(e.title+' '+e.currency).toLowerCase().includes(q))&&(!currency||e.currency===currency)&&(newsFilter==='comparable'?compareEvent(e).comparable:priorityRows([e]).length>0)).slice(0,500)
@@ -132,8 +119,8 @@ function newsOptions(){
  const options=filteredNews().sort((a,b)=>Date.parse(b.date)-Date.parse(a.date));
  pick.innerHTML='<option value="">اختر خبرًا…</option>'+options.map(e=>`<option value="${esc(e.id)}">${esc(e.currency)} · ${esc(e.title)} · ${when(e.date)}</option>`).join('');
  if(options.some(e=>e.id===prev))pick.value=prev;
- $('news-feed-status').textContent=economicResults.length?`أرشيف خاص · ${economicResults.length} نتيجة`:(events.length?`أجندة عامة · ${events.length} حدث · بدون نتائج مؤرشفة`:'الأجندة غير متاحة');
- $('news-feed-status').classList.toggle('bad',!economicResults.length);
+ $('news-feed-status').textContent=eventPool().length?`بيانات الموقع العامة · ${eventPool().length} حدث`:'الأجندة غير متاحة';
+ $('news-feed-status').classList.toggle('bad',!eventPool().length);
  refreshResultsStatus();renderNewsReview();
 }
 function currentEvent(){return eventPool().find(e=>e.id===$('news-select').value)||null}
@@ -149,42 +136,8 @@ function renderNewsReview(){
   extra.textContent=interpretation?`${interpretation.category} — ${interpretation.description}`:'اختر خبرًا لعرض القراءة الاقتصادية.';
  }
 }
-async function importEconomicResults(ev){
- const file=ev.target.files?.[0];if(!file)return;
- try{
-  if(file.size>8*1024*1024)throw Error('الملف أكبر من الحد المسموح (8MB).');
-  const payload=JSON.parse(await file.text());
-  if(payload?.source!=='Forex Factory'||!Array.isArray(payload.events))throw Error('الملف ليس تصدير نتائج Forex Factory المتوقع.');
-  const fresh=resultRows(payload);if(!fresh.length)throw Error('لا يحتوي الملف على نتائج فعلية صالحة.');
-  const map=new Map(economicResults.map(e=>[e.id,e]));
-  for(const r of fresh){const old=map.get(r.id);if(!old||String(r.lastSeenAt||'')>=String(old.lastSeenAt||''))map.set(r.id,r)}
-  const combined=[...map.values()].sort((a,b)=>Date.parse(b.date)-Date.parse(a.date)).slice(0,3000);
-  try{localStorage.setItem(economicResultsKey,JSON.stringify({source:'Forex Factory',events:combined.map(r=>({...r,country:r.currency,values:{actual:r.actual,forecast:r.forecast,previous:r.previous}}))}));}
-  catch{throw Error('تعذر تخزين الأرشيف على الهاتف؛ قد تكون مساحة المتصفح ممتلئة.');}
-  economicResults=combined;resultsUpdatedAt=new Date().toISOString();
-  try{localStorage.setItem(economicResultsKey+'-date',resultsUpdatedAt)}catch{}
-  $('news-query').value='';newsFilter=savedPriority();$('news-impact').value=newsFilter;$('news-currency').value='';newsOptions();
-  resultsStatus(`تم استيراد ${fresh.length} نتيجة فعلية. الأرشيف المحلي يحتوي الآن على ${combined.length} نتيجة.`);
- }catch(e){resultsStatus(`لم ينجح الاستيراد: ${e.message}`,true)}
- ev.target.value='';
-}
-function exportEconomicResults(){
- if(!economicResults.length){resultsStatus('لا توجد نتائج محفوظة لتصديرها.',true);return}
- const content=JSON.stringify({source:'Forex Factory',updatedAt:new Date().toISOString(),events:economicResults.map(r=>({...r,country:r.currency,values:{actual:r.actual,forecast:r.forecast,previous:r.previous}}))},null,2);
- const url=URL.createObjectURL(new Blob([content],{type:'application/json'}));const a=document.createElement('a');a.href=url;a.download='ICT_Economic_Results_Backup.json';a.click();setTimeout(()=>URL.revokeObjectURL(url),2000);
-}
-function clearEconomicResults(){
- if(!economicResults.length)return;
- if(!confirm('هل تريد حذف أرشيف النتائج من هذا الجهاز فقط؟'))return;
- try{localStorage.removeItem(economicResultsKey);localStorage.removeItem(economicResultsKey+'-date')}catch{}
- economicResults=[];resultsUpdatedAt=null;newsOptions();
-}
 function initEconomicResults(){
- economicResults=readResults();try{resultsUpdatedAt=localStorage.getItem(economicResultsKey+'-date')}catch{}
  $('news-impact').value=newsFilter;
- $('results-file').addEventListener('change',importEconomicResults);
- $('results-export').addEventListener('click',exportEconomicResults);
- $('results-clear').addEventListener('click',clearEconomicResults);
  $('news-query').addEventListener('input',newsOptions);
  $('news-currency').addEventListener('change',newsOptions);
  $('news-impact').addEventListener('change',e=>{newsFilter=e.target.value;if(newsFilter!=='comparable')try{localStorage.setItem('ict-economic-news-priority-v1',newsFilter)}catch{}newsOptions();loadPublicOfficialResults()});
@@ -194,6 +147,6 @@ function renderReactionHistory(){const rows=reactionHistory();$('reaction-histor
 function saveReaction(ev){ev.preventDefault();const e=currentEvent();if(!e){$('reaction-result').textContent='اختر خبرًا أولًا.';return;}const form=ev.target;const a=Number(form.elements.before.value),b=Number(form.elements.after.value),windowMin=Number(form.elements.window.value);if(!Number.isFinite(a)||a<=0||!Number.isFinite(b)||b<=0||![1,5,15,30,60].includes(windowMin)){ $('reaction-result').textContent='أدخل سعرين موجبين وفترة صحيحة.';return;}const item={id:e.id,title:e.title,date:e.date,asset:form.elements.asset.value,window:windowMin,before:a,after:b,percent:(b/a-1)*100,notes:String(form.elements.notes.value||'').slice(0,180),saved:new Date().toISOString()};const result=[item,...reactionHistory()].slice(0,80);$('reaction-result').textContent=setStored(historyKey,result)?`حُفظت الحركة: ${item.percent>0?'+':''}${item.percent.toFixed(3)}% خلال ${windowMin} دقيقة — حسب الأسعار التي أدخلتها.`:'تعذر الحفظ المحلي.';renderReactionHistory();}
 function exportReactions(){const rows=reactionHistory();if(!rows.length){$('reaction-result').textContent='لا توجد قياسات لتصديرها.';return;}const fields=['date','title','asset','window','before','after','percent','notes','saved'];const cell=x=>'"'+String(x??'').replace(/"/g,'""')+'"';const csv='\uFEFF'+[fields.join(','),...rows.map(r=>fields.map(k=>cell(r[k])).join(','))].join('\r\n');const url=URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8'}));const link=document.createElement('a');link.href=url;link.download='ICT_News_Reactions.csv';link.click();setTimeout(()=>URL.revokeObjectURL(url),2000);}
 async function boot(){initTabs();$('radar-asset').innerHTML=allowed.map(s=>`<option value="${s}">${s}</option>`).join('');$('radar-asset').value=selected;$('radar-asset').addEventListener('change',e=>selectRadar(e.target.value));const radarSaved=stored(radarPrefsKey,{});for(const [id,key] of [['radar-window','window'],['radar-group','group'],['radar-direction','direction']]){const el=$(id);if(el&&Array.from(el.options).some(o=>o.value===radarSaved[key]))el.value=radarSaved[key];el?.addEventListener('change',()=>{setStored(radarPrefsKey,radarFilter());renderRadar()});}$('save-radar').addEventListener('click',saveChecks);$('reset-radar').addEventListener('click',resetChecks);$('xray-set').addEventListener('change',renderXray);$('xray-symbol').addEventListener('change',renderChart);$('news-select').addEventListener('change',renderNewsReview);initEconomicResults();loadPublicOfficialResults();setInterval(loadPublicOfficialResults,30*60*1000);$('reaction-form').addEventListener('submit',saveReaction);$('export-reactions').addEventListener('click',exportReactions);
- const [m,c,r]=await Promise.all([json('market-movers.json'),json('calendar-live.json'),json('market-radar.json')]);radarAt=r?.updatedAt||null;radarRows=Array.isArray(r?.items)?r.items.filter(x=>allowed.includes(x.symbol)&&typeof x.quotedAt==='string').map(x=>({symbol:x.symbol,quotedAt:x.quotedAt,proxy:Boolean(x.proxy),...Object.fromEntries(['5','15','60'].map(k=>[k,Number.isFinite(Number(x[k]))&&x[k]!=null?Number(x[k]):null]))})):[];moversAt=m?.updatedAt||null;movers=Array.isArray(m?.items)?m.items.filter(x=>allowed.includes(x.symbol)&&Number.isFinite(Number(x.change))).map(x=>({symbol:x.symbol,label:x.label,category:String(x.category||''),quotedAt:x.quotedAt||m?.updatedAt,change:Number(x.change),price:(x.price!=null&&Number.isFinite(Number(x.price))&&Number(x.price)>0)?Number(x.price):null,proxy:Boolean(x.proxy)})):[];calendarAt=c?.updated_at||c?.updatedAt||null;events=normalizeEvents(c);renderRadar();newsOptions();renderReactionHistory();renderXray();}
-window.addEventListener('storage',event=>{if(event.key===economicResultsKey){economicResults=readResults();newsOptions()}});
+ const [m,c,r,n]=await Promise.all([json('market-movers.json'),json('calendar-live.json'),json('market-radar.json'),json('calendar-next.json')]);nextEvents=normalizeEvents(n);radarAt=r?.updatedAt||null;radarRows=Array.isArray(r?.items)?r.items.filter(x=>allowed.includes(x.symbol)&&typeof x.quotedAt==='string').map(x=>({symbol:x.symbol,quotedAt:x.quotedAt,proxy:Boolean(x.proxy),...Object.fromEntries(['5','15','60'].map(k=>[k,Number.isFinite(Number(x[k]))&&x[k]!=null?Number(x[k]):null]))})):[];moversAt=m?.updatedAt||null;movers=Array.isArray(m?.items)?m.items.filter(x=>allowed.includes(x.symbol)&&Number.isFinite(Number(x.change))).map(x=>({symbol:x.symbol,label:x.label,category:String(x.category||''),quotedAt:x.quotedAt||m?.updatedAt,change:Number(x.change),price:(x.price!=null&&Number.isFinite(Number(x.price))&&Number(x.price)>0)?Number(x.price):null,proxy:Boolean(x.proxy)})):[];calendarAt=c?.updated_at||c?.updatedAt||null;events=normalizeEvents(c);renderRadar();newsOptions();renderReactionHistory();renderXray();}
+
 boot();

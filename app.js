@@ -417,8 +417,6 @@ function economicNewsPriority(){
  try{const v=localStorage.getItem('ict-economic-news-priority-v1');return ['important','high','all'].includes(v)?v:'important'}catch{return 'important'}
 }
 function economicIntelligence(){
- const engine=window.ICTEconomicResults;
- const local=engine?engine.rows().sort((a,b)=>Date.parse(b.date)-Date.parse(a.date)):[];
  const official=officialEconomicFeed?.events||[];
  const timeline=window.ICTCalendarConsensus?.lifecycle(official)||[];
  const priority=economicNewsPriority();
@@ -435,15 +433,9 @@ function economicIntelligence(){
   ? `<div class="notice">نتائج رسمية أمريكية (BLS) · آخر جلب ${escapeHTML(String(officialEconomicFeed.updatedAt||'غير متاح'))} · الفترة المكتوبة هي فترة الإحصاء لا موعد النشر. التوقعات تؤخذ من السجل التحريري الموثق أو من الأجندة الحالية عند تطابق الخبر والفترة؛ وتُميَّز التوقعات التي لم يُحفظ وقتها قبل الصدور.</div><div class="intel-grid">${officialIndicatorCards(official)}</div>`
   : `<div class="notice">لا تتوفر الآن نتائج BLS الرسمية المحدثة. ستظهر تلقائيًا بعد نجاح مهمة GitHub الرسمية. لا نعرض أرقامًا افتراضية.</div>`;
 
- // Local results are imported only by the visitor. They are not published on our server.
- if(local.length){
-  const cards=(window.ICTCalendarConsensus?.priorityFilter(local,priority)||[]).slice().sort((a,b)=>(b.impact==='high')-(a.impact==='high')||Date.parse(b.date)-Date.parse(a.date)).slice(0,18).map(e=>{
-   const analysis=engine.explain(e),difference=engine.differenceText(analysis.comparison);
-   return `<article class="intel-event"><div class="intel-event-top"><span class="intel-currency">${escapeHTML(e.currency)}</span><span class="intel-impact">${escapeHTML(e.impact==='high'?'مرتفع التأثير':e.impact==='medium'?'متوسط التأثير':'أثر آخر')}</span><span class="intel-date">${escapeHTML(showDate(new Date(e.date),'date'))}</span></div><h3>${escapeHTML(e.title)}</h3><div class="intel-numbers"><div><small>السابق</small><strong dir="ltr">${escapeHTML(e.previous)}</strong></div><div><small>المتوقع</small><strong dir="ltr">${escapeHTML(e.forecast)}</strong></div><div><small>الفعلي</small><strong dir="ltr">${escapeHTML(e.actual)}</strong></div></div><p class="intel-outcome">${escapeHTML(analysis.headline)} · <span dir="ltr">${escapeHTML(difference)}</span></p><p class="intel-note">${escapeHTML(analysis.category)} — ${escapeHTML(analysis.description)}</p></article>`;
-  }).join('');
-  return `${title('ECONOMIC NEWS INTELLIGENCE','قراءة نتائج الأخبار الاقتصادية','النتائج الرسمية العامة وأرشيفك الشخصي من Forex Factory.')}${newsStages}<h2>النتائج الرسمية التلقائية</h2>${officialBlock}<h2>أرشيف Forex Factory الشخصي</h2><div class="notice">أرشيف خاص على هذا الجهاز · ${local.length} نتيجة فعلية محفوظة. لا تُحدَّث هذه النتائج تلقائيًا؛ استورد ملفًا جديدًا في مختبر الأخبار عند الحاجة. لا تمثل التحليلات إشارات دخول.</div><div class="intel-grid">${cards}</div><a class="btn" href="intelligence.html#news">فتح مختبر الأخبار والأرشيف الكامل ←</a>`;
- }
- return `${title('ECONOMIC NEWS INTELLIGENCE','قراءة نتائج الأخبار الاقتصادية','النتائج الرسمية العامة وأرشيفك الشخصي من Forex Factory.')}${newsStages}<h2>النتائج الرسمية التلقائية</h2>${officialBlock}<h2>أرشيف Forex Factory الشخصي (اختياري)</h2><div class="notice">لم أجد نتائج فعلية مستوردة على هذا الجهاز. افتح مختبر الأخبار واستورد ملف JSON من GitHub Actions؛ ستظهر النتائج هنا تلقائيًا في المتصفح نفسه. لا يمكن اعتبار مواعيد الأجندة نتائج فعلية.</div><a class="btn" href="intelligence.html#news">فتح مختبر الأخبار لاستيراد النتائج ←</a><a class="btn" href="#agenda">عرض الأجندة الأسبوعية ←</a>`;
+ // Economic news is supplied by the site; no visitor uploads or private archives required.
+ return `${title('ECONOMIC NEWS INTELLIGENCE','قراءة نتائج الأخبار الاقتصادية','أخبار الأجندة العالمية والنتائج الرسمية المتاحة تلقائيًا للجميع.')}${newsStages}<h2>النتائج الرسمية المتاحة تلقائيًا</h2>${officialBlock}<div class="notice">تظهر الأخبار القادمة والمتوقع والسابق من بيانات الموقع العامة، وتظهر النتائج الفعلية عندما ينشرها المصدر المتاح. لا يلزم استيراد ملفات أو تسجيل حساب. الأخبار غير المدعومة بنتيجة مؤكدة تُعرض دون اختلاق Actual.</div><a class="btn" href="intelligence.html#news">فتح مختبر الأخبار ←</a>`;
+
 }
 
 const academyLessons=[
