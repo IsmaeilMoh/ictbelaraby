@@ -1,0 +1,11 @@
+/* ICT بالعربي 6.8.88 — source-status feedback inside existing Live Desk only */
+#tab-live .desk-source-heading{font-weight:700;margin-bottom:8px}
+#tab-live .desk-source-pills{display:flex;flex-wrap:wrap;gap:6px;margin:8px 0}
+#tab-live .desk-source-pill{display:inline-flex;align-items:center;border:1px solid var(--line);background:var(--surface);border-radius:999px;padding:4px 9px;font-size:11px;line-height:1.6;max-width:100%;overflow-wrap:anywhere}
+#tab-live .desk-source-pill.is-unavailable{border-color:#c17b79}
+#tab-live .desk-source-pill.is-stale{border-color:#b79b57}
+#tab-live .desk-source-help{font-size:12px;line-height:1.8}
+#tab-live [data-desk-retry]{cursor:pointer;display:inline-block;color:inherit;background:transparent;border:1px solid currentColor;border-radius:8px;padding:5px 9px;font:inherit;font-size:12px;margin-inline-start:5px}
+#tab-live .desk-source-message{font-size:12px;line-height:1.9;padding:10px 4px;color:var(--muted)}
+#tab-live #refresh-desk:disabled{opacity:.7;cursor:progress}
+@media(max-width:600px){#tab-live .desk-source-pill{font-size:10px}#tab-live .desk-source-help [data-desk-retry]{margin-top:6px}}

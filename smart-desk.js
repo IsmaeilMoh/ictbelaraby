@@ -84,22 +84,66 @@ function renderJournal(){
  $('dna-scope').textContent=`${count} صفقة معروضة من أصل ${journal.length} صفقة محفوظة على هذا الجهاز. التصفية لا تغير بيانات السجل.`;
 }
 function bindJournal(){const form=$('trade-form');form.elements.date.value=[new Date().getFullYear(),String(new Date().getMonth()+1).padStart(2,'0'),String(new Date().getDate()).padStart(2,'0')].join('-');form.addEventListener('submit',e=>{e.preventDefault();const d=Object.fromEntries(new FormData(form));const r=cleanRow({...d,r:Number(d.r),reviewed:d.adherence!=='unreviewed'||d.mistake!=='none',id:crypto.randomUUID()});if(!r){alert('راجع التاريخ ونتيجة R؛ يجب أن تكون قيمة عددية معقولة.');return}if(journal.length>=1000){alert('بلغ السجل الحد الأقصى (1000 صفقة). لم تُحذف صفقاتك السابقة؛ احفظ نسخة احتياطية ونظّم السجل قبل الإضافة.');return}journal.push(r);save();renderJournal();form.reset();form.elements.date.value=[new Date().getFullYear(),String(new Date().getMonth()+1).padStart(2,'0'),String(new Date().getDate()).padStart(2,'0')].join('-')});$('trade-rows').addEventListener('click',e=>{const btn=e.target.closest('[data-delete]');if(!btn||!confirm('حذف هذه الصفقة من سجلك المحلي؟'))return;journal=journal.filter(x=>x.id!==btn.dataset.delete);save();renderJournal()});$('export-trades').onclick=exportCsv;$('backup-trades').onclick=()=>download('ict-trader-dna-backup.json',JSON.stringify({version:1,exportedAt:new Date().toISOString(),trades:journal},null,2),'application/json');$('import-trades').addEventListener('change',async e=>{const file=e.target.files?.[0];if(!file)return;if(file.size>1024*1024){alert('الملف كبير جدًا (الحد 1MB).');return}try{const obj=JSON.parse(await file.text());if(!obj||obj.version!==1||!Array.isArray(obj.trades)||obj.trades.length>1000)throw Error();const rows=obj.trades.map(cleanRow);if(rows.some(x=>!x))throw Error();if(!confirm('استبدال سجل الصفقات المحلي بالكامل بالنسخة المستوردة؟'))return;journal=rows;save();renderJournal()}catch{alert('ملف النسخة الاحتياطية غير صالح.')}finally{e.target.value=''}});for(const id of ['dna-period','dna-asset','dna-session','dna-origin'])$(id)?.addEventListener('change',()=>{try{localStorage.setItem(dnaPreferencesKey,JSON.stringify({period:$('dna-period').value,asset:$('dna-asset').value,session:$('dna-session').value,origin:$('dna-origin').value}))}catch{}renderJournal()});refreshDnaFilters();try{const filters=JSON.parse(localStorage.getItem(dnaPreferencesKey)||'{}');for(const [id,key] of [['dna-period','period'],['dna-asset','asset'],['dna-session','session'],['dna-origin','origin']]){if([...$(id).options].some(o=>o.value===filters[key]))$(id).value=filters[key]}}catch{}renderJournal()}
-async function getJson(file){try{const r=await fetch('./'+file+'?v='+Date.now(),{cache:'no-store'});if(!r.ok)throw Error(r.status);return await r.json()}catch{return null}}
-async function loadData(){const [analyses,recs,news,cal,movers]=await Promise.all(['analyses.json','recs.json','news-live.json','calendar-live.json','market-movers.json'].map(getJson));data={analyses:Array.isArray(analyses)?analyses:[],recs:Array.isArray(recs)?recs:[],news:Array.isArray(news?.items)?news.items:[],calendar:Array.isArray(cal?.events)?cal.events:[],movers:Array.isArray(movers?.items)?movers.items:[],meta:{news:news?.updated_at,calendar:cal?.updatedAt,movers:movers?.updatedAt}};renderDesk();}
+// 6.8.88: retain source availability separately from a legitimate empty dataset.
+const deskSources=[
+ {file:'analyses.json',label:'التحليلات',path:'./#recs',key:'analyses'},
+ {file:'recs.json',label:'التوصيات',path:'./#recs',key:'recs'},
+ {file:'news-live.json',label:'الأخبار',path:'./#news',key:'news'},
+ {file:'calendar-live.json',label:'الأجندة',path:'./#agenda',key:'calendar'},
+ {file:'market-movers.json',label:'الأسواق',path:'./#markets',key:'movers'}
+];
+let deskLoadId=0;
+async function getDeskSource(source){
+ try{
+  const response=await fetch('./'+source.file+'?v='+Date.now(),{cache:'no-store'});
+  if(!response.ok)throw Error('HTTP '+response.status);
+  const json=await response.json();
+  const list=source.key==='news'||source.key==='movers'?json?.items:source.key==='calendar'?json?.events:json;
+  if(!Array.isArray(list))throw Error('unexpected shape');
+  const updated=source.key==='news'?json?.updated_at:source.key==='calendar'||source.key==='movers'?json?.updatedAt:null;
+  const timestamp=asDate(updated);
+  const hours={news:6,calendar:30,movers:8}[source.key];
+  const stale=hours&&(!timestamp||Date.now()-timestamp.getTime()>hours*3600000||timestamp.getTime()>Date.now()+300000);
+  return {ok:true,rows:list,updated,stale:Boolean(stale)};
+ }catch(error){console.warn('ICT data source unavailable:',source.file,error?.message);return {ok:false,rows:[],updated:null,stale:false}}
+}
+async function loadData(){
+ const id=++deskLoadId;
+ const refresh=$('refresh-desk');if(refresh){refresh.disabled=true;refresh.textContent='جارٍ التحديث…'}
+ const status=$('desk-status');if(status)status.textContent='جارٍ فحص مصادر البيانات العامة…';
+ try{
+  const results=await Promise.all(deskSources.map(getDeskSource));
+  if(id!==deskLoadId)return;
+  const sources=Object.fromEntries(deskSources.map((source,i)=>[source.key,results[i]]));
+  data={analyses:sources.analyses.rows,recs:sources.recs.rows,news:sources.news.rows,calendar:sources.calendar.rows,movers:sources.movers.rows,
+    meta:{news:sources.news.updated,calendar:sources.calendar.updated,movers:sources.movers.updated},sources};
+  renderDesk();
+ }finally{if(id===deskLoadId&&refresh){refresh.disabled=false;refresh.textContent='تحديث البيانات'}}
+}
+function deskEmpty(source,emptyText){
+ const state=data.sources?.[source];
+ if(state&&!state.ok)return `<p class="desk-source-message" role="status">تعذر تحميل بيانات ${escape(deskSources.find(x=>x.key===source)?.label||'المصدر')} حاليًا. <button type="button" data-desk-retry>إعادة المحاولة</button></p>`;
+ if(state?.stale)return `<p class="desk-source-message">بيانات المصدر قديمة؛ لا نعتمدها كقائمة حديثة. <button type="button" data-desk-retry>إعادة المحاولة</button></p>`;
+ return `<p class="desk-source-message">${escape(emptyText)}</p>`;
+}
 function item(link,title,meta){return `<a class="item" href="${escape(link)}"><b>${escape(title)}</b><small>${escape(meta)}</small></a>`}
 function renderDesk(){const now=Date.now(),as=data.analyses||[],rs=(data.recs||[]).filter(x=>!x.sample),ns=data.news||[],evs=data.calendar||[],ms=data.movers||[];
-const upcoming=evs.filter(x=>{const t=asDate(x.date);return t&&t.getTime()>now}).sort((a,b)=>Date.parse(a.date)-Date.parse(b.date)).slice(0,6);
-const published=[...as.map(x=>({kind:'تحليل',title:x.title||x.asset||'تحليل',when:x.published_at||x.date,link:'./#recs'})),...rs.map(x=>({kind:'توصية',title:x.title||x.pair||'توصية',when:x.published_at||x.date,link:'./#recs'}))].sort((a,b)=>Date.parse(b.when||0)-Date.parse(a.when||0)).slice(0,7);
-$('desk-metrics').innerHTML=[['التحليلات المنشورة',as.length],['التوصيات المنشورة',rs.length],['أحداث قادمة',upcoming.length],['لقطات أصول',ms.length]].map(([title,num])=>`<div class="metric"><small>${title}</small><strong>${num}</strong></div>`).join('');
-$('latest-content').innerHTML=published.map(x=>item(x.link,x.title,x.kind+' • '+fmt(x.when))).join('')||'لا توجد منشورات متاحة.';
-$('upcoming-events').innerHTML=upcoming.map(x=>item('./#agenda',x.title||'حدث اقتصادي',(x.country||x.currency||'')+' • '+fmt(x.date)+' • '+(x.impact||'تأثير غير محدد'))).join('')||'لا توجد أحداث قادمة في الملف الحالي.';
-$('latest-news').innerHTML=ns.slice(0,7).map(x=>item(/^https:\/\/[^\s<>"']+$/.test(x.url||'')?x.url:'./#news',x.title||'خبر',fmt(x.date))).join('')||'لا تتوفر أخبار حاليًا.';
-$('latest-movers').innerHTML=ms.filter(x=>Number.isFinite(Number(x.change))).sort((a,b)=>Math.abs(Number(b.change))-Math.abs(Number(a.change))).slice(0,9).map(x=>item(/^https:\/\/www\.tradingview\.com\//.test(x.url||'')?x.url:'./#markets',x.symbol||'الأصل',`التغير: ${Number(x.change)>0?'+':''}${Number(x.change).toFixed(2)}% • السعر المرجعي: ${x.price??'غير متاح'}`)).join('')||'لا تتوفر لقطة أسواق حاليًا.';
-$('desk-status').textContent=`آخر تحديث للمصادر: الأخبار ${fmt(data.meta.news)} • الأجندة ${fmt(data.meta.calendar)} • الأسواق ${fmt(data.meta.movers)}. التحديث هنا عند الطلب وكل 5 دقائق أثناء فتح الصفحة.`;
+const source=data.sources||{};
+const upcoming=source.calendar?.stale?[]:evs.filter(x=>{const t=asDate(x.date);return t&&t.getTime()>now}).sort((a,b)=>Date.parse(a.date)-Date.parse(b.date)).slice(0,6);
+const published=[...(source.analyses?.ok?as:[]).map(x=>({kind:'تحليل',title:x.title||x.asset||'تحليل',when:x.published_at||x.date,link:'./#recs'})),...(source.recs?.ok?rs:[]).map(x=>({kind:'توصية',title:x.title||x.pair||'توصية',when:x.published_at||x.date,link:'./#recs'}))].sort((a,b)=>Date.parse(b.when||0)-Date.parse(a.when||0)).slice(0,7);
+const metric=(text,count,ok)=>`<div class="metric"><small>${text}</small><strong>${ok?count:'—'}</strong></div>`;
+$('desk-metrics').innerHTML=metric('التحليلات المنشورة',as.length,source.analyses?.ok)+metric('التوصيات المنشورة',rs.length,source.recs?.ok)+metric('أحداث قادمة',upcoming.length,source.calendar?.ok&&!source.calendar?.stale)+metric('لقطات أصول',ms.length,source.movers?.ok&&!source.movers?.stale);
+$('latest-content').innerHTML=published.map(x=>item(x.link,x.title,x.kind+' • '+fmt(x.when))).join('')||deskEmpty(!source.analyses?.ok?'analyses':'recs','لا توجد تحليلات أو توصيات منشورة حاليًا.');
+$('upcoming-events').innerHTML=upcoming.map(x=>item('./#agenda',x.title||'حدث اقتصادي',(x.country||x.currency||'')+' • '+fmt(x.date)+' • '+(x.impact||'تأثير غير محدد'))).join('')||deskEmpty('calendar','لا توجد أحداث قادمة في الأجندة الحالية.');
+$('latest-news').innerHTML=(!source.news?.stale?ns:[]).slice(0,7).map(x=>item(/^https:\/\/[^\s<>"']+$/.test(x.url||'')?x.url:'./#news',x.title||'خبر',fmt(x.date))).join('')||deskEmpty('news','لا توجد أخبار منشورة في هذا التحديث.');
+$('latest-movers').innerHTML=(!source.movers?.stale?ms:[]).filter(x=>Number.isFinite(Number(x.change))).sort((a,b)=>Math.abs(Number(b.change))-Math.abs(Number(a.change))).slice(0,9).map(x=>item(/^https:\/\/www\.tradingview\.com\//.test(x.url||'')?x.url:'./#markets',x.symbol||'الأصل',`التغير: ${Number(x.change)>0?'+':''}${Number(x.change).toFixed(2)}% • السعر المرجعي: ${x.price??'غير متاح'}`)).join('')||deskEmpty('movers','لا توجد لقطة حركة متاحة من المصدر حاليًا.');
+const lines=deskSources.map(s=>{const x=source[s.key];return `<span class="desk-source-pill ${!x?.ok?'is-unavailable':x?.stale?'is-stale':'is-available'}">${escape(s.label)}: ${!x?.ok?'غير متاح':x?.stale?'بيانات قديمة':'متاح'}${x?.updated?' · '+escape(fmt(x.updated)):''}</span>`});
+const failed=deskSources.filter(s=>!source[s.key]?.ok),stale=deskSources.filter(s=>source[s.key]?.stale);
+$('desk-status').innerHTML=`<div class="desk-source-heading">${failed.length?'تعذر تحميل بعض مصادر البيانات.':'تم فحص مصادر البيانات.'} ${stale.length?'بعض البيانات متأخرة ولا تُعرض بوصفها حديثة.':''}</div><div class="desk-source-pills">${lines.join('')}</div>${failed.length||stale.length?'<div class="desk-source-help">راجع اتصال الإنترنت أو أعد المحاولة. تظهر البيانات تلقائيًا عند عودة المصدر. <button type="button" data-desk-retry>إعادة المحاولة</button></div>':'<small>المصادر عامة، والأرقام المعروضة ليست أسعارًا لحظية.</small>'}`;
 }
 const synonyms=[[/الذهب|gold/i,'XAUUSD'],[/الفضة|silver/i,'XAGUSD'],[/ناسداك|nasdaq/i,'NAS100'],[/البيتكوين|بيتكوين|bitcoin/i,'BTC'],[/اليورو/i,'EURUSD'],[/التضخم/i,'CPI'],[/الوظائف/i,'NFP']];
 function search(q){let query=q.trim();for(const [re,target] of synonyms)if(re.test(query)){query+=' '+target;}const tokens=[...new Set(query.toLowerCase().split(/\s+/).filter(s=>s.length>1&&!['آخر','احدث','أحدث','عن','على','من','في','ما','هو','هي','التوصيات','التحليلات','اخبار','الأخبار'].includes(s)))];const entries=[...(data.analyses||[]).map(x=>({type:'تحليل',text:[x.title,x.asset,x.summary,x.body].join(' '),title:x.title||x.asset||'تحليل',date:x.published_at||x.date,link:'./#recs'})),...(data.recs||[]).filter(x=>!x.sample).map(x=>({type:'توصية',text:[x.title,x.pair,x.note,x.dir].join(' '),title:x.title||x.pair||'توصية',date:x.published_at||x.date,link:'./#recs'})),...(data.news||[]).map(x=>({type:'خبر',text:[x.title,x.src,x.tag].join(' '),title:x.title||'خبر',date:x.date,link:/^https:\/\/[^\s<>"']+$/.test(x.url||'')?x.url:'./#news'})),...(data.calendar||[]).map(x=>({type:'أجندة',text:[x.title,x.country,x.currency].join(' '),title:x.title||'حدث',date:x.date,link:'./#agenda'}))];const typeHint=/توصي/.test(q)?'توصية':/تحليل/.test(q)?'تحليل':/خبر|اخبار|أخبار/.test(q)?'خبر':null;const matches=entries.map(x=>{const text=x.text.toLowerCase();const score=tokens.reduce((v,t)=>v+(text.includes(t)?1:0),0)+(typeHint===x.type?1:0);return {...x,score}}).filter(x=>x.score>0).sort((a,b)=>b.score-a.score||Date.parse(b.date||0)-Date.parse(a.date||0)).slice(0,18);$('search-status').textContent=matches.length?`عُثر على ${matches.length} نتيجة مرتبطة بالسؤال من البيانات المنشورة. افتح المصدر للتحقق من التفاصيل.`:'لم أجد نتيجة مطابقة في البيانات المتاحة حاليًا. جرّب رمز الأصل أو اسم الحدث بالإنجليزية.';$('search-results').innerHTML=matches.map(x=>`<div class="search-result"><span>${escape(x.type)} · ${escape(fmt(x.date))}</span><b>${escape(x.title)}</b><p>${escape(x.text.slice(0,170))}</p><a href="${escape(x.link)}" ${x.link.startsWith('https://')?'target="_blank" rel="noopener noreferrer"':''}>فتح المصدر ↗</a></div>`).join('')}
 function openTab(tab){const btn=document.querySelector('[data-tab="'+tab+'"]');if(!btn)return;document.querySelectorAll('[data-tab]').forEach(b=>{const active=b===btn;b.classList.toggle('active',active);b.setAttribute('aria-selected',String(active))});document.querySelectorAll('.tab-panel').forEach(panel=>panel.hidden=panel.id!=='tab-'+tab)}
-function bind(){document.querySelectorAll('[data-tab]').forEach(btn=>btn.addEventListener('click',()=>openTab(btn.dataset.tab)));if(['dna','live','assistant'].includes(location.hash.slice(1)))openTab(location.hash.slice(1));window.addEventListener('hashchange',()=>{const tab=location.hash.slice(1);if(['dna','live','assistant'].includes(tab))openTab(tab)});$('refresh-desk').onclick=loadData;$('search-form').addEventListener('submit',e=>{e.preventDefault();search($('search-query').value)});document.querySelectorAll('[data-query]').forEach(b=>b.onclick=()=>{$('search-query').value=b.dataset.query;search(b.dataset.query)});bindJournal();loadData();setInterval(loadData,5*60*1000)}
+function bind(){document.querySelectorAll('[data-tab]').forEach(btn=>btn.addEventListener('click',()=>openTab(btn.dataset.tab)));if(['dna','live','assistant'].includes(location.hash.slice(1)))openTab(location.hash.slice(1));window.addEventListener('hashchange',()=>{const tab=location.hash.slice(1);if(['dna','live','assistant'].includes(tab))openTab(tab)});$('refresh-desk').onclick=loadData;document.querySelector('#tab-live')?.addEventListener('click',e=>{if(e.target.closest('[data-desk-retry]'))loadData()});$('search-form').addEventListener('submit',e=>{e.preventDefault();search($('search-query').value)});document.querySelectorAll('[data-query]').forEach(b=>b.onclick=()=>{$('search-query').value=b.dataset.query;search(b.dataset.query)});bindJournal();loadData();setInterval(loadData,5*60*1000)}
 bind();
 })();
