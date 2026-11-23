@@ -10,7 +10,10 @@ html[data-ict-page="home"] #app .content-tabs{background:var(--ict-card2)!import
 html[data-ict-page="home"] #app .content-tabs button{color:var(--ict-text)}
 html[data-ict-page="home"] #app .content-tabs button.selected{background:var(--ict-accent)!important;color:var(--ict-accent-contrast)!important}
 html[data-ict-page="home"] #app .analysis-card details,html[data-ict-page="home"] #app .trade-audit{border-color:var(--ict-border)}
-html[data-ict-page="home"] #app .trade-workflow-action{background:var(--ict-hover);border:1px solid var(--ict-border);color:var(--ict-highlight)}
+html[data-ict-page="home"] #app .trade-workflow-action{background:linear-gradient(145deg,color-mix(in srgb,var(--ict-card2) 82%,var(--ict-accent) 18%) 0%,color-mix(in srgb,var(--ict-card) 84%,var(--ict-highlight) 16%) 100%);border:1px solid color-mix(in srgb,var(--ict-accent) 34%,var(--ict-border));color:var(--ict-text)!important}
+html[data-ict-page="home"] #app .trade-workflow-action .twf-title{color:var(--ict-text)!important}
+html[data-ict-page="home"] #app .trade-workflow-action .twf-subtitle{color:var(--ict-muted)!important}
+html[data-ict-page="home"] #app .trade-workflow-action :is(.twf-icon,.twf-arrow){background:color-mix(in srgb,var(--ict-card) 68%,var(--ict-accent) 32%);color:var(--ict-highlight);border:1px solid color-mix(in srgb,var(--ict-accent) 36%,transparent)}
 html[data-ict-page="home"] #app .analysis-image{object-fit:contain}
 html[data-ict-page="home"] #app .analysis-placeholder{background-image:linear-gradient(125deg,var(--ict-card2),var(--ict-card3))!important}
 html[data-ict-page="home"] #app .analysis-toolbar :is(select,input){background:var(--ict-card);color:var(--ict-text);border-color:var(--ict-border)}

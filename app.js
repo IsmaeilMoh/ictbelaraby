@@ -7,13 +7,7 @@ const newsImage=n=>newsImageURL(n?.image||n?.image_url||n?.thumbnail);
 const dateFormat=d=>{if(!d)return '';const obj=new Date(/^\d{4}-\d{2}-\d{2}$/.test(String(d))?d+'T12:00:00':d);return Number.isFinite(obj.getTime())?obj.toLocaleString('ar-u-nu-latn',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit',timeZone:typeof currentZone==='function'?currentZone():undefined}):''};
 const section=(title,content,link='',more='عرض الكل')=>`<section class="section"><div class="section-heading"><h2>${title}</h2>${link?`<a href="${link}">${more} ←</a>`:''}</div>${content}</section>`;
 const empty=m=>`<div class="empty">${m}</div>`;
-async function load(file){
- // Allow the cached public shell to render even if a static JSON request stalls.
- const controller=new AbortController(),timeout=setTimeout(()=>controller.abort(),12000);
- try{const r=await fetch(file,{cache:'no-store',signal:controller.signal});if(!r.ok)throw Error(r.status);return await r.json()}
- catch(e){console.warn('تعذر تحميل',file,e);return null}
- finally{clearTimeout(timeout)}
-}
+async function load(file){try{const r=await fetch(file,{cache:'no-store'});if(!r.ok)throw Error(r.status);return await r.json()}catch(e){console.warn('تعذر تحميل',file,e);return null}}
 function cardNews(n){const photo=newsImage(n);const artwork=photo?`<div class="news-photo"><img src="${escapeHTML(photo)}" alt="صورة مرفقة من المصدر: ${escapeHTML(n.src||'المصدر')}" loading="lazy" decoding="async" referrerpolicy="no-referrer" onerror="this.closest('.news-photo').classList.add('image-error')"><span class="news-photo-fallback" aria-hidden="true">${escapeHTML(n.tag||'اقتصاد')}</span></div>`:`<div class="news-photo news-photo-placeholder" aria-hidden="true"><span>${escapeHTML(n.tag||'اقتصاد')}</span></div>`;return `<article class="card news-card">${artwork}<span class="tag">${escapeHTML(n.tag||'اقتصاد')}</span><h3>${escapeHTML(n.title)}</h3><p>${escapeHTML(n.sum||'')}</p><div class="card-meta"><span>${escapeHTML(n.src||'')} · ${dateFormat(n.date)}</span>${safeUrl(n.url)!=='#'?`<a href="${escapeHTML(safeUrl(n.url))}" target="_blank" rel="noopener noreferrer">قراءة الخبر ↗</a>`:''}</div></article>`}
 function newsStatusLine(){const date=S.newsUpdated?dateFormat(S.newsUpdated):'';if(S.newsStatus==='fresh')return `آخر تحديث: ${escapeHTML(date)} • أخبار من مصادرها الأصلية`;
 if(S.newsStatus==='stale')return `آخر تحديث: ${escapeHTML(date)} • قد تكون بعض الأخبار قديمة؛ تحقق من تاريخ النشر`;
@@ -21,16 +15,13 @@ if(S.newsStatus==='archive')return 'أخبار سابقة • الأخبار ا�
 return 'جارٍ تحميل الأخبار…';}
 function newsBadge(){return `<span class="news-live-chip ${S.newsStatus==='fresh'?'is-fresh':S.newsStatus==='stale'?'is-stale':''}">${S.newsStatus==='fresh'?'تحديث تلقائي':S.newsStatus==='stale'?'أخبار سابقة':S.newsStatus==='archive'?'أرشيف':'جارٍ التحديث'}</span>`;}
 async function fetchLiveNews(){
- const before=JSON.stringify([S.newsStatus,S.newsUpdated?.getTime()||null,S.news]);
  let payload=null;try{const r=await fetch('news-live.json?t='+Date.now(),{cache:'no-store'});if(r.ok)payload=await r.json()}catch(e){console.info('News feed unavailable',e.message)}
  const time=payload?.updated_at?new Date(payload.updated_at):null;
  const records=Array.isArray(payload?.items)?payload.items:[];
  const normalized=records.filter(n=>n&&typeof n.title==='string'&&n.title.trim()&&/^https:\/\/[^\s]+$/i.test(n.url||'')&&Number.isFinite(new Date(n.date).getTime())&&Date.now()-new Date(n.date).getTime()<7*86400000).map(n=>({title:n.title,src:String(n.src||'المصدر'),tag:String(n.tag||'اقتصاد'),date:n.date,url:n.url,sum:'',image:newsImage(n),language:n.language||'ar'})).slice(0,80);
  if(normalized.length){S.news=normalized;S.newsUpdated=time;S.newsStatus=(time&&Number.isFinite(time.getTime())&&Date.now()-time.getTime()<4*3600000)?'fresh':'stale';}
  else {S.news=S.newsArchive;S.newsUpdated=null;S.newsStatus='archive';}
- if(before===JSON.stringify([S.newsStatus,S.newsUpdated?.getTime()||null,S.news]))return;
- if(state.page==='home')updateHomeNewsSlider();
- else if(state.page==='news')render(true);
+ if(['news','home'].includes(state.page))render();
 }
 function newsGrid(items){return items.length?`<div class="grid">${items.map(cardNews).join('')}</div>`:empty('لا توجد أخبار في هذا التصنيف.')}
 const statusNames={pending:'بانتظار التفعيل',open:'مفعّلة',tp:'هدف مسجل إداريًا',sl:'وقف مسجل إداريًا',cl:'مغلقة يدويًا',cancelled:'ملغاة'};
@@ -47,7 +38,7 @@ function workflowReference(r){const key=r?.id!==undefined&&r?.id!==null&&String(
 function cardRec(r){
  const buy=r.dir==='buy',stat=r.status||'open',rr=tradeRR(r),updated=r.updated_at&&r.updated_at!==r.published_at;
  const stateLabel=escapeHTML(statusNames[stat]||stat),levelIssue=tradeLevelIssue(r),final=tradeFinalStates.has(stat),audit=resultHistoryMarkup(r);
- return `<article class="card trade-pro-card"><div class="rec-head"><span class="pair" dir="ltr">${escapeHTML(r.pair)}</span><span class="direction ${buy?'buy':'sell'}">${buy?'BUY • شراء':'SELL • بيع'}</span></div><div class="trade-pro-badges"><span class="trade-state trade-state-${escapeHTML(stat)}">${stateLabel}</span>${!r.sample?`<span class="trade-source-badge">تحديث إداري · غير مرتبط بتنفيذ وسيط</span>`:''}${rr!==null?`<span class="trade-rr en" dir="ltr">R:R 1:${rr.toFixed(2)}</span>`:''}</div><div class="kv"><div><small>الدخول ENTRY</small><strong dir="ltr">${escapeHTML(r.entry)}</strong></div><div><small>الهدف TP</small><strong dir="ltr">${escapeHTML(r.tp)}</strong></div><div><small>الإيقاف SL</small><strong dir="ltr">${escapeHTML(r.sl)}</strong></div></div><div class="card-meta"><span>نُشرت: ${dateFormat(r.published_at||r.date)}</span>${updated?`<span>آخر تعديل: ${dateFormat(r.updated_at)}</span>`:''}</div>${levelIssue?`<p class="trade-level-warning">⚠ ${escapeHTML(levelIssue)}</p>`:''}${r.note?`<p class="trade-pro-note">${escapeHTML(r.note)}</p>`:''}${r.result_note?`<div class="trade-pro-result"><b>تحديث النتيجة</b><p>${escapeHTML(r.result_note)}</p></div>`:''}${final&&!r.result_note?`<p class="trade-level-warning">الحالة مسجلة دون شرح أو توثيق مرفق.</p>`:''}${audit}${r.sample?'<span class="tag">بيانات تجريبية</span>':`<a class="trade-workflow-action" href="workflow.html?ref=${encodeURIComponent(workflowReference(r))}">◈ حضّر الصفقة • احسب المخاطرة • سجّل النتيجة ←</a>`}</article>`;
+ return `<article class="card trade-pro-card"><div class="rec-head"><span class="pair" dir="ltr">${escapeHTML(r.pair)}</span><span class="direction ${buy?'buy':'sell'}">${buy?'BUY • شراء':'SELL • بيع'}</span></div><div class="trade-pro-badges"><span class="trade-state trade-state-${escapeHTML(stat)}">${stateLabel}</span>${!r.sample?`<span class="trade-source-badge">تحديث إداري · غير مرتبط بتنفيذ وسيط</span>`:''}${rr!==null?`<span class="trade-rr en" dir="ltr">R:R 1:${rr.toFixed(2)}</span>`:''}</div><div class="kv"><div><small>الدخول ENTRY</small><strong dir="ltr">${escapeHTML(r.entry)}</strong></div><div><small>الهدف TP</small><strong dir="ltr">${escapeHTML(r.tp)}</strong></div><div><small>الإيقاف SL</small><strong dir="ltr">${escapeHTML(r.sl)}</strong></div></div><div class="card-meta"><span>نُشرت: ${dateFormat(r.published_at||r.date)}</span>${updated?`<span>آخر تعديل: ${dateFormat(r.updated_at)}</span>`:''}</div>${levelIssue?`<p class="trade-level-warning">⚠ ${escapeHTML(levelIssue)}</p>`:''}${r.note?`<p class="trade-pro-note">${escapeHTML(r.note)}</p>`:''}${r.result_note?`<div class="trade-pro-result"><b>تحديث النتيجة</b><p>${escapeHTML(r.result_note)}</p></div>`:''}${final&&!r.result_note?`<p class="trade-level-warning">الحالة مسجلة دون شرح أو توثيق مرفق.</p>`:''}${audit}${r.sample?'<span class="tag">بيانات تجريبية</span>':`<a class="trade-workflow-action" href="workflow.html?ref=${encodeURIComponent(workflowReference(r))}" aria-label="حضّر الصفقة ثم احسب المخاطرة وسجّل النتيجة"><span class="twf-icon" aria-hidden="true">◈</span><span class="twf-copy"><strong class="twf-title">حضّر الصفقة</strong><small class="twf-subtitle">احسب المخاطرة • سجّل النتيجة</small></span><span class="twf-arrow" aria-hidden="true">←</span></a>`}</article>`;
 }
 function recGrid(items){return items.length?`<div class="grid">${items.map(cardRec).join('')}</div>`:empty('لا توجد توصيات في هذه الحالة.')}
 // Only same-site uploaded chart images or HTTPS source images are accepted.
@@ -104,16 +95,6 @@ function showHeroSlide(index){
  heroSlideIndex=(index+items.length)%items.length;
  host.innerHTML=heroSlideMarkup(items[heroSlideIndex],heroSlideIndex,items.length);
  document.querySelectorAll('.hero-news-dot').forEach((b,i)=>{b.classList.toggle('is-active',i===heroSlideIndex);b.setAttribute('aria-pressed',String(i===heroSlideIndex))});
-}
-// Live headlines should never reconstruct the whole homepage or reset reading position.
-function updateHomeNewsSlider(){
- const current=document.querySelector('.hero-news-slider');
- if(!current||state.page!=='home')return;
- const replacement=document.createElement('div');replacement.innerHTML=heroSlider();
- const next=replacement.firstElementChild;
- if(!next)return;
- current.replaceWith(next);
- initHeroSlider();
 }
 let heroSlidePaused=false;
 function initHeroSlider(){
@@ -523,7 +504,7 @@ function checkPublications(){const current=publicationRows(),ids=current.map(x=>
  if(Array.isArray(previous)&&alertSettings().posts){const seen=new Set(previous);for(const x of current.filter(x=>!seen.has(x.id)&&Date.now()-x.when<48*3600000).slice(0,3)){sendLocalAlert('نُشر '+x.kind+' على ICT بالعربي',x.title,'ict-publication-'+x.id,'recs')}}
  localStorage.setItem(publicationKey,JSON.stringify(ids.slice(0,300)));
 }
-async function pollPublishedContent(){const before=JSON.stringify([S.recs,S.analyses]);const [recs,analyses]=await Promise.all([load('recs.json?t='+Date.now()),load('analyses.json?t='+Date.now())]);if(Array.isArray(recs))S.recs=recs;if(Array.isArray(analyses))S.analyses=analyses;checkPublications();if(state.page==='recs'&&contentPollStarted&&before!==JSON.stringify([S.recs,S.analyses]))render(true);contentPollStarted=true}
+async function pollPublishedContent(){const [recs,analyses]=await Promise.all([load('recs.json?t='+Date.now()),load('analyses.json?t='+Date.now())]);if(Array.isArray(recs))S.recs=recs;if(Array.isArray(analyses))S.analyses=analyses;checkPublications();if(state.page==='recs'&&contentPollStarted)render();contentPollStarted=true}
 
 
 // ICT 4.5 — sourced economic surprise, educational academy and local-only calculators.
@@ -564,7 +545,7 @@ async function fetchOfficialEconomicResults(){
   await Promise.all([window.ICTEditorialForecasts?.load(),window.ICTCalendarConsensus?.load()]);
   officialEconomicFeed={updatedAt:data.updatedAt,events:data.events.filter(e=>e&&e.source==='BLS'&&e.period&&Number.isFinite(Number(e.actual))&&['%','K'].includes(e.unit)).slice(0,30)};
  }catch{officialEconomicFeed=null}
- if(state.page==='intelligence')render(true);
+ if(state.page==='intelligence')render();
 }
 function economicNewsPriority(){
  try{const v=localStorage.getItem('ict-economic-news-priority-v1');return ['important','high','all'].includes(v)?v:'important'}catch{return 'important'}
@@ -734,23 +715,7 @@ function academyAnswer(id,index){
 function tradingCalculators(){return `${title('TRADING CALCULATORS','حاسبات التداول وإدارة المخاطر','احسب قيمة المخاطرة وحجم الصفقة والعائد إلى المخاطرة باستخدام مواصفات عقد وسيطك.')}<div class="calc-grid"><section class="card"><h2>حاسبة حجم الصفقة</h2><div class="calc-fields"><label>الرصيد بعملة الحساب<input id="calc-balance" type="number" min="0" step="any" value="1000"></label><label>المخاطرة %<input id="calc-risk-pct" type="number" min="0" max="100" step="any" value="1"></label><label>مسافة وقف الخسارة (بيب/نقطة)<input id="calc-stop" type="number" min="0" step="any" value="30"></label><label>قيمة البيب/النقطة للوت الواحد بعملة الحساب<input id="calc-value" type="number" min="0" step="any" value="10"></label></div><div class="calc-result" id="calc-position-result" role="status"></div><p class="subtle">أدخل قيمة البيب أو النقطة للوت الواحد وفق الوسيط والعملة ونوع العقد. 10 هنا مثال فقط، وليس قيمة صحيحة لكل الأدوات. لا يشمل السبريد أو العمولة أو الانزلاق.</p></section><section class="card"><h2>حاسبة العائد إلى المخاطرة</h2><div class="calc-fields"><label>الدخول<input id="rr-entry" type="number" step="any" value="1.15000"></label><label>وقف الخسارة<input id="rr-stop" type="number" step="any" value="1.14700"></label><label>جني الربح<input id="rr-take" type="number" step="any" value="1.15600"></label><label>اتجاه الصفقة<select id="rr-dir"><option value="buy">BUY — شراء</option><option value="sell">SELL — بيع</option></select></label></div><div class="calc-result" id="calc-rr-result" role="status"></div></section></div><div class="notice">الحسابات تقديرية وتعليمية. لا ترسل أوامر تداول ولا تحفظ بيانات مالية في خادم. تحقق من حجم العقد والحد الأدنى للوت ومتطلبات الهامش لدى وسيطك.</div>`}
 function updateCalculators(){if(state.page!=='calculators')return;const n=id=>Number($(id)?.value),b=n('calc-balance'),r=n('calc-risk-pct'),s=n('calc-stop'),v=n('calc-value');const result=$('calc-position-result');if(result){if(![b,r,s,v].every(Number.isFinite)||b<=0||r<=0||r>100||s<=0||v<=0)result.textContent='أدخل قيمًا موجبة صحيحة، ونسبة مخاطرة لا تتجاوز 100%.';else{const cash=b*r/100,lots=cash/(s*v);result.textContent=`المخاطرة النقدية: ${cash.toFixed(2)} | الحجم النظري: ${lots.toFixed(3)} لوت (قبل التقريب لشروط الوسيط)`;}}const entry=n('rr-entry'),stop=n('rr-stop'),take=n('rr-take'),dir=$('rr-dir')?.value;const rr=$('calc-rr-result');if(rr){const risk=dir==='buy'?entry-stop:stop-entry,reward=dir==='buy'?take-entry:entry-take;rr.textContent=[entry,stop,take].every(Number.isFinite)&&risk>0&&reward>0?`نسبة العائد إلى المخاطرة: 1:${(reward/risk).toFixed(2)}`:'تحقق من ترتيب الدخول والوقف والهدف وفق اتجاه الصفقة.'}}
 
-// Load external TradingView custom elements only when their route is opened.
-// App shell, data feeds, local clocks, and alert scripts remain independent.
-const tvElementBundles={
- markets:'https://widgets.tradingview-widget.com/w/en/tv-forex-table.js',
- agenda:'https://widgets.tradingview-widget.com/w/en/tv-economic-calendar.js'
-};
-const tvElementLoading=new Set();
-function loadTradingViewForRoute(page){
- const url=tvElementBundles[page];
- if(!url||tvElementLoading.has(page))return;
- tvElementLoading.add(page);
- const script=document.createElement('script');
- script.type='module';script.src=url;
- script.onerror=()=>{tvElementLoading.delete(page);script.remove();console.warn('TradingView module unavailable for',page)};
- document.head.appendChild(script);
-}
-function render(preserveReading=false){const oldScroll=preserveReading?{x:window.scrollX,y:window.scrollY}:null;const p=location.hash.replace('#','')||'home';state.page=Object.hasOwn(navTitle,p)?p:'home';$('app').innerHTML=({home,markets,news,recs:recommendations,agenda:calendar,ict:ictTools,links:social,more,intelligence:economicIntelligence,academy:ictAcademy,calculators:tradingCalculators})[state.page]();document.querySelectorAll('[data-page]').forEach(a=>{const active=a.dataset.page===state.page||(a.dataset.page==='more'&&['news','ict','links','more'].includes(state.page));a.classList.toggle('active',active);if(active)a.setAttribute('aria-current','page');else a.removeAttribute('aria-current')});document.title=`${navTitle[state.page]} | ICT بالعربي`;loadTradingViewForRoute(state.page);if(state.page==='markets')hydrateMarketChart();if(state.page==='calculators')updateCalculators();document.dispatchEvent(new Event('ict-view-rendered'));if(state.page==='home'){applyHomeToolsFilter();initPulseFallback();initHeroSlider()}else if(heroSlideTimer){clearInterval(heroSlideTimer);heroSlideTimer=null}if(oldScroll)window.scrollTo({left:oldScroll.x,top:oldScroll.y,behavior:'instant'});else window.scrollTo({top:0,behavior:'instant'})}
+function render(){const p=location.hash.replace('#','')||'home';state.page=Object.hasOwn(navTitle,p)?p:'home';$('app').innerHTML=({home,markets,news,recs:recommendations,agenda:calendar,ict:ictTools,links:social,more,intelligence:economicIntelligence,academy:ictAcademy,calculators:tradingCalculators})[state.page]();document.querySelectorAll('[data-page]').forEach(a=>{const active=a.dataset.page===state.page||(a.dataset.page==='more'&&['news','ict','links','more'].includes(state.page));a.classList.toggle('active',active);if(active)a.setAttribute('aria-current','page');else a.removeAttribute('aria-current')});document.title=`${navTitle[state.page]} | ICT بالعربي`;if(state.page==='markets')hydrateMarketChart();if(state.page==='calculators')updateCalculators();document.dispatchEvent(new Event('ict-view-rendered'));if(state.page==='home'){applyHomeToolsFilter();initPulseFallback();initHeroSlider()}else if(heroSlideTimer){clearInterval(heroSlideTimer);heroSlideTimer=null}window.scrollTo({top:0,behavior:'instant'})}
 
 function ticker(){
  const host=$('tape');if(!host)return;
@@ -792,64 +757,4 @@ matchMedia('(prefers-color-scheme: dark)').addEventListener?.('change',()=>{if((
 
 let deferredInstall;window.addEventListener('beforeinstallprompt',e=>{e.preventDefault();deferredInstall=e;$('install').hidden=false});$('install').addEventListener('click',async()=>{if(deferredInstall){deferredInstall.prompt();await deferredInstall.userChoice;deferredInstall=null;$('install').hidden=true}});
 window.addEventListener('hashchange',render);
-// Network pollers share one visibility listener. While the PWA is hidden,
-// polling remains paused; on return each source checks its own due time.
-const visibleDataRefreshers=new Set();
-let pulseClockTimer=null;
-function resumeVisiblePageWork(){
- if(document.hidden)return;
- updatePulseClocks();
- refreshPulse();
- if(navigator.onLine===false)return;
- for(const refresh of visibleDataRefreshers)void refresh();
-}
-document.addEventListener('visibilitychange',()=>{
- if(document.hidden){
-  if(pulseClockTimer!==null){clearInterval(pulseClockTimer);pulseClockTimer=null}
- }else{
-  if(pulseClockTimer===null)pulseClockTimer=setInterval(updatePulseClocks,1000);
-  resumeVisiblePageWork();
- }
-});
-// A reconnect refresh can bypass the normal interval, but never spam the source.
-// navigator.onLine is only a hint: failed requests still use existing error states.
-let networkWasOffline=typeof navigator!=='undefined'&&navigator.onLine===false;
-window.addEventListener('offline',()=>{networkWasOffline=true});
-window.addEventListener('online',()=>{
- if(!networkWasOffline)return;
- networkWasOffline=false;
- if(document.hidden)return; // visibilitychange will check due tasks later.
- let index=0;
- for(const refresh of visibleDataRefreshers){
-  // Spread requests across the reconnect period on slow mobile connections.
-  setTimeout(()=>{if(!document.hidden&&navigator.onLine!==false)void refresh(true)},index++*800);
- }
-});
-function scheduleVisibleDataRefresh(task, intervalMs){
- let lastAttempt=Date.now(), inFlight=false;
- async function refreshIfDue(force=false){
-  if(document.hidden||navigator.onLine===false||inFlight)return;
-  const since=Date.now()-lastAttempt;
-  if(since<(force?15000:intervalMs))return;
-  lastAttempt=Date.now();inFlight=true;
-  try{await task()}catch(error){console.warn('Periodic data refresh failed',error)}
-  finally{inFlight=false}
- }
- visibleDataRefreshers.add(refreshIfDue);
- return setInterval(refreshIfDue,Math.min(intervalMs,60000));
-}
-function startVisiblePulseClock(){
- if(!document.hidden&&pulseClockTimer===null){
-  updatePulseClocks();
-  pulseClockTimer=setInterval(updatePulseClocks,1000);
- }
-}
-async function boot(){applyTheme();updateHeaderDate();const a=await Promise.all([load('news.json'),load('recs.json'),load('links.json'),load('agenda.json'),load('analyses.json')]);[S.newsArchive,S.recs,S.links,S.agenda,S.analyses]=[a[0]||[],a[1]||[],a[2]||[],a[3]||{days:[]},a[4]||[]];checkPublications();S.news=S.newsArchive;
- // Show the complete local shell and archived cards immediately after the
- // bundled public files resolve; slow live feeds must not block first paint.
- render();refreshPulse();ticker();sessionAlerts();
- void Promise.allSettled([fetchLiveCalendar(),fetchNextCalendar(),fetchLiveNews()]).then(()=>{
-  if(state.page==='agenda')render(true);else refreshPulse();
-  futureAlerts();
- });
- fetchMovers();startVisiblePulseClock();setInterval(()=>{if(!document.hidden)refreshPulse()},60000);scheduleVisibleDataRefresh(fetchMovers,5*60*1000);setInterval(()=>{futureAlerts();sessionAlerts()},30000);scheduleVisibleDataRefresh(pollPublishedContent,120000);scheduleVisibleDataRefresh(async()=>{await Promise.all([fetchLiveCalendar(),fetchNextCalendar()]);if(state.page==='agenda')render(true);else refreshPulse();futureAlerts()},10*60*1000);setInterval(()=>{updateHeaderDate();if(state.page==='ict')render(true)},60000);scheduleVisibleDataRefresh(fetchLiveNews,10*60*1000);fetchOfficialEconomicResults();scheduleVisibleDataRefresh(fetchOfficialEconomicResults,30*60*1000);if('serviceWorker'in navigator)navigator.serviceWorker.register('./sw.js').catch(console.warn)}boot();
+async function boot(){applyTheme();updateHeaderDate();const a=await Promise.all([load('news.json'),load('recs.json'),load('links.json'),load('agenda.json'),load('analyses.json')]);[S.newsArchive,S.recs,S.links,S.agenda,S.analyses]=[a[0]||[],a[1]||[],a[2]||[],a[3]||{days:[]},a[4]||[]];checkPublications();S.news=S.newsArchive;await Promise.all([fetchLiveCalendar(),fetchNextCalendar(),fetchLiveNews()]);render();refreshPulse();ticker();futureAlerts();sessionAlerts();fetchMovers();setInterval(updatePulseClocks,1000);setInterval(refreshPulse,60000);setInterval(fetchMovers,5*60*1000);setInterval(()=>{futureAlerts();sessionAlerts()},30000);setInterval(pollPublishedContent,120000);setInterval(async()=>{await Promise.all([fetchLiveCalendar(),fetchNextCalendar()]);if(state.page==='agenda')render();else refreshPulse();futureAlerts()},10*60*1000);setInterval(()=>{updateHeaderDate();if(state.page==='ict')render()},60000);setInterval(fetchLiveNews,10*60*1000);fetchOfficialEconomicResults();setInterval(fetchOfficialEconomicResults,30*60*1000);if('serviceWorker'in navigator)navigator.serviceWorker.register('./sw.js').catch(console.warn)}boot();

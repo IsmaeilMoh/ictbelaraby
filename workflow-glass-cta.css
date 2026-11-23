@@ -1,34 +1,69 @@
-/* ICT 6.8.29 — premium glass CTA for the recommendation → workflow link. */
+/* ICT 6.9.17 — redesigned CTA for the recommendation → workflow link. */
 .trade-pro-card .trade-workflow-action{
- position:relative;isolation:isolate;display:flex;align-items:center;justify-content:center;
- width:100%;min-height:52px;padding:13px 18px;margin-top:15px;
- text-align:center;text-decoration:none!important;line-height:1.9;
- font-family:'Almarai',Tahoma,Arial,sans-serif!important;font-size:13px;font-weight:800!important;
- color:#ecfff7!important;border:1px solid rgba(167,249,214,.55)!important;border-radius:15px;
- background:linear-gradient(115deg,rgba(47,131,103,.48) 0%,rgba(40,105,94,.63) 42%,rgba(91,190,158,.32) 100%);
- box-shadow:inset 0 1px 0 rgba(255,255,255,.4),inset 0 -1px 0 rgba(0,0,0,.07),0 9px 22px rgba(14,78,60,.17),0 0 0 1px rgba(172,237,208,.07);
- backdrop-filter:blur(15px) saturate(145%);-webkit-backdrop-filter:blur(15px) saturate(145%);
- overflow:hidden;transition:transform .22s ease,box-shadow .22s ease,border-color .22s ease;
+ --cta-accent:var(--ict-accent,#18a06b);
+ --cta-accent-2:color-mix(in srgb,var(--cta-accent) 70%,var(--ict-highlight,#8de0b7));
+ position:relative;isolation:isolate;display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:12px;
+ width:100%;min-height:64px;padding:14px 16px;margin-top:16px;
+ text-decoration:none!important;text-align:start;direction:rtl;
+ font-family:"Noto Kufi Arabic","Almarai",Tahoma,Arial,sans-serif!important;
+ color:var(--ict-text,#eefcf6)!important;border:1px solid color-mix(in srgb,var(--cta-accent) 34%,var(--ict-border,#35524d));
+ border-radius:18px;background:linear-gradient(145deg,color-mix(in srgb,var(--ict-card2,#18302c) 82%,var(--cta-accent) 18%) 0%,color-mix(in srgb,var(--ict-card,#122420) 84%,var(--cta-accent-2) 16%) 100%);
+ box-shadow:0 12px 26px color-mix(in srgb,var(--cta-accent) 14%,transparent),inset 0 1px 0 rgba(255,255,255,.06),0 0 0 1px rgba(255,255,255,.03);
+ overflow:hidden;transition:transform .22s ease,box-shadow .22s ease,border-color .22s ease,background .22s ease;
 }
 .trade-pro-card .trade-workflow-action::before{
- content:'';position:absolute;inset:1px 1px auto;height:47%;border-radius:14px 14px 48% 48%;
- background:linear-gradient(180deg,rgba(255,255,255,.20),rgba(255,255,255,0));pointer-events:none;z-index:-1;
+ content:"";position:absolute;inset:0;pointer-events:none;
+ background:linear-gradient(120deg,rgba(255,255,255,.08),transparent 28%,transparent 72%,rgba(255,255,255,.04));
 }
 .trade-pro-card .trade-workflow-action::after{
- content:'';position:absolute;inset:-100% auto -100% -50%;width:35%;transform:rotate(23deg) translateX(0);
- background:linear-gradient(90deg,transparent,rgba(255,255,255,.05),rgba(255,255,255,.34),rgba(255,255,255,.06),transparent);
- pointer-events:none;animation:ict-workflow-glint 6s ease-in-out infinite;
+ content:"";position:absolute;inset:auto 14px 0 auto;width:84px;height:84px;border-radius:50%;pointer-events:none;
+ background:radial-gradient(circle, color-mix(in srgb,var(--cta-accent-2) 30%,transparent) 0%, transparent 72%);
+ transform:translate(20%,28%);
 }
-@keyframes ict-workflow-glint{0%,23%{left:-55%}48%,100%{left:145%}}
-.trade-pro-card .trade-workflow-action:hover,.trade-pro-card .trade-workflow-action:focus-visible{
- transform:translateY(-2px);border-color:rgba(199,255,229,.9)!important;
- box-shadow:inset 0 1px 0 rgba(255,255,255,.4),0 14px 29px rgba(12,85,58,.26),0 0 0 2px rgba(117,219,174,.22);
+.trade-pro-card .trade-workflow-action .twf-icon,
+.trade-pro-card .trade-workflow-action .twf-arrow{
+ display:grid;place-items:center;flex:0 0 auto;position:relative;z-index:1;
+ width:38px;height:38px;border-radius:12px;
+ background:color-mix(in srgb,var(--ict-card,#122420) 68%,var(--cta-accent) 32%);
+ color:var(--ict-highlight,#8de0b7);border:1px solid color-mix(in srgb,var(--cta-accent) 36%,transparent);
+ box-shadow:inset 0 1px 0 rgba(255,255,255,.05);
+ font-size:15px;font-weight:900;line-height:1;
 }
-.trade-pro-card .trade-workflow-action:focus-visible{outline:2px solid #85e2b7;outline-offset:3px}
+.trade-pro-card .trade-workflow-action .twf-copy{display:grid;gap:3px;min-width:0;position:relative;z-index:1}
+.trade-pro-card .trade-workflow-action .twf-title{
+ display:block;font-size:13.5px;font-weight:900;letter-spacing:0;line-height:1.55;color:var(--ict-text,#eefcf6)
+}
+.trade-pro-card .trade-workflow-action .twf-subtitle{
+ display:block;font-size:11.5px;font-weight:700;line-height:1.6;color:var(--ict-muted,#b3c8c0)
+}
+.trade-pro-card .trade-workflow-action:hover,
+.trade-pro-card .trade-workflow-action:focus-visible{
+ transform:translateY(-2px);border-color:color-mix(in srgb,var(--cta-accent-2) 58%,white 10%);
+ box-shadow:0 16px 32px color-mix(in srgb,var(--cta-accent) 20%,transparent),0 0 0 1px rgba(255,255,255,.04),0 0 0 4px color-mix(in srgb,var(--cta-accent) 16%,transparent);
+}
+.trade-pro-card .trade-workflow-action:hover .twf-icon,
+.trade-pro-card .trade-workflow-action:hover .twf-arrow,
+.trade-pro-card .trade-workflow-action:focus-visible .twf-icon,
+.trade-pro-card .trade-workflow-action:focus-visible .twf-arrow{
+ background:color-mix(in srgb,var(--cta-accent) 28%,var(--ict-card,#122420));color:#fff;
+}
+.trade-pro-card .trade-workflow-action:focus-visible{outline:2px solid color-mix(in srgb,var(--cta-accent-2) 80%,white 20%);outline-offset:3px}
 html[data-theme="light"] .trade-pro-card .trade-workflow-action{
- color:#16443a!important;border-color:rgba(24,130,104,.48)!important;
- background:linear-gradient(120deg,rgba(234,255,244,.87),rgba(181,236,215,.82) 47%,rgba(213,248,229,.9));
- box-shadow:inset 0 1px 0 rgba(255,255,255,.95),0 8px 21px rgba(39,94,77,.14),0 0 0 1px rgba(25,122,97,.08)
+ color:#14352c!important;
+ background:linear-gradient(145deg,color-mix(in srgb,white 78%,var(--cta-accent) 22%) 0%,color-mix(in srgb,#f2fbf7 82%,var(--cta-accent-2) 18%) 100%);
+ border-color:color-mix(in srgb,var(--cta-accent) 28%,rgba(17,60,46,.18));
+ box-shadow:0 10px 22px rgba(38,113,90,.10),inset 0 1px 0 rgba(255,255,255,.86),0 0 0 1px rgba(16,79,58,.05)
 }
-@media(max-width:480px){.trade-pro-card .trade-workflow-action{padding:12px;font-size:12px;min-height:54px}}
-@media(prefers-reduced-motion:reduce){.trade-pro-card .trade-workflow-action{transition:none}.trade-pro-card .trade-workflow-action::after{animation:none}}
+html[data-theme="light"] .trade-pro-card .trade-workflow-action .twf-title{color:#14352c}
+html[data-theme="light"] .trade-pro-card .trade-workflow-action .twf-subtitle{color:#547369}
+html[data-theme="light"] .trade-pro-card .trade-workflow-action .twf-icon,
+html[data-theme="light"] .trade-pro-card .trade-workflow-action .twf-arrow{
+ background:rgba(255,255,255,.72);color:#176f51;border-color:rgba(23,111,81,.16)
+}
+@media(max-width:480px){
+ .trade-pro-card .trade-workflow-action{min-height:60px;padding:12px 13px;gap:10px}
+ .trade-pro-card .trade-workflow-action .twf-icon,.trade-pro-card .trade-workflow-action .twf-arrow{width:34px;height:34px;border-radius:11px;font-size:14px}
+ .trade-pro-card .trade-workflow-action .twf-title{font-size:12.75px}
+ .trade-pro-card .trade-workflow-action .twf-subtitle{font-size:10.8px}
+}
+@media(prefers-reduced-motion:reduce){.trade-pro-card .trade-workflow-action{transition:none}.trade-pro-card .trade-workflow-action::after{display:none}}
