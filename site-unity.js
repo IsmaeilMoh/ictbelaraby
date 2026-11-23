@@ -6,7 +6,7 @@ const base='./';
 const theme=window.ICTTheme;
 function syncTheme(){if(theme)theme.apply()}
 function icon(name,box=false){const inner=(window.ICTSharedIcons&&window.ICTSharedIcons.makeIcon(name))||document.createElement('span');if(box){const outer=document.createElement('span');outer.className='uii-iconbox';outer.append(inner);return outer}return inner;}
-const nav=[['home','الرئيسية','#home'],['markets','الأسواق','#markets'],['news','الأخبار','#news'],['recs','التوصيات','#recs'],['agenda','الأجندة','#agenda'],['ict','أدوات ICT','#ict'],['links','تابعنا','#links']];
+const nav=[['home','الرئيسية','#home'],['markets','الأسواق','#markets'],['news','الأخبار','#news'],['recs','التوصيات','#recs'],['agenda','الأجندة','#agenda'],['ict','أدوات ICT','#ict'],['links','تابعنا','#links'],['more','المزيد','#more']];
 function link(key,label,path,cls){const a=document.createElement('a');a.href=path;a.dataset.page=key;if(cls)a.className=cls;a.append(icon(key),document.createTextNode(label));return a;}
 function makeHeader(){const existing=document.querySelector('body > header');if(!existing||page==='index.html')return;
  const h=document.createElement('header');h.className='ict-unity-header';h.setAttribute('aria-label','ترويسة ICT بالعربي');
@@ -27,46 +27,20 @@ function makeHeader(){const existing=document.querySelector('body > header');if(
 const quick=[['home','الرئيسية','#home'],['markets','الأسواق','#markets'],['agenda','الأجندة','#agenda'],['recs','التوصيات','#recs']];
 function makeDock(){
  if(page==='index.html'||page==='admin.html')return;
- // Never retain two mobile navigation owners; this is the original 6.9.19 dock.
+ // Original bottom navigation, with the same More destination as the homepage.
  document.querySelectorAll('.ict65-dock,.ict65-sheet,.ict65-dim,.ict-unity-dock,.ict-unity-sheet,.ict-unity-dim').forEach(n=>n.remove());
- document.body.classList.remove('ict65-has-dock');
+ document.body.classList.remove('ict65-has-dock','ict-unity-more-open');
  const dock=document.createElement('nav');dock.className='ict-unity-dock';dock.setAttribute('aria-label','التنقل السريع');
  quick.forEach(([key,label,path])=>{
-  const a=document.createElement('a');a.href=base+path;a.dataset.page=key;a.append(icon(key,true));const sp=document.createElement('span');sp.textContent=label;a.append(sp);dock.append(a);
+  const a=link(key,label,base+path);const original=a.firstChild;if(original){a.removeChild(original);a.prepend(icon(key,true));}
+  dock.append(a);
  });
- const more=document.createElement('button');more.type='button';more.setAttribute('aria-expanded','false');more.setAttribute('aria-label','فتح قائمة المزيد');more.setAttribute('aria-controls','ict-unity-sheet');more.append(icon('more',true));const t=document.createElement('span');t.textContent='المزيد';more.append(t);dock.append(more);
- const overlay=document.createElement('div');overlay.className='ict-unity-dim';overlay.hidden=true;overlay.setAttribute('aria-hidden','true');
- const sheet=document.createElement('section');sheet.id='ict-unity-sheet';sheet.className='ict-unity-sheet';sheet.hidden=true;sheet.setAttribute('role','dialog');sheet.setAttribute('aria-label','جميع أقسام الموقع');sheet.setAttribute('aria-modal','true');sheet.setAttribute('tabindex','-1');
- const close=document.createElement('button');close.type='button';close.className='ict-unity-close';close.setAttribute('aria-label','إغلاق قائمة المزيد');close.textContent='إغلاق';
- const h=document.createElement('strong');h.textContent='جميع الأقسام';sheet.append(h,close);
- const links=document.createElement('div');links.className='ict-unity-sheet-links';
- const extras=[...nav,['workspace','مساحتي','workspace.html'],['intelligence','مختبر ذكاء الأسواق','intelligence.html'],['research','مختبر الأبحاث','research.html'],['smartdesk','غرفة المتداول','smart-desk.html'],['recs','رحلة الصفقة الذكية','workflow.html'],['markets','دليل الأصول','assets.html'],['news','موثوقية البيانات','trust.html'],['markets','تحليلات الجمهور','analytics.html']];
- extras.forEach(([key,label,path])=>links.append(link(key,label,base+path)));
- sheet.append(links);document.body.append(overlay,sheet,dock);
- let opened=false;let returnFocus=more;
- function show(v){
-  if(v===opened)return;
-  opened=v;if(v)returnFocus=document.activeElement;
-  sheet.hidden=!v;overlay.hidden=!v;
-  more.setAttribute('aria-expanded',String(v));more.setAttribute('aria-label',v?'إغلاق قائمة المزيد':'فتح قائمة المزيد');
-  document.body.classList.toggle('ict-unity-more-open',v);
-  if(v)close.focus();else (returnFocus?.isConnected?returnFocus:more).focus();
- }
- more.addEventListener('click',e=>{e.preventDefault();show(!opened)});
- close.addEventListener('click',()=>show(false));overlay.addEventListener('click',()=>show(false));
- sheet.addEventListener('click',e=>{if(e.target.closest('a[href]'))show(false)});
- document.addEventListener('keydown',e=>{
-  if(!opened)return;
-  if(e.key==='Escape'){e.preventDefault();show(false);return}
-  if(e.key!=='Tab')return;
-  const focusable=[...sheet.querySelectorAll('button:not([disabled]),a[href]')];
-  if(!focusable.length)return;
-  if(e.shiftKey&&document.activeElement===focusable[0]){e.preventDefault();focusable.at(-1).focus()}
-  else if(!e.shiftKey&&document.activeElement===focusable.at(-1)){e.preventDefault();focusable[0].focus()}
- });
- // Keep links on the original 6.9.19 page destinations; never register a second dock.
- document.body.dataset.ictNavOwner='unity';
+ const more=link('more','المزيد',base+'#more');
+ const oldIcon=more.firstChild;if(oldIcon)oldIcon.remove();more.prepend(icon('more',true));
+ more.setAttribute('aria-label','المزيد — كل أقسام الموقع');dock.append(more);
+ document.body.append(dock);document.body.dataset.ictNavOwner='unity';
 }
+
 function init(){if(page==='index.html'||page==='admin.html')return;document.body.dataset.ictNavOwner='unity';makeHeader();makeDock();syncTheme()}
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init,{once:true});else init();
 })();
