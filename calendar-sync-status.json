@@ -1,5 +1,5 @@
 {
-  "checkedAt": "2026-11-23T07:56:02.758952Z",
+  "checkedAt": "2026-11-23T10:30:02.984673Z",
   "thisWeek": {
     "ok": true,
     "count": 73,
@@ -7,7 +7,7 @@
   },
   "nextWeek": {
     "ok": true,
-    "count": 83,
+    "count": 82,
     "coverage": "full",
     "via": "forexfactory-week-page",
     "sourceUrl": "https://www.forexfactory.com/calendar?week=nov30.2026"

@@ -1,5 +1,5 @@
 {
-  "updatedAt": "2026-11-23T07:56:03.240081Z",
+  "updatedAt": "2026-11-23T10:30:03.375882Z",
   "weekStart": "2026-11-30",
   "source": "Forex Factory",
   "sourceUrl": "https://www.forexfactory.com/calendar?week=nov30.2026",
@@ -14,7 +14,7 @@
       "impact": "Low",
       "actual": "—",
       "forecast": "—",
-      "previous": "—"
+      "previous": "0.5%"
     },
     {
       "id": "2026-11-30T00:00:00Z-NZD-ANZ Business Confidence",
@@ -25,7 +25,7 @@
       "impact": "Low",
       "actual": "—",
       "forecast": "—",
-      "previous": "—"
+      "previous": "52.5"
     },
     {
       "id": "2026-11-30T00:30:00Z-AUD-Company Operating Profits q/q",
@@ -36,7 +36,7 @@
       "impact": "Low",
       "actual": "—",
       "forecast": "—",
-      "previous": "—"
+      "previous": "1.8%"
     },
     {
       "id": "2026-11-30T00:30:00Z-AUD-Household Spending m/m",
@@ -47,7 +47,7 @@
       "impact": "Low",
       "actual": "—",
       "forecast": "—",
-      "previous": "—"
+      "previous": "0.6%"
     },
     {
       "id": "2026-11-30T00:30:00Z-AUD-Private Sector Credit m/m",
@@ -58,7 +58,7 @@
       "impact": "Low",
       "actual": "—",
       "forecast": "—",
-      "previous": "—"
+      "previous": "0.6%"
     },
     {
       "id": "2026-11-30T01:30:00Z-CNY-Manufacturing PMI",
@@ -69,7 +69,7 @@
       "impact": "Low",
       "actual": "—",
       "forecast": "—",
-      "previous": "—"
+      "previous": "49.3"
     },
     {
       "id": "2026-11-30T01:30:00Z-CNY-Non-Manufacturing PMI",
@@ -80,7 +80,7 @@
       "impact": "Low",
       "actual": "—",
       "forecast": "—",
-      "previous": "—"
+      "previous": "49.7"
     },
     {
       "id": "2026-11-30T05:00:00Z-JPY-Housing Starts y/y",
@@ -91,7 +91,7 @@
       "impact": "Low",
       "actual": "—",
       "forecast": "—",
-      "previous": "—"
+      "previous": "-2.7%"
     },
     {
       "id": "2026-11-30T08:00:00Z-CHF-GDP q/q",
@@ -102,7 +102,7 @@
       "impact": "Low",
       "actual": "—",
       "forecast": "—",
-      "previous": "—"
+      "previous": "1.9%"
     },
     {
       "id": "2026-11-30T08:00:00Z-CHF-KOF Economic Barometer",
@@ -113,7 +113,7 @@
       "impact": "Low",
       "actual": "—",
       "forecast": "—",
-      "previous": "—"
+      "previous": "107.6"
     },
     {
       "id": "2026-11-30T09:30:00Z-GBP-M4 Money Supply m/m",
@@ -124,7 +124,7 @@
       "impact": "Low",
       "actual": "—",
       "forecast": "—",
-      "previous": "—"
+      "previous": "0.1%"
     },
     {
       "id": "2026-11-30T09:30:00Z-GBP-Mortgage Approvals",
@@ -135,7 +135,7 @@
       "impact": "Low",
       "actual": "—",
       "forecast": "—",
-      "previous": "—"
+      "previous": "53K"
     },
     {
       "id": "2026-11-30T09:30:00Z-GBP-Net Lending to Individuals m/m",
@@ -146,7 +146,7 @@
       "impact": "Low",
       "actual": "—",
       "forecast": "—",
-      "previous": "—"
+      "previous": "5.8B"
     },
     {
       "id": "2026-11-30T10:00:00Z-EUR-Italian Prelim CPI m/m",
@@ -157,7 +157,7 @@
       "impact": "Low",
       "actual": "—",
       "forecast": "—",
-      "previous": "—"
+      "previous": "1.0%"
     },
     {
       "id": "2026-11-30T13:30:00Z-CAD-GDP m/m",
@@ -168,7 +168,7 @@
       "impact": "High",
       "actual": "—",
       "forecast": "—",
-      "previous": "—"
+      "previous": "0.0%"
     },
     {
       "id": "2026-11-30T14:45:00Z-USD-Chicago PMI",
@@ -179,7 +179,7 @@
       "impact": "Low",
       "actual": "—",
       "forecast": "—",
-      "previous": "—"
+      "previous": "55.3"
     },
     {
       "id": "2026-11-30T23:30:00Z-JPY-Unemployment Rate",
@@ -190,7 +190,7 @@
       "impact": "Low",
       "actual": "—",
       "forecast": "—",
-      "previous": "—"
+      "previous": "2.4%"
     },
     {
       "id": "2026-11-30T23:50:00Z-JPY-Capital Spending q/y",
@@ -201,7 +201,7 @@
       "impact": "Low",
       "actual": "—",
       "forecast": "—",
-      "previous": "—"
+      "previous": "1.6%"
     },
     {
       "id": "2026-12-01T00:01:00Z-GBP-BRC Shop Price Index y/y",
@@ -212,7 +212,7 @@
       "impact": "Low",
       "actual": "—",
       "forecast": "—",
-      "previous": "—"
+      "previous": "2.1%"
     },
     {
       "id": "2026-12-01T00:30:00Z-AUD-Building Approvals m/m",
@@ -223,7 +223,7 @@
       "impact": "Low",
       "actual": "—",
       "forecast": "—",
-      "previous": "—"
+      "previous": "5.1%"
     },
     {
       "id": "2026-12-01T00:30:00Z-AUD-Current Account",
@@ -234,7 +234,7 @@
       "impact": "Low",
       "actual": "—",
       "forecast": "—",
-      "previous": "—"
+      "previous": "-27.2B"
     },
     {
       "id": "2026-12-01T00:30:00Z-JPY-Final Manufacturing PMI",
@@ -256,18 +256,7 @@
       "impact": "Low",
       "actual": "—",
       "forecast": "—",
-      "previous": "—"
-    },
-    {
-      "id": "2026-12-01T03:35:00Z-JPY-10-y Bond Auction",
-      "date": "2026-12-01T03:35:00Z",
-      "ffEventId": "150289",
-      "country": "JPY",
-      "title": "10-y Bond Auction",
-      "impact": "Low",
-      "actual": "—",
-      "forecast": "—",
-      "previous": "—"
+      "previous": "52.0"
     },
     {
       "id": "2026-12-01T05:30:00Z-AUD-Commodity Prices y/y",
@@ -278,7 +267,7 @@
       "impact": "Low",
       "actual": "—",
       "forecast": "—",
-      "previous": "—"
+      "previous": "12.5%"
     },
     {
       "id": "2026-12-01T08:15:00Z-EUR-Spanish Manufacturing PMI",
@@ -289,7 +278,7 @@
       "impact": "Low",
       "actual": "—",
       "forecast": "—",
-      "previous": "—"
+      "previous": "52.2"
     },
     {
       "id": "2026-12-01T08:30:00Z-CHF-Manufacturing PMI",
@@ -300,7 +289,7 @@
       "impact": "Low",
       "actual": "—",
       "forecast": "—",
-      "previous": "—"
+      "previous": "56.7"
     },
     {
       "id": "2026-12-01T08:45:00Z-EUR-Italian Manufacturing PMI",
@@ -311,7 +300,7 @@
       "impact": "Low",
       "actual": "—",
       "forecast": "—",
-      "previous": "—"
+      "previous": "49.4"
     },
     {
       "id": "2026-12-01T08:50:00Z-EUR-French Final Manufacturing PMI",
@@ -322,7 +311,7 @@
       "impact": "Low",
       "actual": "—",
       "forecast": "—",
-      "previous": "—"
+      "previous": "47.9"
     },
     {
       "id": "2026-12-01T08:55:00Z-EUR-German Final Manufacturing PMI",
@@ -333,7 +322,7 @@
       "impact": "Low",
       "actual": "—",
       "forecast": "—",
-      "previous": "—"
+      "previous": "55.0"
     },
     {
       "id": "2026-12-01T09:00:00Z-EUR-Final Manufacturing PMI",
@@ -344,7 +333,7 @@
       "impact": "Low",
       "actual": "—",
       "forecast": "—",
-      "previous": "—"
+      "previous": "52.9"
     },
     {
       "id": "2026-12-01T09:30:00Z-GBP-Final Manufacturing PMI",
@@ -355,7 +344,7 @@
       "impact": "Low",
       "actual": "—",
       "forecast": "—",
-      "previous": "—"
+      "previous": "52.7"
     },
     {
       "id": "2026-12-01T10:00:00Z-EUR-Core CPI Flash Estimate y/y",
@@ -366,7 +355,7 @@
       "impact": "Medium",
       "actual": "—",
       "forecast": "—",
-      "previous": "—"
+      "previous": "2.5%"
     },
     {
       "id": "2026-12-01T10:00:00Z-EUR-CPI Flash Estimate y/y",
@@ -377,7 +366,7 @@
       "impact": "Medium",
       "actual": "—",
       "forecast": "—",
-      "previous": "—"
+      "previous": "4.0%"
     },
     {
       "id": "2026-12-01T14:30:00Z-CAD-Manufacturing PMI",
@@ -388,7 +377,7 @@
       "impact": "Low",
       "actual": "—",
       "forecast": "—",
-      "previous": "—"
+      "previous": "49.6"
     },
     {
       "id": "2026-12-01T14:45:00Z-USD-Final Manufacturing PMI",
@@ -410,7 +399,7 @@
       "impact": "Medium",
       "actual": "—",
       "forecast": "—",
-      "previous": "—"
+      "previous": "55.5"
     },
     {
       "id": "2026-12-01T15:00:00Z-USD-JOLTS Job Openings",
@@ -421,7 +410,7 @@
       "impact": "Medium",
       "actual": "—",
       "forecast": "—",
-      "previous": "—"
+      "previous": "7.52M"
     },
     {
       "id": "2026-12-01T15:00:00Z-USD-Construction Spending m/m",
@@ -432,7 +421,7 @@
       "impact": "Low",
       "actual": "—",
       "forecast": "—",
-      "previous": "—"
+      "previous": "-1.9%"
     },
     {
       "id": "2026-12-01T15:00:00Z-USD-ISM Manufacturing Prices",
@@ -443,7 +432,7 @@
       "impact": "Low",
       "actual": "—",
       "forecast": "—",
-      "previous": "—"
+      "previous": "75.2"
     },
     {
       "id": "2026-12-01T21:30:00Z-USD-API Weekly Statistical Bulletin",
@@ -465,7 +454,7 @@
       "impact": "Low",
       "actual": "—",
       "forecast": "—",
-      "previous": "—"
+      "previous": "-7.9%"
     },
     {
       "id": "2026-12-01T21:45:00Z-NZD-Overseas Trade Index q/q",
@@ -476,7 +465,7 @@
       "impact": "Low",
       "actual": "—",
       "forecast": "—",
-      "previous": "—"
+      "previous": "-9.0%"
     },
     {
       "id": "2026-12-01T23:50:00Z-JPY-Monetary Base y/y",
@@ -487,7 +476,7 @@
       "impact": "Low",
       "actual": "—",
       "forecast": "—",
-      "previous": "—"
+      "previous": "-13.6%"
     },
     {
       "id": "2026-12-02T00:30:00Z-AUD-GDP q/q",
@@ -498,7 +487,7 @@
       "impact": "High",
       "actual": "—",
       "forecast": "—",
-      "previous": "—"
+      "previous": "0.4%"
     },
     {
       "id": "2026-12-02T05:00:00Z-JPY-Consumer Confidence",
@@ -509,7 +498,7 @@
       "impact": "Low",
       "actual": "—",
       "forecast": "—",
-      "previous": "—"
+      "previous": "35.0"
     },
     {
       "id": "2026-12-02T07:30:00Z-CHF-CPI m/m",
@@ -520,7 +509,7 @@
       "impact": "High",
       "actual": "—",
       "forecast": "—",
-      "previous": "—"
+      "previous": "0.2%"
     },
     {
       "id": "2026-12-02T07:45:00Z-EUR-French Gov Budget Balance",
@@ -531,7 +520,7 @@
       "impact": "Low",
       "actual": "—",
       "forecast": "—",
-      "previous": "—"
+      "previous": "-159.2B"
     },
     {
       "id": "2026-12-02T08:00:00Z-EUR-Spanish Unemployment Change",
@@ -542,7 +531,7 @@
       "impact": "Low",
       "actual": "—",
       "forecast": "—",
-      "previous": "—"
+      "previous": "43.1K"
     },
     {
       "id": "2026-12-02T09:00:00Z-EUR-Italian Monthly Unemployment Rate",
@@ -553,7 +542,7 @@
       "impact": "Low",
       "actual": "—",
       "forecast": "—",
-      "previous": "—"
+      "previous": "6.3%"
     },
     {
       "id": "2026-12-02T10:00:00Z-EUR-Unemployment Rate",
@@ -564,7 +553,7 @@
       "impact": "Low",
       "actual": "—",
       "forecast": "—",
-      "previous": "—"
+      "previous": "6.5%"
     },
     {
       "id": "2026-12-02T13:15:00Z-USD-ADP Non-Farm Employment Change",
@@ -575,7 +564,7 @@
       "impact": "Low",
       "actual": "—",
       "forecast": "—",
-      "previous": "—"
+      "previous": "86K"
     },
     {
       "id": "2026-12-02T15:30:00Z-USD-Crude Oil Inventories",
@@ -597,7 +586,7 @@
       "impact": "Low",
       "actual": "—",
       "forecast": "—",
-      "previous": "—"
+      "previous": "0.6%"
     },
     {
       "id": "2026-12-03T00:30:00Z-AUD-Goods Trade Balance",
@@ -608,7 +597,7 @@
       "impact": "Low",
       "actual": "—",
       "forecast": "—",
-      "previous": "—"
+      "previous": "2.83B"
     },
     {
       "id": "2026-12-03T01:45:00Z-CNY-RatingDog Services PMI",
@@ -619,18 +608,18 @@
       "impact": "Low",
       "actual": "—",
       "forecast": "—",
-      "previous": "—"
+      "previous": "50.8"
     },
     {
-      "id": "2026-12-03T03:35:00Z-JPY-30-y Bond Auction",
+      "id": "2026-12-03T03:35:00Z-JPY-10-y Bond Auction",
       "date": "2026-12-03T03:35:00Z",
-      "ffEventId": "150311",
+      "ffEventId": "150289",
       "country": "JPY",
-      "title": "30-y Bond Auction",
+      "title": "10-y Bond Auction",
       "impact": "Low",
       "actual": "—",
       "forecast": "—",
-      "previous": "—"
+      "previous": "2.77|3.2"
     },
     {
       "id": "2026-12-03T08:15:00Z-EUR-Spanish Services PMI",
@@ -641,7 +630,7 @@
       "impact": "Low",
       "actual": "—",
       "forecast": "—",
-      "previous": "—"
+      "previous": "57.2"
     },
     {
       "id": "2026-12-03T08:45:00Z-EUR-Italian Services PMI",
@@ -652,7 +641,7 @@
       "impact": "Low",
       "actual": "—",
       "forecast": "—",
-      "previous": "—"
+      "previous": "52.0"
     },
     {
       "id": "2026-12-03T08:50:00Z-EUR-French Final Services PMI",
@@ -663,7 +652,7 @@
       "impact": "Low",
       "actual": "—",
       "forecast": "—",
-      "previous": "—"
+      "previous": "46.6"
     },
     {
       "id": "2026-12-03T08:55:00Z-EUR-German Final Services PMI",
@@ -674,7 +663,7 @@
       "impact": "Low",
       "actual": "—",
       "forecast": "—",
-      "previous": "—"
+      "previous": "54.0"
     },
     {
       "id": "2026-12-03T09:00:00Z-EUR-Final Services PMI",
@@ -685,7 +674,7 @@
       "impact": "Low",
       "actual": "—",
       "forecast": "—",
-      "previous": "—"
+      "previous": "51.2"
     },
     {
       "id": "2026-12-03T09:30:00Z-GBP-Final Services PMI",
@@ -696,7 +685,7 @@
       "impact": "Low",
       "actual": "—",
       "forecast": "—",
-      "previous": "—"
+      "previous": "52.0"
     },
     {
       "id": "2026-12-03T10:00:00Z-EUR-PPI m/m",
@@ -707,7 +696,7 @@
       "impact": "Low",
       "actual": "—",
       "forecast": "—",
-      "previous": "—"
+      "previous": "2.5%"
     },
     {
       "id": "2026-12-03T10:30:00Z-USD-Challenger Job Cuts y/y",
@@ -718,7 +707,7 @@
       "impact": "Low",
       "actual": "—",
       "forecast": "—",
-      "previous": "—"
+      "previous": "-71.3%"
     },
     {
       "id": "2026-12-03T13:30:00Z-CAD-Labor Productivity q/q",
@@ -729,7 +718,7 @@
       "impact": "Low",
       "actual": "—",
       "forecast": "—",
-      "previous": "—"
+      "previous": "1.0%"
     },
     {
       "id": "2026-12-03T13:30:00Z-USD-Unemployment Claims",
@@ -762,7 +751,7 @@
       "impact": "Medium",
       "actual": "—",
       "forecast": "—",
-      "previous": "—"
+      "previous": "54.5"
     },
     {
       "id": "2026-12-03T15:00:00Z-USD-Factory Orders m/m",
@@ -773,7 +762,7 @@
       "impact": "Low",
       "actual": "—",
       "forecast": "—",
-      "previous": "—"
+      "previous": "1.8%"
     },
     {
       "id": "2026-12-03T15:30:00Z-USD-Natural Gas Storage",
@@ -795,7 +784,7 @@
       "impact": "Low",
       "actual": "—",
       "forecast": "—",
-      "previous": "—"
+      "previous": "-0.5%"
     },
     {
       "id": "2026-12-04T09:30:00Z-GBP-Construction PMI",
