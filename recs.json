@@ -1,1 +1,26 @@
-[]
+[
+  {
+    "id": "1f30ecc9-60af-49a0-a8b2-d986644bd977",
+    "pair": "XAUUSD",
+    "dir": "sell",
+    "entry": "3622",
+    "tp": "3570",
+    "sl": "3638",
+    "status": "open",
+    "note": "",
+    "result_note": "",
+    "date": "2026-11-23T13:17:21.192Z",
+    "published_at": "2026-11-23T13:17:21.192Z",
+    "updated_at": "2026-11-23T13:17:21.192Z",
+    "sample": false,
+    "notify": true,
+    "status_history": [
+      {
+        "status": "open",
+        "at": "2026-11-23T13:17:21.192Z",
+        "note": "تحديث الحالة من لوحة الإدارة"
+      }
+    ],
+    "status_source": "manual_admin"
+  }
+]
