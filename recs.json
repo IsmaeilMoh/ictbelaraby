@@ -1,18 +1,1 @@
-[
-  {
-    "id": "5476b763-d2e8-4a3c-9609-1396d1490735",
-    "pair": "XAUUSD",
-    "dir": "buy",
-    "entry": "السعر الحالي",
-    "tp": "4500",
-    "sl": "3500",
-    "status": "open",
-    "note": "",
-    "result_note": "",
-    "date": "2026-11-19T12:43:46.579Z",
-    "published_at": "2026-11-19T12:43:46.579Z",
-    "updated_at": "2026-11-19T12:43:46.579Z",
-    "sample": false,
-    "notify": true
-  }
-]
+[]
