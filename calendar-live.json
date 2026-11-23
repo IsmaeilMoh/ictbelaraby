@@ -1,5 +1,5 @@
 {
-  "updatedAt": "2026-11-23T16:23:46.143643Z",
+  "updatedAt": "2026-11-23T19:21:49.304883Z",
   "weekStart": "2026-11-23",
   "source": "Forex Factory",
   "sourceUrl": "https://www.forexfactory.com/calendar",
@@ -426,16 +426,6 @@
       "actual": "—"
     },
     {
-      "id": "2026-11-25T13:30:00+00:00-USD-Unemployment Claims",
-      "title": "Unemployment Claims",
-      "date": "2026-11-25T13:30:00Z",
-      "country": "USD",
-      "impact": "Medium",
-      "forecast": "201K",
-      "previous": "203K",
-      "actual": "—"
-    },
-    {
       "id": "2026-11-25T13:30:00+00:00-USD-Core Durable Goods Orders m/m",
       "title": "Core Durable Goods Orders m/m",
       "date": "2026-11-25T13:30:00Z",
@@ -473,6 +463,16 @@
       "impact": "Low",
       "forecast": "0.4%",
       "previous": "0.5%",
+      "actual": "—"
+    },
+    {
+      "id": "2026-11-25T13:30:00+00:00-USD-Unemployment Claims",
+      "title": "Unemployment Claims",
+      "date": "2026-11-25T13:30:00Z",
+      "country": "USD",
+      "impact": "Low",
+      "forecast": "201K",
+      "previous": "203K",
       "actual": "—"
     },
     {
