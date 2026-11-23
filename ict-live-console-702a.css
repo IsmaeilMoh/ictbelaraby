@@ -28,3 +28,12 @@
 #ict-live-2a .ict-vault h3{font-size:15px;margin:6px 0}
 #ict-live-2a .ict-vault .ict-live-bar{margin:10px 0}
 #ict-live-2a .ict-vault .ict-live-bar button{flex:0 1 auto}
+/* 2C: catalog controls align with existing glassless data-monitor layout */
+#ict-tradfi-2c{margin:18px 0 20px;padding:16px;border-radius:14px;border:1px solid var(--line,#34534e);background:var(--panel,#14252a);color:inherit}
+#ict-tradfi-2c .ict-tf-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;align-items:end}
+#ict-tradfi-2c label{display:flex;flex-direction:column;gap:5px;font-size:12px;min-width:0}
+#ict-tradfi-2c select,#ict-tradfi-2c input{width:100%;max-width:100%;box-sizing:border-box;border-radius:9px;min-height:40px;padding:7px;border:1px solid #67847e;background:var(--card,#1a3035);color:inherit;font:inherit}
+#ict-tradfi-2c button{min-height:40px;cursor:pointer;margin-top:8px;padding:8px 12px;border-radius:9px}
+#ict-tradfi-2c button:disabled{opacity:.5;cursor:not-allowed}
+#ict-tradfi-2c .ict-tf-foot{font-size:12px;opacity:.83;line-height:1.85}
+@media(max-width:580px){#ict-tradfi-2c .ict-tf-grid{grid-template-columns:1fr}}

@@ -7,10 +7,13 @@
  if(root)root.ICTLiveFeed=api;
 })(typeof globalThis!=='undefined'?globalThis:null,function(){
  'use strict';
- const VERSION='7.0-2B', REST='https://api.bybit.com/v5/market/kline', WS='wss://stream.bybit.com/v5/public/linear';
+ const VERSION='7.0-2C', REST='https://api.bybit.com/v5/market/kline', WS='wss://stream.bybit.com/v5/public/linear';
  const SYMBOLS=Object.freeze(['BTCUSDT','ETHUSDT','SOLUSDT','XRPUSDT']);
+ const VERIFIED=new Map();
+ function registerVerified(instrument){if(!instrument||instrument.source!=='Bybit V5 public'||instrument.category!=='linear'||!['forex','metals','stocks','etfs'].includes(instrument.group)||!['forex','commodity','stock','ETF'].includes(instrument.symbolType)||!instrument.symbol||!/^[A-Z0-9]{4,25}$/.test(instrument.symbol))throw Error('INVALID_VERIFIED_INSTRUMENT');VERIFIED.set(instrument.symbol,instrument);return instrument.symbol;}
+ function instrument(symbol){return VERIFIED.get(String(symbol||'').toUpperCase())||null;}
  const INTERVALS=Object.freeze({'1':60000,'5':300000,'15':900000,'60':3600000,'240':14400000,D:86400000});
- function checkPair(symbol,interval){const sym=String(symbol||'').toUpperCase(),tf=String(interval||'');if(!SYMBOLS.includes(sym))throw Error('UNSUPPORTED_SYMBOL');if(!INTERVALS[tf])throw Error('UNSUPPORTED_INTERVAL');return {symbol:sym,interval:tf,ms:INTERVALS[tf]}}
+ function checkPair(symbol,interval){const sym=String(symbol||'').toUpperCase(),tf=String(interval||'');if(!SYMBOLS.includes(sym)&&!VERIFIED.has(sym))throw Error('UNSUPPORTED_OR_UNVERIFIED_SYMBOL');if(!INTERVALS[tf])throw Error('UNSUPPORTED_INTERVAL');return {symbol:sym,interval:tf,ms:INTERVALS[tf]}}
  function n(v){if(v===undefined||v===null||v==='')return null;const x=Number(v);return Number.isFinite(x)?x:null}
  function parseRow(row,pair,kind){
   if(!Array.isArray(row)&&(!row||typeof row!=='object'))throw Error('INVALID_CANDLE_ROW');
@@ -59,5 +62,5 @@
   }catch(error){notify('error',{message:error.message});retry++;timer=setTimeout(start,Math.min(30000,1000*2**Math.min(retry,5)))}}
   start();return {close(){closed=true;clearTimeout(timer);if(socket){socket.onclose=null;socket.close()}},lastMessageAt(){return lastMessage}};
  }
- return Object.freeze({VERSION,REST,WS,SYMBOLS,INTERVALS,checkPair,parseRow,parseHistory,parseStream,merge,fetchHistory,connect});
+ return Object.freeze({VERSION,REST,WS,SYMBOLS,INTERVALS,registerVerified,instrument,checkPair,parseRow,parseHistory,parseStream,merge,fetchHistory,connect});
 });
