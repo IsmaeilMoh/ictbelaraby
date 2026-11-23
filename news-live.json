@@ -1,7 +1,18 @@
 {
-  "updated_at": "2026-11-23T08:59:54Z",
+  "updated_at": "2026-11-23T10:16:12Z",
   "mode": "rss-attributed",
   "items": [
+    {
+      "id": "efc5340d6a39dd4481ef",
+      "title": "صادرات الصناعات الهندسية المصرية تتجاوز 5 مليارات دولار خلال 9 أشهر",
+      "tag": "اقتصاد",
+      "src": "CNN Business Arabic",
+      "date": "2026-11-23T10:11:00Z",
+      "url": "https://cnnbusinessarabic.com/sectors/1153207/%D8%B5%D8%A7%D8%AF%D8%B1%D8%A7%D8%AA-%D8%A7%D9%84%D8%B5%D9%86%D8%A7%D8%B9%D8%A7%D8%AA-%D8%A7%D9%84%D9%87%D9%86%D8%AF%D8%B3%D9%8A%D8%A9-%D8%A7%D9%84%D9%85%D8%B5%D8%B1%D9%8A%D8%A9-%D8%AA%D8%AA%D8%AC%D8%A7%D9%88%D8%B2-5-%D9%85%D9%84%D9%8A%D8%A7%D8%B1%D8%A7%D8%AA-%D8%AF%D9%88%D9%84%D8%A7%D8%B1-%D8%AE%D9%84%D8%A7%D9%84-9-%D8%A3%D8%B4%D9%87%D8%B1",
+      "priority": 2,
+      "language": "ar",
+      "image": "https://cnnbusinessarabic.com/businesscnn/uploads/images/2026/11/23/1712616.webp"
+    },
     {
       "id": "3e6a96030f2f349ffc05",
       "title": "دبي تستضيف «الخمسة الكبار العالمي» بمشاركة أكثر من 1800 جهة عارضة من 60 دولة",
@@ -375,17 +386,6 @@
       "priority": 2,
       "language": "ar",
       "image": "https://cnnbusinessarabic.com/businesscnn/uploads/images/2026/11/19/1712287.webp"
-    },
-    {
-      "id": "2c72d1b0dd9742dc1542",
-      "title": "ألمانيا تتوقع تسارع النمو الاقتصادي وارتفاع التضخم في 2027",
-      "tag": "اقتصاد",
-      "src": "CNN Business Arabic",
-      "date": "2026-11-19T12:15:00Z",
-      "url": "https://cnnbusinessarabic.com/sectors/1152970/%D8%A3%D9%84%D9%85%D8%A7%D9%86%D9%8A%D8%A7-%D8%AA%D8%AA%D9%88%D9%82%D8%B9-%D8%AA%D8%B3%D8%A7%D8%B1%D8%B9-%D8%A7%D9%84%D9%86%D9%85%D9%88-%D8%A7%D9%84%D8%A7%D9%82%D8%AA%D8%B5%D8%A7%D8%AF%D9%8A-%D9%88%D8%A7%D8%B1%D8%AA%D9%81%D8%A7%D8%B9-%D8%A7%D9%84%D8%AA%D8%B6%D8%AE%D9%85-%D9%81%D9%8A-2027",
-      "priority": 4,
-      "language": "ar",
-      "image": "https://cnnbusinessarabic.com/businesscnn/uploads/images/2026/11/19/1712258.webp"
     }
   ],
   "source_count": 1,
