@@ -1,0 +1,25 @@
+/* Data Foundation 7.0 / isolated trust diagnostics, inherits site colors. */
+#ict-data-foundation{margin:22px 0;padding:clamp(14px,2vw,24px);border-radius:18px;border:1px solid var(--ict-border,rgba(120,170,151,.28));background:var(--ict-card,rgba(21,41,37,.8));color:var(--ict-text,inherit);box-sizing:border-box}
+#ict-data-foundation *{box-sizing:border-box;min-width:0}
+#ict-data-foundation .ict-df-top{display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:12px}
+#ict-data-foundation .ict-df-top h2{margin:0 0 5px;font-size:clamp(17px,2vw,21px);line-height:1.6}
+#ict-data-foundation .ict-df-top p{margin:0;max-width:65ch;line-height:1.85;color:var(--ict-muted,inherit);font-size:13px}
+#ict-data-foundation .ict-df-actions{display:flex;flex-wrap:wrap;gap:8px}
+#ict-data-foundation button{font:inherit;font-size:12px;font-weight:700;border-radius:10px;padding:9px 14px;cursor:pointer;background:var(--ict-accent,#167657);border:1px solid var(--ict-border,#567c70);color:var(--ict-accent-contrast,#fff)}
+#ict-data-foundation button.secondary{background:var(--ict-card2,transparent);color:var(--ict-text,inherit)}
+#ict-data-foundation button:disabled{opacity:.5;cursor:not-allowed}
+#ict-data-foundation .ict-df-note{padding-top:10px;font-size:12px;line-height:1.8;color:var(--ict-muted,inherit)}
+#ict-data-foundation .ict-df-stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(100px,1fr));gap:9px;margin:16px 0}
+#ict-data-foundation .ict-df-stat{padding:10px 12px;border-radius:12px;background:var(--ict-card2,rgba(90,110,100,.1));display:flex;align-items:center;justify-content:space-between;gap:8px}
+#ict-data-foundation .ict-df-stat small{font-size:11px}#ict-data-foundation .ict-df-stat b{font-size:19px;font-variant-numeric:tabular-nums}
+#ict-data-foundation .ict-df-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,255px),1fr));gap:12px}
+#ict-data-foundation .ict-df-card{padding:13px;border:1px solid var(--ict-border,rgba(120,170,151,.24));background:var(--ict-card2,rgba(90,110,100,.08));border-radius:13px;overflow-wrap:anywhere}
+#ict-data-foundation .ict-df-card-head{display:flex;gap:8px;align-items:center;justify-content:space-between;margin-bottom:12px;flex-wrap:wrap}
+#ict-data-foundation .ict-df-card-head strong{font-size:13px}
+#ict-data-foundation .ict-df-badge{font-size:10px;padding:4px 8px;border-radius:8px;border:1px solid var(--ict-border,rgba(120,170,151,.2));font-weight:700}
+#ict-data-foundation .ict-df-usable{color:#2baf7a}#ict-data-foundation .ict-df-limited{color:#c39837}#ict-data-foundation .ict-df-stale,#ict-data-foundation .ict-df-invalid,#ict-data-foundation .ict-df-unavailable{color:#d36d6d}
+#ict-data-foundation .ict-df-line{display:flex;gap:9px;justify-content:space-between;align-items:baseline;border-bottom:1px solid var(--ict-border,rgba(120,170,151,.13));padding:6px 0;font-size:11px}
+#ict-data-foundation .ict-df-line strong{text-align:end;font-weight:700;overflow-wrap:anywhere;max-width:65%}
+#ict-data-foundation .ict-df-details{font-size:11px;margin-top:10px;line-height:1.85}#ict-data-foundation .ict-df-details summary{cursor:pointer;font-weight:700}
+#ict-data-foundation .ict-df-details ul{margin:8px 0;padding-inline-start:18px;max-height:160px;overflow:auto}
+@media (max-width:480px){#ict-data-foundation .ict-df-actions{width:100%}#ict-data-foundation button{flex:1}#ict-data-foundation .ict-df-stat{padding:8px}}

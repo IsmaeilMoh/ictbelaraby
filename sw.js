@@ -1,7 +1,7 @@
 /* ICT بالعربي 6.8.74: prioritize the home offline shell; other pages cache when visited. */
-const CACHE='ict-shell-v691916-quick-navigation-20261123';
+const CACHE='ict-shell-v700-phase1-20261123';
 const PREFIX='ict-shell-';
-const CORE=["./","./index.html","./style.css","./app.js","./navspeed-691916.js","./ui-icons.css","./ui-icons.js","./logo-original.jpeg"];
+const CORE=["./","./index.html","./style.css","./app.js","./navspeed-691916.js","./ict-data-core-700.js","./ui-icons.css","./ui-icons.js","./logo-original.jpeg"];
 self.addEventListener('install',event=>event.waitUntil((async()=>{
  const cache=await caches.open(CACHE);
  // Bound parallelism to avoid congesting slower mobile connections during an update.
