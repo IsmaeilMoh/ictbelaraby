@@ -1,7 +1,7 @@
 /* ICT بالعربي 6.8.74: prioritize the home offline shell; other pages cache when visited. */
-const CACHE='ict-shell-v700-phase2e-dualtz-20261123';
+const CACHE='ict-shell-v700-phase3a-20261123';
 const PREFIX='ict-shell-';
-const CORE=["./","./index.html","./style.css","./app.js","./navspeed-691916.js","./ict-data-core-700.js","./trust.html","./ict-live-feed-702a.js","./ict-live-console-702a.js","./ict-live-console-702a.css","./ict-candle-store-702b.js","./ict-public-markets-702c2.js","./ict-public-console-702c2.js","./ict-structure-engine-702d.js","./ict-structure-console-702d.js","./ict-structure-console-702d.css","./ict-signal-engine-702e.js","./ict-signal-console-702e.js","./ict-market-times-702e.js","./ict-signal-console-702e.css","./ui-icons.css","./ui-icons.js","./logo-original.jpeg"];
+const CORE=["./","./index.html","./style.css","./app.js","./navspeed-691916.js","./ict-data-core-700.js","./trust.html","./ict-live-feed-702a.js","./ict-live-console-702a.js","./ict-live-console-702a.css","./ict-candle-store-702b.js","./ict-public-markets-702c2.js","./ict-public-console-702c2.js","./ict-structure-engine-702d.js","./ict-structure-console-702d.js","./ict-structure-console-702d.css","./ict-signal-engine-702e.js","./ict-signal-console-702e.js","./ict-market-times-702e.js","./ict-signal-console-702e.css","./ict-context-engine-703a.js","./ict-context-console-703a.js","./ict-context-console-703a.css","./ui-icons.css","./ui-icons.js","./logo-original.jpeg"];
 self.addEventListener('install',event=>event.waitUntil((async()=>{
  const cache=await caches.open(CACHE);
  // Bound parallelism to avoid congesting slower mobile connections during an update.
