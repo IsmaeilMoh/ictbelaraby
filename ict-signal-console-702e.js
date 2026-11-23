@@ -9,8 +9,8 @@ const message=(t,level)=>{statusBox.textContent=t;statusBox.dataset.level=level|
 function fill(){stop();symbol.replaceChildren();const items=market.value==='crypto'?CRYPTO:pub.MARKETS[market.value]?.map(a=>a[0])||[];for(const s of items){const o=document.createElement('option');o.value=s;o.textContent=s;symbol.append(o)}report.replaceChildren();message('اختر الأصل والإطار، واضغط «فحص النماذج». لا يبدأ الاتصال تلقائيًا.')}
 function stop(){running=false;clearTimeout(timer);timer=null;monitor.textContent='بدء المراقبة أثناء فتح الصفحة';monitor.setAttribute('aria-pressed','false')}
 function fmt(v){return typeof v==='number'?v.toLocaleString('en-US',{maximumFractionDigits:6}):'—'}
-function date(t){return new Date(t).toISOString().slice(0,16).replace('T',' ')+' UTC'}
-function note(t){const d=document.createElement('div');d.textContent=t;log.prepend(d);while(log.children.length>25)log.lastElementChild.remove()}
+function date(t){return window.ICTMarketTimes.format(t)}
+function note(t){const d=document.createElement('div');d.textContent='['+date(Date.now())+'] '+t;log.prepend(d);while(log.children.length>25)log.lastElementChild.remove()}
 function addCell(parent,label,value){const s=document.createElement('span');const b=document.createElement('b');b.textContent=label;s.append(b,document.createTextNode(value));parent.append(s)}
 function draw(models,response,quality){report.replaceChildren();if(!models.length){const p=document.createElement('p');p.textContent='لا توجد نماذج مكتملة تتبع القواعد المحددة في أحدث مقطع متصل.';report.append(p);return}
  for(const m of models.slice(0,12)){
@@ -32,10 +32,10 @@ function recentNotice(models,source,now){if(!running)return;for(const m of model
  }
 }
 async function inspect(isMonitor){if(busy)return;busy=true;scan.disabled=true;try{
- message('جارٍ جلب شموع حقيقية وفحص النموذج الثلاثي…');const result=await load();const output=signals.evaluate(result.candles,result.frame,{pivot:2,market:market.value,symbol:symbol.value});const {analysis,models}=output,ms=structure.FRAME_MS[String(result.frame)],last=analysis.last;const stale=!last||Date.now()-(last+ms)>Math.max(3*ms,3600000);const warning=stale||analysis.gaps.length>0||!analysis.eligible;
- draw(models,result,warning);message('المصدر: '+result.source+' · '+analysis.usableBars+' شمعة متصلة · '+models.length+' نموذجًا مكتملًا في العينة · آخر شمعة: '+(last?date(last):'غير متاحة')+(warning?' · توجد ملاحظات حداثة أو فجوات؛ لا يُعتمد تنبيه لحظي.':''),warning?'warn':'ok');
+ message('جارٍ جلب شموع حقيقية وفحص النموذج الثلاثي…');const result=await load();const output=signals.evaluate(result.candles,result.frame,{pivot:2,market:market.value,symbol:symbol.value});const {analysis,models}=output,ms=structure.FRAME_MS[String(result.frame)],last=analysis.last;const stale=!last||Date.now()-(last+ms)>Math.max(3*ms,3600000);const warning=stale||analysis.gaps.length>0||!analysis.eligible;const checkedAt=date(Date.now());
+ draw(models,result,warning);message('وقت الفحص: '+checkedAt+' · المصدر: '+result.source+' · '+analysis.usableBars+' شمعة متصلة · '+models.length+' نموذجًا مكتملًا في العينة · آخر شمعة: '+(last?date(last):'غير متاحة')+(warning?' · توجد ملاحظات حداثة أو فجوات؛ لا يُعتمد تنبيه لحظي.':''),warning?'warn':'ok');
  if(isMonitor&&!warning)recentNotice(models,result.source,Date.now());
- }catch(e){message('فشل الفحص: '+String(e?.message||e)+'. تأكد من اتصال المصدر والرمز.', 'bad');note('فشل مصدر البيانات: '+String(e?.message||e))}
+ }catch(e){message('وقت الفحص: '+date(Date.now())+' · فشل الفحص: '+String(e?.message||e)+'. تأكد من اتصال المصدر والرمز.', 'bad');note('فشل مصدر البيانات: '+String(e?.message||e))}
  finally{busy=false;scan.disabled=false}}
 function schedule(){if(!running)return;clearTimeout(timer);timer=setTimeout(async()=>{if(!running)return;if(document.visibilityState==='visible')await inspect(true);schedule()},60000)}
 market.addEventListener('change',fill);symbol.addEventListener('change',stop);frame.addEventListener('change',stop);

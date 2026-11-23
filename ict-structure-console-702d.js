@@ -10,7 +10,7 @@ function fillSymbols(){sym.replaceChildren();const market=kind.value,items=marke
 kind.addEventListener('change',fillSymbols);
 function item(parent,label,val){const box=document.createElement('div');box.className='ict-2d-stat';const k=document.createElement('span');k.textContent=label;const v=document.createElement('strong');v.textContent=String(val);box.append(k,v);parent.append(box)}
 function num(x){return Number(x).toLocaleString('en-US',{maximumFractionDigits:7})}
-function when(t){return new Date(t).toISOString().slice(0,16).replace('T',' ')+' UTC'}
+function when(t){return window.ICTMarketTimes.format(t)}
 function row(parent,parts){const div=document.createElement('div');div.className='ict-2d-record';for(const [a,b] of parts){const s=document.createElement('span');if(a)s.className='ict-2d-strong';s.textContent=b;div.append(s)}parent.append(div)}
 async function getCandles(){const market=kind.value,frame=tf.value,interval=market==='crypto'?{'1min':'1','5min':'5','15min':'15','1h':'60','4h':'240','1day':'D'}[frame]:frame;
  if(market==='crypto'){let candles=await bybit.fetchHistory({symbol:sym.value,interval,limit:200});
@@ -23,7 +23,7 @@ async function getCandles(){const market=kind.value,frame=tf.value,interval=mark
 run.addEventListener('click',async()=>{if(busy)return;busy=true;run.disabled=true;stats.replaceChildren();eventsBox.replaceChildren();zonesBox.replaceChildren();details.textContent='';try{
  status('جارٍ جلب الشموع المكتملة من المصدر وفحصها…');const response=await getCandles(),result=engine.analyze(response.candles,response.frame,{pivot:Number(pivot.value)});
  const age=result.last==null?Infinity:Date.now()-result.last,ms=engine.FRAME_MS[response.frame],stale=age>Math.max(4*ms,3600000);
- item(stats,'المصدر',response.source);item(stats,'شموع مكتملة',result.sourceBars);item(stats,'شموع متصلة أخيرة',result.usableBars);item(stats,'فجوات / فواصل',result.gaps.length);item(stats,'عدد FVG',result.zones.length);item(stats,'أحداث BOS / MSS',result.events.filter(x=>x.type==='BOS'||x.type==='MSS').length);
+ item(stats,'وقت الفحص (نيويورك / فلسطين)',when(Date.now()));item(stats,'المصدر',response.source);item(stats,'شموع مكتملة',result.sourceBars);item(stats,'شموع متصلة أخيرة',result.usableBars);item(stats,'فجوات / فواصل',result.gaps.length);item(stats,'عدد FVG',result.zones.length);item(stats,'أحداث BOS / MSS',result.events.filter(x=>x.type==='BOS'||x.type==='MSS').length);
  item(stats,'آخر شمعة',result.last?when(result.last):'غير متاح');
  details.textContent='عدد الشموع الجارية المستبعدة: '+result.unconfirmed+' · سجلات غير صالحة: '+result.rejected+' · تكرار: '+result.duplicates+' · نافذة تأكيد القمة/القاع: '+result.pivot+' شموع في كل اتجاه. تُعرض النتائج من آخر مقطع زمني متصل فقط.';
  if(!result.eligible){status('عدد الشموع المتصلة في آخر مقطع أقل من '+result.minimum+'. لا يمكن اعتماد التحليل بعد فجوة أو انقطاع.','warn');return}
