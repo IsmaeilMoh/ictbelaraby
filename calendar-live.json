@@ -1,5 +1,5 @@
 {
-  "updatedAt": "2026-11-23T13:41:49.485080Z",
+  "updatedAt": "2026-11-23T16:23:46.143643Z",
   "weekStart": "2026-11-23",
   "source": "Forex Factory",
   "sourceUrl": "https://www.forexfactory.com/calendar",
@@ -126,9 +126,9 @@
       "actual": "—"
     },
     {
-      "id": "2026-11-23T13:30:00+00:00-CAD-Corporate Profits q/q",
+      "id": "2026-11-23T13:32:00+00:00-CAD-Corporate Profits q/q",
       "title": "Corporate Profits q/q",
-      "date": "2026-11-23T13:30:00Z",
+      "date": "2026-11-23T13:32:00Z",
       "country": "CAD",
       "impact": "Low",
       "forecast": "—",
@@ -173,16 +173,6 @@
       "impact": "Low",
       "forecast": "53.5",
       "previous": "53.3",
-      "actual": "—"
-    },
-    {
-      "id": "2026-11-24T07:02:00+00:00-CNY-Foreign Direct Investment ytd/y",
-      "title": "Foreign Direct Investment ytd/y",
-      "date": "2026-11-24T07:02:00Z",
-      "country": "CNY",
-      "impact": "Low",
-      "forecast": "—",
-      "previous": "-4.3%",
       "actual": "—"
     },
     {
@@ -373,6 +363,16 @@
       "impact": "Low",
       "forecast": "0.2%",
       "previous": "0.2%",
+      "actual": "—"
+    },
+    {
+      "id": "2026-11-25T07:02:00+00:00-CNY-Foreign Direct Investment ytd/y",
+      "title": "Foreign Direct Investment ytd/y",
+      "date": "2026-11-25T07:02:00Z",
+      "country": "CNY",
+      "impact": "Low",
+      "forecast": "—",
+      "previous": "-4.3%",
       "actual": "—"
     },
     {
