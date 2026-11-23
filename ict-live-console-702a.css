@@ -22,3 +22,9 @@
 #ict-live-2a .ict-live-pill{font-size:10px;font-weight:700}
 #ict-live-2a .ict-live-ok{color:#38b98b}#ict-live-2a .ict-live-warn{color:#d6a04e}#ict-live-2a .ict-live-bad{color:#e77c7c}
 @media(max-width:480px){#ict-live-2a .ict-live-bar button{flex:1 1 120px}}
+
+/* Stage 2B storage diagnostics — same palette as stage 2A */
+#ict-live-2a .ict-vault{margin-top:15px;padding:12px;border-radius:13px;border:1px solid var(--ict-border,rgba(120,170,151,.3));background:var(--ict-card2,rgba(90,110,100,.07))}
+#ict-live-2a .ict-vault h3{font-size:15px;margin:6px 0}
+#ict-live-2a .ict-vault .ict-live-bar{margin:10px 0}
+#ict-live-2a .ict-vault .ict-live-bar button{flex:0 1 auto}

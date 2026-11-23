@@ -1,34 +1,47 @@
-/* ICT 7.0 Stage 2A — Bybit public candle monitor, runs only after user clicks. */
-(function(){
-'use strict';
-const root=document.getElementById('ict-live-2a'),feed=window.ICTLiveFeed;if(!root||!feed)return;
-const $=id=>document.getElementById(id),symbol=$('ict-live-symbol'),interval=$('ict-live-interval'),start=$('ict-live-start'),stop=$('ict-live-stop'),state=$('ict-live-state'),stats=$('ict-live-stats'),rows=$('ict-live-rows');
-let connection=null,history=[],generation=0,started=false,connected=false,received=0,lastPacket=0;
+/* ICT 7.0 / stage 2B — 2A monitor + IndexedDB confirmed candle persistence & recovery. */
+(function(){'use strict';
+const root=document.getElementById('ict-live-2a'),feed=window.ICTLiveFeed,store=window.ICTCandleStore;if(!root||!feed||!store)return;
+const $=id=>document.getElementById(id),symbol=$('ict-live-symbol'),interval=$('ict-live-interval'),start=$('ict-live-start'),stop=$('ict-live-stop'),state=$('ict-live-state'),stats=$('ict-live-stats'),rows=$('ict-live-rows'),vaultState=$('ict-vault-status'),vaultStats=$('ict-vault-stats'),repair=$('ict-vault-repair'),erase=$('ict-vault-clear');
+let connection=null,history=[],generation=0,started=false,connected=false,lastPacket=0,lastSync=0,lastPersist=0,storageAvailable=true,storedCount=0,warning='',repairing=false,saveQueue=Promise.resolve(),resyncing=false,everConnected=false;
 function el(tag,klass,content){const x=document.createElement(tag);if(klass)x.className=klass;if(content!==undefined)x.textContent=String(content);return x}
 function fmt(n){return typeof n==='number'&&Number.isFinite(n)?new Intl.NumberFormat('en-US',{maximumFractionDigits:8}).format(n):'—'}
 function time(ts){return ts?new Date(ts).toLocaleString('ar',{dateStyle:'short',timeStyle:'medium'}):'—'}
 function note(message,type){state.className='ict-live-state'+(type?' ict-live-'+type:'');state.textContent=message}
-function render(){stats.replaceChildren();rows.replaceChildren();const last=history.at(-1),confirmed=history.filter(x=>x.confirmed),done=confirmed.at(-1);
- const cells=[['قناة البث',connected?'متصل':'غير متصل'],['آخر إغلاق مكتمل',done?fmt(done.close):'—'],['آخر شمعة مكتملة',done?time(done.start):'—'],['حالة آخر شمعة',last?(last.confirmed?'مكتملة':'قيد التكوّن'):'—'],['الشموع المستلمة',history.length],['آخر رسالة بث',lastPacket?time(lastPacket):'—']];
+function vaultNote(message,type){if(vaultState){vaultState.className='ict-live-state'+(type?' ict-live-'+type:'');vaultState.textContent=message}}
+function currentPair(){return {symbol:symbol.value,interval:interval.value}}
+function analysis(){return store.analyze(history,interval.value)}
+function render(){stats.replaceChildren();rows.replaceChildren();const last=history.at(-1),confirmed=history.filter(x=>x.confirmed),done=confirmed.at(-1),a=analysis();
+ const cells=[['قناة البث',connected?'متصل':'غير متصل'],['آخر إغلاق مكتمل',done?fmt(done.close):'—'],['آخر شمعة مكتملة',done?time(done.start):'—'],['حالة آخر شمعة',last?(last.confirmed?'مكتملة':'قيد التكوّن'):'—'],['الشموع المعروضة',history.length],['آخر رسالة بث',lastPacket?time(lastPacket):'—']];
  for(const [title,value] of cells){const card=el('div','ict-live-stat');card.append(el('small','',title),el('strong','',value));stats.append(card)}
  for(const c of history.slice(-12).reverse()){const tr=el('tr');for(const value of [time(c.start),fmt(c.open),fmt(c.high),fmt(c.low),fmt(c.close),fmt(c.volume)])tr.append(el('td','',value));tr.append(el('td','ict-live-pill '+(c.confirmed?'ict-live-ok':'ict-live-warn'),c.confirmed?'مكتملة':'غير مكتملة'));rows.append(tr)}
+ if(vaultStats){vaultStats.replaceChildren();for(const [label,value] of [['الشموع المكتملة محليًا',storedCount],['الفجوات داخل الفترة المحمّلة',a.gaps+' ('+a.missing+' شمعة)'],['آخر مزامنة شبكة',lastSync?time(lastSync):'—'],['التخزين',storageAvailable?'IndexedDB':'غير متاح']]){const card=el('div','ict-live-stat');card.append(el('small','',label),el('strong','',value));vaultStats.append(card)}}
  }
-function disconnect(){generation++;started=false;connected=false;if(connection){connection.close();connection=null}start.disabled=false;stop.disabled=true;symbol.disabled=false;interval.disabled=false;render()}
-async function run(){disconnect();const id=++generation;started=true;start.disabled=true;stop.disabled=false;symbol.disabled=true;interval.disabled=true;history=[];received=0;lastPacket=0;render();note('جارٍ طلب شموع تاريخية من Bybit…');
- try{history=await feed.fetchHistory({symbol:symbol.value,interval:interval.value,limit:160,timeout:11000});if(id!==generation)return;
-  // Stage 2A is only in-memory for the opened page; stage 2B will persist data.
-  note(`تمت قراءة ${history.length} شمعة. جارٍ الاتصال بتحديثات WebSocket…`,'ok');render();
-  connection=feed.connect({symbol:symbol.value,interval:interval.value,onEvent:event=>{if(id!==generation)return;
-   if(event.type==='connecting'){connected=false;note('جارٍ فتح بث Bybit… محاولة '+event.at,'warn')}
-   if(event.type==='connected'){connected=true;note('متصل ببث Bybit. الشمعة الجاري تكوّنها ليست مؤكدة حتى إغلاقها.','ok')}
-   if(event.type==='candles'){history=feed.merge(history,event.candles,200);received+=event.candles.length;lastPacket=Date.now();note(`بث مباشر متصل • آخر تحديث ${time(lastPacket)} • ${received} تحديث شموع`,'ok')}
-   if(event.type==='error')note(event.message||'خطأ في الاتصال','bad');
-   if(event.type==='disconnected'){connected=false;note('انقطع بث الشموع؛ جارٍ إعادة المحاولة تلقائيًا. لا تعتمد على الأسعار المعروضة الآن.','warn')}
-   render();
-  }});
- }catch(e){if(id!==generation)return;disconnect();note('تعذر جلب الشموع من Bybit: '+(e.name==='AbortError'?'انتهت مهلة الاتصال':e.message)+'. ربما تمنع الشبكة أو المنطقة أو سياسة CORS اتصال المتصفح بالمصدر. لا توجد بيانات حية في هذه الحالة.','bad')}
-}
-start.addEventListener('click',run);stop.addEventListener('click',()=>{disconnect();note('تم إيقاف الاتصال. البيانات المعروضة آخر لقطة محفوظة في ذاكرة الصفحة فقط، وليست لحظية.','warn')});
-document.addEventListener('visibilitychange',()=>{if(document.hidden&&started){disconnect();note('أُوقف الاتصال أثناء إخفاء الصفحة لتقليل استخدام البيانات. اضغط «اتصال» للاستئناف.','warn')}});
-window.addEventListener('pagehide',disconnect);render();
+function detach(){generation++;started=false;connected=false;if(connection){connection.close();connection=null}start.disabled=false;stop.disabled=true;symbol.disabled=false;interval.disabled=false;render()}
+async function loadLocal(id){const p=currentPair();try{const cached=await store.read(p.symbol,p.interval,1000);if(id!==generation)return;storageAvailable=true;storedCount=cached.length;history=feed.merge(cached,history,1000);if(cached.length){vaultNote('تمت استعادة '+cached.length+' شمعة مكتملة من تخزين هذا المتصفح. لا تعد بيانات حية قبل نجاح الاتصال.','warn');render()}else vaultNote('لا توجد شموع محلية لهذا العقد والإطار.','warn')}catch(e){storageAvailable=false;vaultNote('التخزين المحلي غير متاح: '+e.message+'؛ المتابعة الحية تعمل دون تخزين.','bad');render()}}
+function scheduleSave(candles,id,p){const list=(candles||[]).filter(x=>x.confirmed);if(!list.length||!storageAvailable)return;saveQueue=saveQueue.catch(()=>{}).then(async()=>{if(id!==generation)return;try{const result=await store.write(p.symbol,p.interval,list);if(id!==generation)return;storedCount=Math.min(store.MAX_PER_PAIR,(await store.read(p.symbol,p.interval,store.MAX_PER_PAIR)).length);lastPersist=Date.now();if(result.rejected)warning='رُفضت '+result.rejected+' شموع غير مكتملة أو غير صالحة';render()}catch(e){storageAvailable=false;vaultNote('فشل حفظ الشموع محليًا: '+e.message,'bad');render()}})}
+async function sync(id,extra){if(id!==generation||resyncing)return;const p=currentPair(),ms=store.FRAMES[p.interval];resyncing=true;const maxPages=extra?4:1;let pages=0,records=0;try{
+ // Inspect the latest saved candle and retrieve the subsequent window in bounded REST pages.
+ const local=storageAvailable?await store.read(p.symbol,p.interval,1).catch(()=>[]):[];
+ let end=Date.now(),oldest=local.at(-1)?.start??null;
+ // Stage 2B backfills at most 4,000 recent bars; older gaps are reported, not silently hidden.
+ while(id===generation&&pages<maxPages){const data=await feed.fetchHistory({symbol:p.symbol,interval:p.interval,limit:1000,end,timeout:12000});if(id!==generation)return;pages++;records+=data.length;history=feed.merge(history,data,1000);scheduleSave(data,id,p);const min=data[0].start;if(!data.length||min>=end||oldest!==null&&min<=oldest+ms||pages>=maxPages)break;end=min-1;}
+ lastSync=Date.now();render();if(id===generation){const a=analysis();const details=a.gaps?' يوجد '+a.gaps+' فجوات بين الشموع المعروضة؛ اطلب الاستكمال أو راجع مصدر البيانات.':'';vaultNote('مزامنة ناجحة: '+records+' شمعة عبر '+pages+' طلب. '+details,a.gaps?'warn':'ok')}
+ }catch(e){if(id===generation)vaultNote('تعذرت المزامنة: '+e.message+'. ستظل الشموع المحفوظة تاريخية وليست لحظية.','bad')}finally{resyncing=false;repairing=false;if(repair)repair.disabled=false}}
+async function run(){detach();const id=++generation;started=true;start.disabled=true;stop.disabled=false;symbol.disabled=true;interval.disabled=true;history=[];lastPacket=0;lastSync=0;storedCount=0;everConnected=false;render();note('جارٍ تحميل البيانات المحلية ثم مزامنتها مع Bybit…');await loadLocal(id);if(id!==generation)return;const p=currentPair();
+ try{await sync(id,false);if(id!==generation)return;
+ connection=feed.connect({symbol:p.symbol,interval:p.interval,onEvent:event=>{if(id!==generation)return;
+ if(event.type==='connecting'){connected=false;note('جارٍ فتح بث Bybit…','warn')}
+ if(event.type==='connected'){const wasDisconnected=everConnected;everConnected=true;connected=true;note('متصل ببث Bybit. الاعتماد على الشموع المكتملة فقط.','ok');if(wasDisconnected)sync(id,false)}
+ if(event.type==='candles'){history=feed.merge(history,event.candles,1000);lastPacket=Date.now();note('بث متصل • آخر رسالة '+time(lastPacket),'ok');scheduleSave(event.candles,id,p)}
+ if(event.type==='error')note(event.message||'خطأ في البث','bad');
+ if(event.type==='disconnected'){connected=false;note('انقطع بث Bybit. الشموع السابقة ليست لحظية، وستتم المزامنة عند استعادة الاتصال.','warn')}
+ render();}});
+ }catch(e){if(id!==generation)return;note('تعذّر تشغيل الاتصال الحي: '+e.message,'bad');detach()}}
+start.addEventListener('click',run);stop.addEventListener('click',()=>{detach();note('الاتصال متوقف؛ البيانات الموجودة محفوظة تاريخيًا وليست لحظية.','warn')});
+if(repair)repair.addEventListener('click',async()=>{if(repairing)return;const id=generation,p=currentPair();repairing=true;repair.disabled=true;vaultNote('جارٍ استكمال تاريخ الشموع ضمن حد 4 طلبات…','warn');await sync(id,true)});
+if(erase)erase.addEventListener('click',async()=>{if(!confirm('حذف الشموع المحلية للعقد والإطار المحددين فقط؟ لن تتأثر ملفات الموقع أو سجل تداولك.'))return;const p=currentPair();try{const count=await store.clear(p.symbol,p.interval);storedCount=0;vaultNote('حُذف '+count+' شمعة محلية لهذا العقد والإطار. الشموع الظاهرة من الجلسة الحالية لم تُحذف من الذاكرة.','warn');render()}catch(e){vaultNote('فشل الحذف: '+e.message,'bad')}});
+async function preview(){if(started)return;history=[];storedCount=0;render();await loadLocal(generation)}
+symbol.addEventListener('change',preview);interval.addEventListener('change',preview);
+document.addEventListener('visibilitychange',()=>{if(document.hidden&&started){detach();note('أُوقف البث أثناء إخفاء الصفحة. اضغط اتصال لإعادة المزامنة.','warn')}});
+window.addEventListener('pagehide',detach);render();preview();
 })();

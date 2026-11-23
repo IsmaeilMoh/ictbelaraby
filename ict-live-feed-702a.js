@@ -7,7 +7,7 @@
  if(root)root.ICTLiveFeed=api;
 })(typeof globalThis!=='undefined'?globalThis:null,function(){
  'use strict';
- const VERSION='7.0-2A', REST='https://api.bybit.com/v5/market/kline', WS='wss://stream.bybit.com/v5/public/linear';
+ const VERSION='7.0-2B', REST='https://api.bybit.com/v5/market/kline', WS='wss://stream.bybit.com/v5/public/linear';
  const SYMBOLS=Object.freeze(['BTCUSDT','ETHUSDT','SOLUSDT','XRPUSDT']);
  const INTERVALS=Object.freeze({'1':60000,'5':300000,'15':900000,'60':3600000,'240':14400000,D:86400000});
  function checkPair(symbol,interval){const sym=String(symbol||'').toUpperCase(),tf=String(interval||'');if(!SYMBOLS.includes(sym))throw Error('UNSUPPORTED_SYMBOL');if(!INTERVALS[tf])throw Error('UNSUPPORTED_INTERVAL');return {symbol:sym,interval:tf,ms:INTERVALS[tf]}}
@@ -39,7 +39,7 @@
  }
  async function fetchHistory(options){options=options||{};const p=checkPair(options.symbol,options.interval),limit=Math.min(Math.max(Number(options.limit)||160,1),1000);
   const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),Math.min(Math.max(options.timeout||9500,1000),20000));
-  try{const u=new URL(REST);u.searchParams.set('category','linear');u.searchParams.set('symbol',p.symbol);u.searchParams.set('interval',p.interval);u.searchParams.set('limit',String(limit));
+  try{const u=new URL(REST);u.searchParams.set('category','linear');u.searchParams.set('symbol',p.symbol);u.searchParams.set('interval',p.interval);u.searchParams.set('limit',String(limit));if(options.end!=null)u.searchParams.set('end',String(options.end));
    const res=await (options.fetch||fetch)(u.toString(),{method:'GET',cache:'no-store',headers:{Accept:'application/json'},signal:controller.signal});
    if(!res.ok)throw Error('BYBIT_HTTP_'+res.status);const data=await res.json();
    if(data.retCode!==0)throw Error('BYBIT_CODE_'+String(data.retCode));return parseHistory(data,p.symbol,p.interval,options.now||Date.now());
