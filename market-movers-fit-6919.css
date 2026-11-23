@@ -1,0 +1,120 @@
+/* ICT بالعربي · 6.9.19.2 — movers card typography and safe alignment ONLY.
+   Uses the restored 6.9.19 design, without 6.9.20 / 6.9.21 navigation changes. */
+#market-pulse .pulse-movers-board,
+#market-pulse .pulse-movers-layout,
+#market-pulse .pulse-movers-col,
+#market-pulse .pulse-mover-row,
+#market-pulse .pulse-mover-main,
+#market-pulse .pulse-mover-copy,
+#market-pulse .pulse-mover-quote {
+  box-sizing:border-box;
+  min-width:0;
+  max-width:100%;
+}
+#market-pulse .pulse-movers-board { width:100%; padding:clamp(10px,1.8vw,15px); }
+#market-pulse .pulse-movers-layout {
+  grid-template-columns:repeat(auto-fit,minmax(min(100%,320px),1fr));
+  gap:12px;
+}
+#market-pulse .pulse-movers-col { padding:clamp(10px,1.5vw,15px); overflow:hidden; }
+#market-pulse .pulse-movers-head {
+  display:flex;
+  flex-wrap:wrap;
+  gap:6px 9px;
+  min-width:0;
+  align-items:center;
+}
+#market-pulse .movers-heading-name {min-width:0; flex:1 1 auto; flex-wrap:wrap}
+#market-pulse .movers-heading-name b {
+  font-size:13px;
+  line-height:1.55;
+  white-space:normal;
+  overflow-wrap:anywhere;
+}
+#market-pulse .movers-head-en {font-size:10px;line-height:1.5;max-width:100%}
+#market-pulse .pulse-mover-row {
+  display:grid;
+  grid-template-columns:minmax(0,1fr) minmax(0,max-content);
+  gap:8px;
+  align-items:center;
+  padding:11px 3px;
+  min-height:58px;
+  width:100%;
+}
+#market-pulse .pulse-mover-main {gap:7px;width:100%}
+#market-pulse .pulse-mover-copy {flex:1 1 auto;overflow:hidden;min-width:0}
+#market-pulse .pulse-mover-copy b {
+  display:block;
+  font-size:13px;
+  line-height:1.45;
+  max-width:100%;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+}
+#market-pulse .pulse-mover-source {
+  font-size:11px;
+  line-height:1.5;
+  width:100%;
+  max-width:100%;
+  text-overflow:ellipsis;
+  overflow:hidden;
+  white-space:nowrap;
+}
+#market-pulse .pulse-mover-quote {
+  display:flex;
+  flex-direction:column;
+  align-items:flex-end;
+  justify-content:center;
+  gap:5px;
+  width:max-content;
+  min-width:0;
+  max-width:100%;
+  text-align:end;
+}
+#market-pulse .pulse-mover-price {
+  font-size:13px;
+  line-height:1.4;
+  display:block;
+  max-width:100%;
+  white-space:nowrap;
+  font-variant-numeric:tabular-nums;
+}
+#market-pulse .pulse-mover-change {
+  font-size:11px;
+  line-height:1.3;
+  min-height:25px;
+  padding:4px 7px;
+  max-width:100%;
+  white-space:nowrap;
+  justify-content:center;
+}
+#market-pulse .pulse-movers-meta {
+  font-size:11px;
+  line-height:1.65;
+  padding-inline:2px;
+  gap:6px;
+  overflow-wrap:anywhere;
+}
+#market-pulse .movers-fresh-state {font-size:11px;max-width:100%}
+#market-pulse .mover-currency-pair {width:35px;height:29px;flex-shrink:0}
+#market-pulse .mover-currency-pair img {width:24px;height:24px}
+#market-pulse .mover-currency-pair img:last-child {left:12px}
+#market-pulse .mover-icon,#market-pulse .mover-icon img {width:29px;height:29px}
+@container (max-width:380px) {
+  #market-pulse .pulse-movers-layout {grid-template-columns:minmax(0,1fr)}
+  #market-pulse .pulse-mover-row {grid-template-columns:minmax(0,1fr);gap:6px}
+  #market-pulse .pulse-mover-quote {
+    width:100%;
+    flex-direction:row;
+    justify-content:space-between;
+    align-items:center;
+    gap:8px;
+  }
+  #market-pulse .pulse-mover-price {flex:0 1 auto;min-width:0}
+  #market-pulse .pulse-mover-change {flex:0 0 auto}
+}
+@media(max-width:480px) {
+  #market-pulse .pulse-movers-col{padding:11px}
+  #market-pulse .pulse-mover-row{padding-block:10px}
+}
