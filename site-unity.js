@@ -1,8 +1,8 @@
 /* ICT بالعربي 6.8.31 — unified header/navigation; theme delegated to ICTTheme. */
 (()=>{'use strict';
 const page=location.pathname.split('/').pop()||'index.html';
-const nested=location.pathname.split('/').includes('assets');
-const base=nested?'../':'./';
+/* All public pages currently live in the project root. */
+const base='./';
 const theme=window.ICTTheme;
 function syncTheme(){if(theme)theme.apply()}
 function icon(name,box=false){const inner=(window.ICTSharedIcons&&window.ICTSharedIcons.makeIcon(name))||document.createElement('span');if(box){const outer=document.createElement('span');outer.className='uii-iconbox';outer.append(inner);return outer}return inner;}
@@ -25,20 +25,46 @@ function makeHeader(){const existing=document.querySelector('body > header');if(
  syncTheme();
 }
 const quick=[['home','الرئيسية','#home'],['markets','الأسواق','#markets'],['agenda','الأجندة','#agenda'],['recs','التوصيات','#recs']];
-function makeDock(){if(page==='index.html'||page==='admin.html')return;document.querySelectorAll('.ict65-dock,.ict65-sheet,.ict65-dim').forEach(node=>node.remove());document.body.classList.remove('ict65-has-dock');
+function makeDock(){
+ if(page==='index.html'||page==='admin.html')return;
+ // Never retain two mobile navigation owners; this is the original 6.9.19 dock.
+ document.querySelectorAll('.ict65-dock,.ict65-sheet,.ict65-dim,.ict-unity-dock,.ict-unity-sheet,.ict-unity-dim').forEach(n=>n.remove());
+ document.body.classList.remove('ict65-has-dock');
  const dock=document.createElement('nav');dock.className='ict-unity-dock';dock.setAttribute('aria-label','التنقل السريع');
- quick.forEach(([key,label,path])=>{const a=document.createElement('a');a.href=base+path;a.append(icon(key,true));const sp=document.createElement('span');sp.textContent=label;a.append(sp);dock.append(a)});
- const more=document.createElement('button');more.type='button';more.setAttribute('aria-expanded','false');more.setAttribute('aria-controls','ict-unity-sheet');more.append(icon('more',true));const t=document.createElement('span');t.textContent='المزيد';more.append(t);dock.append(more);
- const overlay=document.createElement('div');overlay.className='ict-unity-dim';overlay.hidden=true;
- const sheet=document.createElement('div');sheet.id='ict-unity-sheet';sheet.className='ict-unity-sheet';sheet.hidden=true;sheet.setAttribute('role','dialog');sheet.setAttribute('aria-label','كل أقسام الموقع');sheet.setAttribute('aria-modal','true');
- const close=document.createElement('button');close.type='button';close.className='ict-unity-close';close.textContent='إغلاق';const h=document.createElement('strong');h.textContent='جميع الأقسام';sheet.append(h,close);
+ quick.forEach(([key,label,path])=>{
+  const a=document.createElement('a');a.href=base+path;a.dataset.page=key;a.append(icon(key,true));const sp=document.createElement('span');sp.textContent=label;a.append(sp);dock.append(a);
+ });
+ const more=document.createElement('button');more.type='button';more.setAttribute('aria-expanded','false');more.setAttribute('aria-label','فتح قائمة المزيد');more.setAttribute('aria-controls','ict-unity-sheet');more.append(icon('more',true));const t=document.createElement('span');t.textContent='المزيد';more.append(t);dock.append(more);
+ const overlay=document.createElement('div');overlay.className='ict-unity-dim';overlay.hidden=true;overlay.setAttribute('aria-hidden','true');
+ const sheet=document.createElement('section');sheet.id='ict-unity-sheet';sheet.className='ict-unity-sheet';sheet.hidden=true;sheet.setAttribute('role','dialog');sheet.setAttribute('aria-label','جميع أقسام الموقع');sheet.setAttribute('aria-modal','true');sheet.setAttribute('tabindex','-1');
+ const close=document.createElement('button');close.type='button';close.className='ict-unity-close';close.setAttribute('aria-label','إغلاق قائمة المزيد');close.textContent='إغلاق';
+ const h=document.createElement('strong');h.textContent='جميع الأقسام';sheet.append(h,close);
  const links=document.createElement('div');links.className='ict-unity-sheet-links';
- const extras=[...nav,['workspace','مساحتي','workspace.html'],['intelligence','ذكاء الأسواق','intelligence.html'],['research','مختبر الأبحاث','research.html'],['smartdesk','غرفة المتداول','smart-desk.html'],['recs','رحلة الصفقة الذكية','workflow.html'],['markets','دليل الأصول','assets.html'],['news','موثوقية البيانات','trust.html'],['markets','تحليلات الجمهور','analytics.html']];
- extras.forEach(([key,label,path])=>links.append(link(key,label,path.startsWith('#')?base+path:base+path)));sheet.append(links);
- function show(v){sheet.hidden=!v;overlay.hidden=!v;more.setAttribute('aria-expanded',String(v));if(v)close.focus();else more.focus()}
- more.addEventListener('click',()=>show(!sheet.hidden));close.addEventListener('click',()=>show(false));overlay.addEventListener('click',()=>show(false));document.addEventListener('keydown',e=>{if(e.key==='Escape'&&!sheet.hidden)show(false)});
- document.body.append(overlay,sheet,dock);
- // A single dock is owned by this module; legacy creators are disabled at source.
+ const extras=[...nav,['workspace','مساحتي','workspace.html'],['intelligence','مختبر ذكاء الأسواق','intelligence.html'],['research','مختبر الأبحاث','research.html'],['smartdesk','غرفة المتداول','smart-desk.html'],['recs','رحلة الصفقة الذكية','workflow.html'],['markets','دليل الأصول','assets.html'],['news','موثوقية البيانات','trust.html'],['markets','تحليلات الجمهور','analytics.html']];
+ extras.forEach(([key,label,path])=>links.append(link(key,label,base+path)));
+ sheet.append(links);document.body.append(overlay,sheet,dock);
+ let opened=false;let returnFocus=more;
+ function show(v){
+  if(v===opened)return;
+  opened=v;if(v)returnFocus=document.activeElement;
+  sheet.hidden=!v;overlay.hidden=!v;
+  more.setAttribute('aria-expanded',String(v));more.setAttribute('aria-label',v?'إغلاق قائمة المزيد':'فتح قائمة المزيد');
+  document.body.classList.toggle('ict-unity-more-open',v);
+  if(v)close.focus();else (returnFocus?.isConnected?returnFocus:more).focus();
+ }
+ more.addEventListener('click',e=>{e.preventDefault();show(!opened)});
+ close.addEventListener('click',()=>show(false));overlay.addEventListener('click',()=>show(false));
+ sheet.addEventListener('click',e=>{if(e.target.closest('a[href]'))show(false)});
+ document.addEventListener('keydown',e=>{
+  if(!opened)return;
+  if(e.key==='Escape'){e.preventDefault();show(false);return}
+  if(e.key!=='Tab')return;
+  const focusable=[...sheet.querySelectorAll('button:not([disabled]),a[href]')];
+  if(!focusable.length)return;
+  if(e.shiftKey&&document.activeElement===focusable[0]){e.preventDefault();focusable.at(-1).focus()}
+  else if(!e.shiftKey&&document.activeElement===focusable.at(-1)){e.preventDefault();focusable[0].focus()}
+ });
+ // Keep links on the original 6.9.19 page destinations; never register a second dock.
  document.body.dataset.ictNavOwner='unity';
 }
 function init(){if(page==='index.html'||page==='admin.html')return;document.body.dataset.ictNavOwner='unity';makeHeader();makeDock();syncTheme()}

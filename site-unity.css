@@ -58,3 +58,14 @@ html[data-theme="light"] body,html[data-theme="dark"] body{
   background:var(--unity-bg)!important;
   min-height:100vh;
 }
+
+/* 6.9.19.4 · navigation reliability patch; no redesign. */
+.ict-unity-dim[hidden],.ict-unity-sheet[hidden]{display:none!important}
+@media(max-width:760px){
+ body[data-ict-nav-owner="unity"] .ict-unity-dock{z-index:9950;pointer-events:auto}
+ body[data-ict-nav-owner="unity"] .ict-unity-dock :is(a,button){pointer-events:auto;touch-action:manipulation}
+ body[data-ict-nav-owner="unity"] .ict-unity-dim:not([hidden]){z-index:10010!important;pointer-events:auto}
+ body[data-ict-nav-owner="unity"] .ict-unity-sheet:not([hidden]){z-index:10011!important;pointer-events:auto;overscroll-behavior:contain}
+ body.ict-unity-more-open{overflow:hidden}
+ .ict-unity-sheet-links a{min-width:0;overflow-wrap:anywhere}
+}
