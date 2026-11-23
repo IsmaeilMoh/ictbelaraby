@@ -10,7 +10,7 @@ function cleanDate(v){const d=new Date(v);if(!Number.isFinite(d.getTime())||!/(?
 function loadBars(content){const records=parseCSV(content.replace(/^\ufeff/,''));if(records.length<21)throw Error('يلزم 20 شمعة على الأقل مع صف العناوين.');if(records.length>20001)throw Error('الحد الأقصى 20 ألف شمعة.');const names=records[0].map(x=>x.toLowerCase().replace(/\s/g,''));const get=k=>names.indexOf(k);for(const k of ['time','open','high','low','close'])if(get(k)<0)throw Error('عمود مفقود: '+k);const res=[];for(let j=1;j<records.length;j++){const r=records[j];const time=cleanDate(r[get('time')]);const nums=['open','high','low','close'].map(k=>Number(r[get(k)]));if(nums.some((n,idx)=>!r[get(['open','high','low','close'][idx])]||!Number.isFinite(n)||n<=0))throw Error('سعر غير صالح في الصف '+(j+1));const [open,high,low,close]=nums;if(high<Math.max(open,close,low)||low>Math.min(open,close,high))throw Error('OHLC غير متسق في الصف '+(j+1));if(res.length&&time<=res[res.length-1].time)throw Error('يجب أن تكون الشموع مرتبة زمنيًا دون تكرار، عند الصف '+(j+1));res.push({time,open,high,low,close});}return res;}
 function fmt(n,d=3){return Number(n).toLocaleString('en-US',{maximumFractionDigits:d});}
 function number(id,min,max,integer=false){const v=Number($(id).value);if(!Number.isFinite(v)||v<min||v>max||(integer&&!Number.isInteger(v)))throw Error('قيمة غير صالحة: '+id);return v;}
-function setting(){return{lookback:number('lookback',3,50,true),structure:number('structure',2,15,true),maxAge:number('sweep-age',0,15,true),rr:number('rr',.5,10),hold:number('hold',1,250,true),fee:number('fee',0,1),slippage:number('slippage-r',0,1),spreadPrice:number('spread-price',0,1e6),commissionBps:number('commission-bps',0,100),stopMode:$('stop-mode').value,stopBuffer:number('stop-buffer',0,50)/100,requireMss:$('require-mss').checked,requireFvg:$('require-fvg').checked,side:$('trade-side').value,session:$('research-session').value};}
+function setting(){return{lookback:number('lookback',3,50,true),structure:number('structure',2,15,true),maxAge:number('sweep-age',0,15,true),rr:number('rr',.5,10),hold:number('hold',1,250,true),fee:number('fee',0,1),slippage:number('slippage-r',0,1),stopMode:$('stop-mode').value,stopBuffer:number('stop-buffer',0,50)/100,requireMss:$('require-mss').checked,requireFvg:$('require-fvg').checked,side:$('trade-side').value,session:$('research-session').value};}
 function recentSweep(i,side,opts){let hit=-1,extreme=null;const minAt=Math.max(opts.lookback+1,i-opts.maxAge);for(let k=i;k>=minAt;k--){const prev=bars.slice(k-opts.lookback,k);if(prev.length<opts.lookback)continue;if(side==='long'){const threshold=Math.min(...prev.map(x=>x.low));if(bars[k].low<threshold&&bars[k].close>threshold){hit=k;extreme=bars[k].low;break;}}else{const threshold=Math.max(...prev.map(x=>x.high));if(bars[k].high>threshold&&bars[k].close<threshold){hit=k;extreme=bars[k].high;break;}}}return hit>=0?{hit,extreme}:null;}
 const NY_CLOCK = new Intl.DateTimeFormat('en-GB',{timeZone:'America/New_York',hour:'2-digit',minute:'2-digit',hourCycle:'h23'});
 function inSession(time,session){if(session==='all')return true;const parts=NY_CLOCK.formatToParts(new Date(time));const h=Number(parts.find(p=>p.type==='hour')?.value),m=Number(parts.find(p=>p.type==='minute')?.value);if(!Number.isFinite(h+m))return false;const minute=h*60+m;const bounds={london:[120,300],newyork:[420,600],silver:[600,660]}[session];return !!bounds&&minute>=bounds[0]&&minute<bounds[1];}
@@ -57,14 +57,7 @@ function backtest(override={}){
    if(tpHit){closeAt=k;exit=tp;reason='TP';break;}
   }
   const gross=(side==='long'?exit-entry:entry-exit)/risk;
-  // A single explicitly estimated round-trip spread, measured in this asset's quote-price units.
-  // Commission is an approximate per-side basis-point cost against notional price, not a broker-lot fee.
-  // Converted to R using the trade's own entry-to-stop distance. Existing flat-R costs remain separate.
-  const spreadCostR=opts.spreadPrice/risk;
-  const commissionCostR=(entry+exit)*opts.commissionBps/10000/risk;
-  const flatCostR=opts.fee+opts.slippage;
-  const totalCostR=spreadCostR+commissionCostR+flatCostR;
-  out.push({side,signalTime:bars[i].time,entryTime:bars[entryAt].time,exitTime:bars[closeAt].time,entry,stop,tp,exit,grossR:gross,spreadCostR,commissionCostR,flatCostR,totalCostR,netR:gross-totalCostR,reason,sweepTime:bars[sig.sweepAt].time});
+  out.push({side,signalTime:bars[i].time,entryTime:bars[entryAt].time,exitTime:bars[closeAt].time,entry,stop,tp,exit,grossR:gross,netR:gross-opts.fee-opts.slippage,reason,sweepTime:bars[sig.sweepAt].time});
   i=Math.max(i+1,closeAt+1);
  }
  return out;
@@ -89,12 +82,11 @@ function showResults(){
  const train=results.filter(t=>t.exitTime<splitDate),validation=results.filter(t=>t.entryTime>=splitDate);
  const first=bars[0].time.slice(0,16).replace('T',' '),last=bars.at(-1).time.slice(0,16).replace('T',' ');
  const warning=[];
- if(setting().spreadPrice===0&&setting().commissionBps===0)warning.push('تكاليف السبريد والعمولة السعرية صفر افتراضيًا؛ أدخل تقديرات وسيطك للمقارنة الأقرب للواقع.');
  if(bars.length<1000)warning.push('عدد الشموع محدود؛ لا تعتمد على النتائج لاتخاذ قرار تداول.');
  if(metadata.marketKind==='index')warning.push('المؤشر هنا مرجع نقدي وليس عقد وسيط قابلًا للتنفيذ بنفس الأسعار.');
  if(train.length<30||validation.length<30)warning.push('عدد الصفقات في إحدى العينتين أقل من 30؛ الدلالة الإحصائية ضعيفة.');
  if(results.length===0)warning.push('لم تُرصد صفقات تستوفي الشروط المختارة ضمن البيانات المتاحة.');
- const header=`<div class="research-coverage"><b>${esc(metadata.symbol||'الأصل')} · ${esc(metadata.timeframe||'15m')}</b><span>${esc(first)} — ${esc(last)} UTC</span><span>${bars.length} شمعة حقيقية · تقسيم زمني 70% / 30%</span></div>`+ (results.length?`<p class="micro-note">متوسط تكلفة التنفيذ المفترضة: ${fmt(results.reduce((a,t)=>a+t.totalCostR,0)/results.length,3)} R للصفقة؛ منها سبريد ${fmt(results.reduce((a,t)=>a+t.spreadCostR,0)/results.length,3)} R وعمولة ${fmt(results.reduce((a,t)=>a+t.commissionCostR,0)/results.length,3)} R. تكاليف تقديرية وليست أسعار تنفيذ من الوسيط.</p>`:'');
+ const header=`<div class="research-coverage"><b>${esc(metadata.symbol||'الأصل')} · ${esc(metadata.timeframe||'15m')}</b><span>${esc(first)} — ${esc(last)} UTC</span><span>${bars.length} شمعة حقيقية · تقسيم زمني 70% / 30%</span></div>`;
  container.innerHTML=header+'<div class="research-samples">'+studyCard('عينة الدراسة — 70% الأولى',train)+studyCard('عينة التحقق — 30% الأخيرة',validation)+'</div>'+
  `<p class="micro-note">التقسيم زمني بحسب وقت الدخول، والقواعد نفسها تطبق على العينتين. لا يُعد اختبارًا مستقلًا تمامًا إذا عدّلت الإعدادات بناءً على نتائج التحقق. تحسب التكاليف المحددة بوحدة R، وتفترض الشموع وحدها ترتيب اللمسات عند الشك.</p>`+
  (warning.length?`<p class="research-warning">${warning.map(esc).join(' ')}</p>`:'');
@@ -350,7 +342,7 @@ function showMarketRegimes(){
 $('analyze-regimes').addEventListener('click',()=>{try{showMarketRegimes();}catch(e){setStatus('data-status',e.message,true);}});
 
 
-$('export-trades').addEventListener('click',()=>{if(!results.length)return;const columns=['side','signalTime','entryTime','exitTime','entry','stop','tp','exit','grossR','spreadCostR','commissionCostR','flatCostR','totalCostR','netR','reason','sweepTime'];download('ict-backtest-trades.csv',[columns.join(','),...results.map(t=>columns.map(k=>String(t[k]).replaceAll(',',' ')).join(','))].join('\r\n'),'text/csv;charset=utf-8');});
+$('export-trades').addEventListener('click',()=>{if(!results.length)return;const columns=['side','signalTime','entryTime','exitTime','entry','stop','tp','exit','grossR','netR','reason','sweepTime'];download('ict-backtest-trades.csv',[columns.join(','),...results.map(t=>columns.map(k=>String(t[k]).replaceAll(',',' ')).join(','))].join('\r\n'),'text/csv;charset=utf-8');});
 // 6.8.98: dataset catalog is taken from verified published arrays; no fictitious forex/CFD prices.
 const INTERVAL_MS={'5m':300000,'15m':900000,'1h':3600000,'4h':14400000,'1d':86400000};
 const INTERVAL_LABEL={'5m':'5 دقائق','15m':'15 دقيقة','1h':'ساعة','4h':'4 ساعات','1d':'يوم'};
@@ -465,5 +457,12 @@ $('pattern-filter').addEventListener('change',renderPatterns);$('pattern-list').
 $('pattern-export').addEventListener('click',()=>download('ict-pattern-library.json',JSON.stringify({version:1,exported_at:new Date().toISOString(),patterns},null,2),'application/json;charset=utf-8'));
 $('pattern-import').addEventListener('change',async e=>{const file=e.target.files?.[0];if(!file)return;try{if(file.size>500000)throw Error('الملف أكبر من الحد المسموح.');const data=JSON.parse(await file.text());if(!data||data.version!==1||!Array.isArray(data.patterns)||data.patterns.length>200||!data.patterns.every(validPattern))throw Error('صيغة النسخة الاحتياطية غير صالحة.');if(!confirm('سيتم دمج النماذج المستوردة مع محفوظاتك الحالية، هل تستمر؟'))return;const existing=new Set(patterns.map(p=>p.id)),add=data.patterns.filter(p=>!existing.has(p.id));if(patterns.length+add.length>200)throw Error('الاستيراد يتجاوز الحد الأقصى للنماذج.');patterns=[...patterns,...add];if(!persist())throw Error('تعذر الحفظ في المتصفح.');renderPatterns();setStatus('pattern-message','تم استيراد '+add.length+' نموذج جديد.');}catch(err){setStatus('pattern-message',err.message,true);}finally{e.target.value='';}});
 document.querySelectorAll('[data-tab]').forEach(button=>button.addEventListener('click',()=>{const tab=button.dataset.tab;document.querySelectorAll('[data-tab]').forEach(b=>{const on=b===button;b.classList.toggle('active',on);b.setAttribute('aria-selected',String(on));});document.querySelectorAll('.panel').forEach(p=>p.hidden=p.id!=='panel-'+tab);if(tab!=='replay')stopReplay();if(tab==='replay')drawReplay();}));
+// Read-only integration bridge for the 6.9.14 guided research experience.
+// Returns copies so the presentation cannot mutate the simulation state.
+window.ICTResearchBridge={
+ snapshot:()=>({bars:bars.map(b=>({...b})),trades:results.map(t=>({...t})),metadata:{...metadata},replayAt,patterns:patterns.map(p=>({...p}))}),
+ options:()=>({...setting()}),
+ simulate:(changes={})=>backtest(changes).map(t=>({...t})),
+};
 renderPatterns();drawReplay();
 })();
