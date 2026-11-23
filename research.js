@@ -111,7 +111,7 @@ function showRuleComparison(){
   node.innerHTML='<p class="micro-note">مقارنة أربع صيغ على نفس الأصل والإطار ونفس التكاليف. النتائج على آخر 30% من الشموع فقط، وقد تتأثر بانحياز الاختيار عند تكرار التجارب. لا تساوي احتمالات نجاح مستقبلية.</p><div class="research-samples">'+cards.join('')+'</div>';
  }finally{[mss.checked,fvg.checked]=before;}
 }
-$('run-test').addEventListener('click',()=>{try{results=backtest();showResults();$('rule-comparison').textContent='اضغط مقارنة القواعد لرؤية أثر تغيير التأكيدات.';$('risk-sensitivity').textContent='اضغط اختبار الحساسية لمراجعة تغير النتائج مع الوقف والهدف.';$('research-stability').textContent='اضغط فحص الاستقرار لتحليل توزيع النتائج على الفترات التاريخية.';$('walk-forward-results').textContent='اضغط تشغيل Walk-Forward بعد اختيار القواعد والبيانات.';}catch(e){results=[];setStatus('data-status',e.message,true);$('export-trades').disabled=true;}});
+$('run-test').addEventListener('click',()=>{try{results=backtest();showResults();$('rule-comparison').textContent='اضغط مقارنة القواعد لرؤية أثر تغيير التأكيدات.';$('risk-sensitivity').textContent='اضغط اختبار الحساسية لمراجعة تغير النتائج مع الوقف والهدف.';$('research-stability').textContent='اضغط فحص الاستقرار لتحليل توزيع النتائج على الفترات التاريخية.';$('walk-forward-results').textContent='اضغط تشغيل Walk-Forward بعد اختيار القواعد والبيانات.';$('market-regime-results').textContent='اضغط تحليل ظروف السوق لعرض النتائج حسب الجلسات والتقلب والاتجاه.';}catch(e){results=[];setStatus('data-status',e.message,true);$('export-trades').disabled=true;}});
 function compareRiskSensitivity(){
  const node=$('risk-sensitivity');if(!node)return;
  if(bars.length<50)throw Error('عدد الشموع غير كافٍ لاختبار الحساسية.');
@@ -254,6 +254,94 @@ function showWalkForward(){
 }
 $('run-walk-forward').addEventListener('click',()=>{try{showWalkForward();}catch(e){setStatus('data-status',e.message,true);}});
 
+// 6.9.05: Descriptive market-regime diagnostics. All indicators only use CLOSED
+// candles strictly BEFORE a trade's entry; no information from future candles.
+function previousMarketState(entryIndex){
+ if(entryIndex<55)return null;
+ const prior=bars.slice(entryIndex-55,entryIndex);
+ if(prior.length!==55)return null;
+ const last=prior.at(-1).close;
+ const mean=n=>prior.slice(-n).reduce((sum,b)=>sum+b.close,0)/n;
+ const sma20=mean(20),sma50=mean(50);
+ // Prior ATR(14), using each closed candle and its predecessor.
+ let trSum=0;
+ for(let j=prior.length-14;j<prior.length;j++){
+  const b=prior[j],prev=prior[j-1];
+  trSum+=Math.max(b.high-b.low,Math.abs(b.high-prev.close),Math.abs(b.low-prev.close));
+ }
+ const atrPct=100*(trSum/14)/last;
+ if(!Number.isFinite(atrPct)||atrPct<0)return null;
+ const gap=.001; // 0.10% SMA separation, fixed and not optimized.
+ const diff=(sma20-sma50)/last;
+ const trend=diff>gap?'up':diff< -gap?'down':'flat';
+ return {atrPct,trend};
+}
+function observedSession(time){
+ const parts=NY_CLOCK.formatToParts(new Date(time));
+ const h=Number(parts.find(p=>p.type==='hour')?.value);
+ const m=Number(parts.find(p=>p.type==='minute')?.value);
+ const minutes=h*60+m;
+ if(minutes>=120&&minutes<300)return 'london';
+ if(minutes>=420&&minutes<600)return 'newyork';
+ if(minutes>=600&&minutes<660)return 'silver';
+ return 'other';
+}
+function marketRegimeDiagnostics(trades,candles){
+ const byTime=new Map(candles.map((b,i)=>[b.time,i]));
+ const observed=[],skipped=[];
+ for(const t of trades){
+  const i=byTime.get(t.entryTime);
+  if(i===undefined){skipped.push(t);continue;}
+  const state=previousMarketState(i);
+  if(!state){skipped.push(t);continue;}
+  observed.push({trade:t,state,session:observedSession(t.entryTime)});
+ }
+ const sorted=observed.map(o=>o.state.atrPct).sort((a,b)=>a-b);
+ // Entire observed sample defines these tertiles. EXPLORATORY ONLY, not an
+ // ex-ante volatility signal or an independent prediction threshold.
+ const lower=sorted.length?sorted[Math.floor((sorted.length-1)/3)]:null;
+ const upper=sorted.length?sorted[Math.floor(2*(sorted.length-1)/3)]:null;
+ const volatility=o=>o.state.atrPct<=lower?'low':o.state.atrPct<=upper?'mid':'high';
+ const categories={
+  sessions:[['london','London Kill Zone'],['newyork','New York Kill Zone'],['silver','NY Silver Bullet'],['other','خارج الجلسات المحددة']],
+  volatility:[['low','تقلب أقل'],['mid','تقلب متوسط'],['high','تقلب أعلى']],
+  trends:[['up','اتجاه صاعد'],['down','اتجاه هابط'],['flat','اتجاه عرضي']]
+ };
+ const subsets=(items,key)=>items.map(([id,label])=>({label,trades:observed.filter(o=>(key==='volatility'?volatility(o):key==='trends'?o.state.trend:o.session)===id).map(o=>o.trade)}));
+ return {n:observed.length,skipped:skipped.length,lower,upper,
+  sessions:subsets(categories.sessions,'sessions'),volatility:subsets(categories.volatility,'volatility'),trends:subsets(categories.trends,'trends')};
+}
+function showMarketRegimes(){
+ const node=$('market-regime-results');if(!node)return;
+ if(!bars.length){node.textContent='لا تتوفر شموع صالحة لتحليل ظروف السوق.';return;}
+ if(bars.length<100){node.textContent='يحتاج التحليل 100 شمعة على الأقل؛ وسّع الفترة التاريخية.';return;}
+ const trades=backtest();
+ const d=marketRegimeDiagnostics(trades,bars);
+ const section=(heading,groups)=>`<h4 style="margin:14px 0 8px">${esc(heading)}</h4>`+
+ `<div class="research-samples">${groups.map(g=>{
+  const m=sampleMetrics(g.trades);
+  return `<div class="research-sample-card"><strong>${esc(g.label)}</strong>`+
+  `<div class="research-sample-metrics"><span>الصفقات: <b>${m.n}</b></span>`+
+  `<span>متوسط R: <b>${metricValue(m.expectancy,3,' R')}</b></span>`+
+  `<span>نسبة الفوز: <b>${metricValue(m.rate,1,'%')}</b></span>`+
+  `<span>أقصى تراجع: <b>${m.n?metricValue(m.dd,2,' R'):'غير محدد'}</b></span></div>`+
+  `${m.n<15?'<p class="research-warning">أقل من 15 صفقة؛ عينة ضعيفة للمقارنة.</p>':''}</div>`;
+ }).join('')}</div>`;
+ const notices=[];
+ if(d.skipped)notices.push(`استُبعدت ${d.skipped} صفقة لا تتوفر قبل دخولها 55 شمعة كاملة أو توقيتها غير موجود.`);
+ if(d.n<30)notices.push('أقل من 30 صفقة قابلة للتصنيف؛ لا تستنتج أفضل ظروف للتداول.');
+ if(metadata.timeframe==='1d')notices.push('الجلسات في الإطار اليومي غير دقيقة؛ لا تستخدم مقارنة الجلسات في هذا الإطار.');
+ if(d.volatility.some(g=>g.trades.length<15)||d.trends.some(g=>g.trades.length<15))notices.push('بعض المجموعات تحتوي أقل من 15 صفقة، ولا تصلح لاستنتاج تفوق إحصائي.');
+ node.innerHTML=`<div class="card-head"><h3>تحليل ظروف السوق التاريخية</h3><span class="tag">تشخيص لا توقع</span></div>`+
+ `<p class="micro-note">${d.n} صفقة مصنفة من ${trades.length} · المصدر ${esc(metadata.source||'غير محدد')} · ${esc(metadata.symbol||'')} ${esc(metadata.timeframe||'')}.</p>`+
+ (metadata.timeframe!=='1d'?section('الجلسة حسب توقيت نيويورك (من وقت الدخول)',d.sessions):'')+
+ section('التقلب التاريخي عند الدخول',d.volatility)+section('الاتجاه السابق للدخول',d.trends)+
+ `<p class="micro-note">التقلب = ATR(14) ÷ إغلاق الشمعة السابقة كنسبة مئوية، ثم توزيع <b>الصفقات المرصودة</b> إلى ثلاثة أثلاث حسب التقلب. الحدود في هذه العينة: ${d.lower===null?'—':fmt(d.lower,3)+'%'} و${d.upper===null?'—':fmt(d.upper,3)+'%'}. الاتجاه = متوسط إغلاق آخر 20 شمعة مقارنة بآخر 50 شمعة؛ عرضي إذا كان الفرق لا يتجاوز 0.10% من السعر. جميع الحسابات تستخدم شموعًا مغلقة قبل الدخول، ولا تؤثر على الصفقات أو قواعد الاختبار.</p>`+
+ `<p class="research-warning">${esc(notices.join(' '))} حدود التقلب مشتقة من <b>العينة كاملة</b> لأغراض الوصف؛ ليست حدودًا قابلة للاستخدام المستقبلي دون اختبار مستقل. الفئات قد تتداخل سببيًا مع قواعد الدخول، والاختبارات المتكررة ترفع انحياز اختيار أفضل فئة. لا توجد توصية تداول ولا تنبؤ بالأداء القادم. إغلاق السوق وفجواته قد يؤثران على ATR.</p>`;
+}
+$('analyze-regimes').addEventListener('click',()=>{try{showMarketRegimes();}catch(e){setStatus('data-status',e.message,true);}});
+
+
 $('export-trades').addEventListener('click',()=>{if(!results.length)return;const columns=['side','signalTime','entryTime','exitTime','entry','stop','tp','exit','grossR','netR','reason','sweepTime'];download('ict-backtest-trades.csv',[columns.join(','),...results.map(t=>columns.map(k=>String(t[k]).replaceAll(',',' ')).join(','))].join('\r\n'),'text/csv;charset=utf-8');});
 // 6.8.98: dataset catalog is taken from verified published arrays; no fictitious forex/CFD prices.
 const INTERVAL_MS={'5m':300000,'15m':900000,'1h':3600000,'4h':14400000,'1d':86400000};
@@ -285,7 +373,7 @@ function updateCatalog(){
  return symbols.length>0;
 }
 function sourceRows(symbol,tf){const feed=publicFeed;return feed?.version===2?feed.assets?.[symbol]?.[tf]:feed?.assets?.[symbol];}
-function setHistoryFailure(message){bars=[];results=[];metadata={};stopReplay();$('backtest-results').textContent='لا يمكن احتساب اختبار دون شموع موثوقة ضمن الفترة المختارة.';$('backtest-trades').textContent='';$('export-trades').disabled=true;$('research-stability').textContent='فحص الاستقرار غير متاح دون بيانات موثوقة.';$('walk-forward-results').textContent='Walk-Forward غير متاح دون بيانات موثوقة.';setStatus('data-status',message,true);drawReplay();}
+function setHistoryFailure(message){bars=[];results=[];metadata={};stopReplay();$('backtest-results').textContent='لا يمكن احتساب اختبار دون شموع موثوقة ضمن الفترة المختارة.';$('backtest-trades').textContent='';$('export-trades').disabled=true;$('research-stability').textContent='فحص الاستقرار غير متاح دون بيانات موثوقة.';$('walk-forward-results').textContent='Walk-Forward غير متاح دون بيانات موثوقة.';$('market-regime-results').textContent='تحليل ظروف السوق غير متاح دون بيانات موثوقة.';setStatus('data-status',message,true);drawReplay();}
 function applyHistorySelection(){
  const symbol=$('public-history-symbol').value,tf=$('public-history-timeframe').value;
  const raw=sourceRows(symbol,tf),step=INTERVAL_MS[tf],kind=feedMarkets[symbol]||'crypto';
@@ -305,7 +393,7 @@ function applyHistorySelection(){
  if(chosen.length<60)throw Error('الفترة المحددة تحتوي أقل من 60 شمعة؛ وسّع نطاق التاريخ أو غيّر الإطار.');
  bars=chosen;results=[];metadata={symbol,timeframe:tf,timezone:'UTC',source:feedSources[symbol]?.source||publicFeed.source,updatedAt:feedSources[symbol]?.updatedAt||publicFeed.updatedAt,marketKind:kind};
  $('data-symbol').value=symbol;
- $('backtest-trades').textContent='';$('export-trades').disabled=true;$('research-stability').textContent='اضغط فحص الاستقرار لتحليل البيانات المختارة.';$('walk-forward-results').textContent='اضغط تشغيل Walk-Forward لبدء التحقق المتتابع.';resetReplay();
+ $('backtest-trades').textContent='';$('export-trades').disabled=true;$('research-stability').textContent='اضغط فحص الاستقرار لتحليل البيانات المختارة.';$('walk-forward-results').textContent='اضغط تشغيل Walk-Forward لبدء التحقق المتتابع.';$('market-regime-results').textContent='اضغط تحليل ظروف السوق لعرض التصنيف التاريخي.';resetReplay();
  setStatus('data-status',`تم التحقق من ${bars.length} شمعة حقيقية · ${symbol} · ${tf} · ${metadata.source} · تحديث الملف ${metadata.updatedAt}`);
  results=backtest();showResults();
 }
