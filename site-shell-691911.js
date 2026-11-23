@@ -8,20 +8,9 @@
   if(document.body.dataset.ictMasterShell==='1')return;
   const original=document.querySelector('body > header');
   if(!original)return;
-  const header=document.createElement('header');header.id='ict-master-header';header.className='ict-master-header';header.setAttribute('aria-label','ترويسة ICT بالعربي');
-  const wrap=document.createElement('div');wrap.className='ict-master-header-inner';
-  const brand=document.createElement('a');brand.className='ict-master-brand';brand.href=HOME+'#home';brand.setAttribute('aria-label','ICT بالعربي — العودة للرئيسية');
-  const img=document.createElement('img');img.src=HOME+'logo-original.jpeg';img.width=46;img.height=46;img.alt='شعار ICT بالعربي';
-  const caption=document.createElement('span');caption.className='ict-master-brand-text';
-  const b=document.createElement('b');b.textContent='ICT بالعربي';const sub=document.createElement('small');sub.textContent='مساحة المتداول العربي';caption.append(b,sub);brand.append(img,caption);
-  const switcher=document.createElement('button');switcher.type='button';switcher.className='ict-master-theme';switcher.setAttribute('aria-label','تغيير المظهر');
-  const ico=document.createElement('span');ico.className='ict-master-theme-icon';ico.setAttribute('aria-hidden','true');
-  const label=document.createElement('span');label.className='ict-master-theme-label';switcher.append(ico,label);
-  const renderTheme=()=>{const mode=window.ICTTheme?.chosen?.()||'auto';label.textContent=mode==='light'?'فاتح':mode==='dark'?'داكن':'تلقائي';ico.textContent=escIcon(mode);switcher.title='تغيير المظهر — '+label.textContent};
-  switcher.addEventListener('click',()=>{window.ICTTheme?.cycle?.();renderTheme()});
-  wrap.append(brand,switcher);header.append(wrap);original.replaceWith(header);
+  // Header is supplied once in HTML; never replace it at runtime.
+  if(!original.matches('[data-ict-single-header="1"]'))return;
   document.getElementById('ict68-theme-control')?.remove();
-  // Remove legacy standalone switches only; no mobile navigation changes.
   const oldFooters=[...document.querySelectorAll('body > footer')];
   const footer=document.createElement('footer');footer.id='ict-master-footer';footer.className='ict-master-footer';footer.setAttribute('aria-label','تذييل موقع ICT بالعربي');
   const container=document.createElement('div');container.className='ict-master-footer-container';
@@ -37,7 +26,7 @@
   container.append(row,disclaimer,end);footer.append(container);
   if(oldFooters.length){oldFooters[0].replaceWith(footer);oldFooters.slice(1).forEach(x=>x.remove())}else document.body.append(footer);
   document.body.dataset.ictMasterShell='1';
-  renderTheme();document.documentElement.addEventListener('ict:themechange',renderTheme);
+  // Theme switch is owned by ict-single-home-header-691912.js.
  }
  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',build,{once:true});else build();
 })();

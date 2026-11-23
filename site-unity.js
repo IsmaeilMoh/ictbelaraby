@@ -8,7 +8,7 @@ function syncTheme(){if(theme)theme.apply()}
 function icon(name,box=false){const inner=(window.ICTSharedIcons&&window.ICTSharedIcons.makeIcon(name))||document.createElement('span');if(box){const outer=document.createElement('span');outer.className='uii-iconbox';outer.append(inner);return outer}return inner;}
 const nav=[['home','الرئيسية','#home'],['markets','الأسواق','#markets'],['news','الأخبار','#news'],['recs','التوصيات','#recs'],['agenda','الأجندة','#agenda'],['ict','أدوات ICT','#ict'],['links','تابعنا','#links'],['more','المزيد','#more']];
 function link(key,label,path,cls){const a=document.createElement('a');a.href=path;a.dataset.page=key;if(cls)a.className=cls;a.append(icon(key),document.createTextNode(label));return a;}
-function makeHeader(){const existing=document.querySelector('body > header');if(!existing||page==='index.html')return;
+function makeHeader(){if(document.querySelector('body > header[data-ict-single-header="1"]'))return;const existing=document.querySelector('body > header');if(!existing||page==='index.html')return;
  const h=document.createElement('header');h.className='ict-unity-header';h.setAttribute('aria-label','ترويسة ICT بالعربي');
  const w=document.createElement('div');w.className='ict-unity-header-inner';
  const logo=document.createElement('a');logo.className='ict-unity-brand';logo.href=base+'#home';logo.setAttribute('aria-label','ICT بالعربي - الرئيسية');
