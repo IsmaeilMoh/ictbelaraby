@@ -44,7 +44,7 @@ function build(context,structure,opts={}){
  if(!eligible)warnings.push('هيكل الساعة غير متصل أو غير كافٍ أو متأخر');
  if(!context.priorWeek)warnings.push('مستويات الأسبوع السابق غير مكتملة؛ نستخدم اليوم السابق فقط');
  if(Array.isArray(structure.gaps)&&structure.gaps.length)warnings.push('وُجدت فجوات زمنية في بيانات الساعة؛ يُستخدم أحدث مقطع فقط');
- return {scenarios:[make('bull'),make('bear')],warnings,qualified:dataOK,price:fresh?price:null,sourceDay:context.sourceDay,source:context.sources,lastStructureAt:structure.last??null,checkedAt:now,disclaimer:'قراءة بحثية مشروطة، وليست توصية تداول أو توقع اتجاه. لا توجد احتمالات نجاح أو نقاط دخول تنفيذية. مستويات اليوم/الأسبوع مبنية على UTC لدى المصدر.'};
+ return {scenarios:[make('bull'),make('bear')],warnings,qualified:dataOK,price:fresh?price:null,sourceDay:context.sourceDay,source:context.sources,lastStructureAt:structure.last??null,checkedAt:now,disclaimer:'قراءة بحثية مشروطة، وليست توصية تداول أو توقع اتجاه. لا توجد احتمالات نجاح أو نقاط دخول تنفيذية. مستويات PDH/PDL وPWH/PWL مبنية على يوم نيويورك 00:00 من شموع الساعة المكتملة؛ وقد تختلف عن جلسة وسيط TradingView أو مصدر سعر مختلف.'};
 }
 return Object.freeze({build});
 });

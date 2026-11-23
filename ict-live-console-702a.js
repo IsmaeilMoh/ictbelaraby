@@ -5,7 +5,7 @@ const $=id=>document.getElementById(id),symbol=$('ict-live-symbol'),interval=$('
 let connection=null,history=[],generation=0,started=false,connected=false,lastPacket=0,lastSync=0,lastPersist=0,storageAvailable=true,storedCount=0,warning='',repairing=false,saveQueue=Promise.resolve(),resyncing=false,everConnected=false;
 function el(tag,klass,content){const x=document.createElement(tag);if(klass)x.className=klass;if(content!==undefined)x.textContent=String(content);return x}
 function fmt(n){return typeof n==='number'&&Number.isFinite(n)?new Intl.NumberFormat('en-US',{maximumFractionDigits:8}).format(n):'—'}
-function time(ts){return ts?new Date(ts).toLocaleString('ar',{dateStyle:'short',timeStyle:'medium'}):'—'}
+function time(ts){return ts?(window.ICTMarketTimes?.format(ts)||new Intl.DateTimeFormat('en-GB',{timeZone:'America/New_York',dateStyle:'short',timeStyle:'short'}).format(new Date(ts))+' نيويورك'):'—'}
 function note(message,type){state.className='ict-live-state'+(type?' ict-live-'+type:'');state.textContent=message}
 function vaultNote(message,type){if(vaultState){vaultState.className='ict-live-state'+(type?' ict-live-'+type:'');vaultState.textContent=message}}
 function currentPair(){return {symbol:symbol.value,interval:interval.value}}
