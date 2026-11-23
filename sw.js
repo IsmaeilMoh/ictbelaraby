@@ -1,7 +1,7 @@
 /* ICT بالعربي 6.8.74: prioritize the home offline shell; other pages cache when visited. */
-const CACHE='ict-shell-v691913-exact-home-header-20261123';
+const CACHE='ict-shell-v691916-quick-navigation-20261123';
 const PREFIX='ict-shell-';
-const CORE=["./","./index.html","./icon-192.png","./startup-icon-192-transparent.png","./startup-icon-512-transparent.png","./style.css","./platform.css","./platform.js","./typography.css","./home-polish.css","./notify-luxury.css","./unified-theme.css","./bento-glass.css","./unified-theme.js","./ops-room-fix.css","./design-consistency.css","./interaction-harmony.css","./trading-center-compact.css","./light-contrast.css","./theme-surfaces.css","./ui-icons.css","./bottom-bars-order.css","./workflow-glass-cta.css","./site-font-unified.css","./smart-weekly-agenda.css","./economic-news-priority.css","./economic-reports-finish.css","./recs-lifecycle.css","./analysis-lifecycle.css","./academy-learning.css","./home-tools-compact.css","./mobile-usability-6868.css","./site-search.css","./visitor-guide.css","./editorial-forecasts.js","./economic-calendar-bridge.js","./economic-impact-engine.js","./app.js","./home-polish.js","./notify-luxury.js","./design-consistency.js","./trading-center-compact.js","./ui-icons.js","./manifest.json","./logo-original.jpeg","./icon-512.png","./navigation-responsive-6879.css","./ict-sessions-playbook.css","./site-shell-691911.css","./site-shell-691911.js","./ict-single-home-header-691912.css","./ict-single-home-header-691912.js","./site-unity.js"];
+const CORE=["./","./index.html","./style.css","./app.js","./navspeed-691916.js","./ui-icons.css","./ui-icons.js","./logo-original.jpeg"];
 self.addEventListener('install',event=>event.waitUntil((async()=>{
  const cache=await caches.open(CACHE);
  // Bound parallelism to avoid congesting slower mobile connections during an update.
@@ -27,19 +27,29 @@ self.addEventListener('fetch',event=>{
   return;
  }
  const isJson=name.endsWith('.json');
- const isCode=/\.(?:html|css|js)$/.test(name)||request.mode==='navigate';
- const storageKey=isJson?new Request(new URL(url.pathname,scope.origin).href):request;
+ const isShell=/\.(?:html|css|js)$/.test(name)||request.mode==='navigate';
+ // Market, news, calendar, and all JSON feeds remain network-first.
+ const cacheKey=isJson?new Request(new URL(url.pathname,scope.origin).href):request;
  event.respondWith((async()=>{
   const cache=await caches.open(CACHE);
+  if(isShell){
+   const saved=await cache.match(cacheKey,{ignoreSearch:true});
+   if(saved){
+    // Don't delay navigation on slow links; refresh the cache without blocking the visitor.
+    event.waitUntil(fetch(request,{cache:'no-cache'}).then(response=>{
+      if(response.ok&&response.type==='basic')return cache.put(cacheKey,response.clone());
+    }).catch(()=>{}));
+    return saved;
+   }
+  }
   try{
-   const response=await fetch(request,{cache:isCode?'no-cache':'default'});
-   if(response.ok && response.type==='basic')event.waitUntil(cache.put(storageKey,response.clone()));
+   const response=await fetch(request,{cache:isShell?'no-cache':'default'});
+   if(response.ok&&response.type==='basic')event.waitUntil(cache.put(cacheKey,response.clone()));
    return response;
   }catch(error){
-   const saved=await cache.match(storageKey)
-    || (isCode ? await cache.match(new URL(url.pathname,scope.origin).href) : undefined);
+   const saved=await cache.match(cacheKey,{ignoreSearch:!isJson});
    if(saved)return saved;
-   if(request.mode==='navigate'){const shell=await cache.match(new URL('index.html',scope.href).href);return shell||new Response('غير متصل بالإنترنت',{status:503,headers:{'Content-Type':'text/plain; charset=utf-8'}});}
+   if(request.mode==='navigate')return new Response('الصفحة غير متاحة بدون اتصال. افتحها مرة أثناء الاتصال بالإنترنت.',{status:503,headers:{'Content-Type':'text/plain; charset=utf-8'}});
    throw error;
   }
  })());
