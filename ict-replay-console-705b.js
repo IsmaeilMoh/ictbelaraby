@@ -24,7 +24,7 @@ function mount(){const app=$('app');if(!app||!app.querySelector('.academy-layout
  $('ict-rp-next').addEventListener('click',()=>{try{state=ICTReplayCore.step(state);render()}catch(e){status(e.message,true)}});
 }
 function status(s,bad=false){const el=$('ict-rp-status');if(el){el.textContent=s;el.dataset.error=bad?'true':'false'}}
-async function load(){if(loading)return;const market=$('ict-rp-market').value,symbol=$('ict-rp-symbol').value,frame=$('ict-rp-frame').value;loading=true;const seq=++loadSeq;state=null;render();$('ict-rp-load').disabled=true;status('جاري تحميل شموع مكتملة من المصدر…');
+async function load(){if(loading)return;const market=$('ict-rp-market').value,symbol=$('ict-rp-symbol').value,frame=$('ict-rp-frame').value;loading=true;const seq=++loadSeq;state=null;currentKey='';render();$('ict-rp-load').disabled=true;status('جاري تحميل شموع مكتملة من المصدر…');
  try{let bars,source;if(market==='crypto'){
  if(!window.ICTLiveFeed)throw Error('ملف اتصال Bybit غير محمّل');const raw=await ICTLiveFeed.fetchHistory({symbol,interval:frame,limit:180});bars=raw;source='Bybit V5 — USDT perpetual';
  }else{if(!window.ICTPublicMarkets)throw Error('ملف الأسواق التقليدية غير محمّل');const ins=ICTPublicMarkets.resolve(market,symbol);bars=await ICTPublicMarkets.get(ins,publicFrames[frame]);source=ins.source;}
@@ -41,6 +41,7 @@ function candleSvg(bars){const width=940,height=330,pad=44,space=17,visible=bars
  return `<svg viewBox="0 0 ${width} ${height}" role="img" aria-label="${visible.length} شمعة معروضة فقط" preserveAspectRatio="xMidYMid meet"><g>${lines}${candles}</g></svg>`;
 }
 function render(){const chart=$('ict-rp-chart'),summary=$('ict-rp-summary');if(!chart)return;
+ document.dispatchEvent(new CustomEvent('ict-replay-5b-state',{detail:state?{key:currentKey,shownAt:state.bars[state.shown].start,finished:state.finished,history:state.history.slice(-80)}:{key:'',shownAt:null,finished:false,history:[]}}));
  const has=!!state,ended=has&&state.finished;for(const a of ['buy','sell','wait'])$('ict-rp-'+a).disabled=!has||ended||!!state.action;$('ict-rp-next').disabled=!has||ended;
  if(!has){chart.innerHTML='<p>سيظهر المخطط هنا بعد تحميل جلسة التدريب.</p>';summary.textContent='لا توجد جلسة نشطة.';return}
  const current=state.bars[state.shown],revealed=state.bars.slice(0,state.shown+1),s=ICTReplayCore.stats(state.history);
