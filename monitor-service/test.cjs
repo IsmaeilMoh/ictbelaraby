@@ -14,9 +14,10 @@ async function main(){
  assert.equal(m.snapshot().readyForExecution,false);
  const oldFetch=global.fetch;global.fetch=async u=>({ok:true,json:async()=>({retCode:0,result:{symbol:'BTCUSDT',list:bars.map(b=>[b.start,String(b.open),String(b.high),String(b.low),String(b.close),'20','20']).reverse()}})});
  const service=m.start({noHttp:true,noSchedule:true});await service.cycle();
- const s=service.snapshot();assert.equal(s.cycleCount,1);assert.equal(s.targets['crypto:BTCUSDT:15'].status,'research_data_valid');assert.equal(s.readyForExecution,false);
+ const s=service.snapshot();assert.equal(s.cycleCount,1);assert.equal(s.targets['crypto:BTCUSDT:15'].status,'research_data_valid');assert.equal(s.readyForExecution,false);assert.equal(s.pollIntervalMs,300000);
  assert.equal(s.active,true);assert.equal(s.observations.every(x=>x.status==='research_only_blocked'),true);
  const persisted=JSON.parse(await fs.readFile(process.env.STORE_FILE,'utf8'));assert.equal(persisted.cycleCount,1);
+ assert.equal(await m.restore(),true);assert.equal(m.snapshot().cycleCount,1);
  global.fetch=oldFetch;await fs.unlink(process.env.STORE_FILE).catch(()=>{});
  console.log('8C.2: 12 assertions passed');
 }

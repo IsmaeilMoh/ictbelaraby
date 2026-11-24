@@ -42,6 +42,19 @@ async function check(target){const now=Date.now();const meta={market:target.mark
  for(const model of models){const obs=recentObservation(model,target,now);if(!state.observations.some(x=>x.id===obs.id))state.observations.unshift(obs)}
  }catch(e){meta.status='blocked';meta.error=safeError(e)}
  state.targets[target.id]=meta;state.observations=state.observations.slice(0,100);}
+async function restore(){
+ try{
+  const st=await fs.stat(storage);
+  if(st.size>2_000_000)throw Error('STORAGE_FILE_TOO_LARGE');
+  const existing=JSON.parse(await fs.readFile(storage,'utf8'));
+  if(existing?.schema!==state.schema||!Array.isArray(existing.observations)||!existing.targets||typeof existing.targets!=='object')return false;
+  state.observations=existing.observations.filter(x=>x&&typeof x.id==='string'&&x.status==='research_only_blocked').slice(0,100);
+  state.targets=Object.fromEntries(Object.entries(existing.targets).filter(([id])=>targets.some(t=>t.id===id)));
+  state.cycleCount=Number.isSafeInteger(existing.cycleCount)&&existing.cycleCount>=0?existing.cycleCount:0;
+  state.lastCycleAt=typeof existing.lastCycleAt==='string'?existing.lastCycleAt:null;
+  return true;
+ }catch(e){if(e.code!=='ENOENT')process.stderr.write('Monitor storage restore: '+safeError(e)+'\n');return false}
+}
 async function persist(){const tmp=storage+'.tmp';await fs.mkdir(path.dirname(storage),{recursive:true});await fs.writeFile(tmp,JSON.stringify(state,null,2),'utf8');await fs.rename(tmp,storage)}
 async function cycle(){if(inCycle||stopping)return;inCycle=true;try{
  for(const t of targets){if(stopping)break;await check(t)}
@@ -53,11 +66,11 @@ function api(req,res){if(req.method!=='GET'||!['/health','/snapshot'].includes(n
  if(origin&&req.headers.origin===origin){res.setHeader('Access-Control-Allow-Origin',origin);res.setHeader('Vary','Origin')}
  res.setHeader('Cache-Control','no-store');res.setHeader('Content-Type','application/json; charset=utf-8');res.setHeader('X-Content-Type-Options','nosniff');
  const view=snapshot();const route=new URL(req.url,'http://127.0.0.1').pathname;
- const payload=route==='/health'?{schema:view.schema,active:view.active,lastCycleAt:view.lastCycleAt,serverTime:view.serverTime,uptimeSeconds:view.uptimeSeconds,cycleCount:view.cycleCount,readyForExecution:false,marketCount:Object.keys(view.targets).length,targets:view.targets}:view;
+ const payload=route==='/health'?{schema:view.schema,active:view.active,lastCycleAt:view.lastCycleAt,serverTime:view.serverTime,uptimeSeconds:view.uptimeSeconds,cycleCount:view.cycleCount,pollIntervalMs:view.pollIntervalMs,readyForExecution:false,marketCount:Object.keys(view.targets).length,targets:view.targets}:view;
  res.writeHead(200);res.end(JSON.stringify(payload));}
 function start(options={}){const httpServer=http.createServer(api);if(!options.noHttp)httpServer.listen(port,host,()=>process.stdout.write('Research monitor listening on '+host+':'+port+'\n'));
  const run=()=>cycle().catch(e=>process.stderr.write(safeError(e)+'\n'));
- if(!options.noSchedule){run();timer=setInterval(run,intervalMs)}
+ if(!options.noSchedule){restore().then(run).catch(e=>process.stderr.write(safeError(e)+'\n'));timer=setInterval(run,intervalMs)}
  return {httpServer,cycle,stop:async()=>{stopping=true;clearInterval(timer);if(httpServer.listening)await new Promise(r=>httpServer.close(r))},snapshot};}
 if(require.main===module){const app=start();for(const sig of ['SIGTERM','SIGINT'])process.on(sig,()=>app.stop().then(()=>process.exit(0)));}
-module.exports={parseTargets,validBars,start,snapshot,cycle,targets};
+module.exports={parseTargets,validBars,start,snapshot,cycle,restore,targets};

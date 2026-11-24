@@ -1,0 +1,15 @@
+{$MONITOR_DOMAIN} {
+  encode zstd gzip
+  @allowed path /health /snapshot
+  handle @allowed {
+    reverse_proxy monitor:8787
+  }
+  handle {
+    respond "Not found" 404
+  }
+  header {
+    Strict-Transport-Security "max-age=31536000; includeSubDomains"
+    X-Content-Type-Options "nosniff"
+    Referrer-Policy "no-referrer"
+  }
+}

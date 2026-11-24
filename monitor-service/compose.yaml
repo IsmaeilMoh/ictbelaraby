@@ -1,0 +1,55 @@
+# Compose deploys two containers: a persistent research monitor and HTTPS reverse proxy.
+# DNS A/AAAA record for MONITOR_DOMAIN must resolve to your VPS.
+services:
+  monitor:
+    build: .
+    restart: unless-stopped
+    init: true
+    environment:
+      NODE_ENV: production
+      HOST: 0.0.0.0
+      PORT: "8787"
+      STORE_FILE: /data/monitor-data.json
+      POLL_MS: ${POLL_MS:-300000}
+      MONITOR_TARGETS: ${MONITOR_TARGETS:-crypto:BTCUSDT:15,crypto:ETHUSDT:15,metals:XAUUSD:15,forex:EURUSD:15}
+      ALLOWED_ORIGIN: https://ismaeilmoh.github.io
+    volumes:
+      - monitor-data:/data
+    expose:
+      - "8787"
+    networks:
+      - internal
+      - public
+    security_opt:
+      - no-new-privileges:true
+    read_only: true
+    tmpfs:
+      - /tmp:size=32m
+    pids_limit: 100
+    mem_limit: 256m
+  https:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    environment:
+      MONITOR_DOMAIN: ${MONITOR_DOMAIN:?Set MONITOR_DOMAIN in .env}
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    networks:
+      - internal
+      - public
+    depends_on:
+      - monitor
+volumes:
+  monitor-data:
+  caddy-data:
+  caddy-config:
+networks:
+  internal:
+    internal: true
+  public:
