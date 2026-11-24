@@ -1,8 +1,174 @@
 {
-  "updatedAt": "2026-11-24T19:28:22.820125Z",
+  "updatedAt": "2026-11-24T20:35:49.947115Z",
   "source": "Yahoo Finance public chart feed (unofficial)",
   "intervalMinutes": 5,
   "windowBasis": "5-minute chart close comparisons",
   "isRealtime": false,
-  "items": []
+  "items": [
+    {
+      "symbol": "EURUSD",
+      "label": "يورو / دولار",
+      "category": "forex",
+      "proxy": false,
+      "quotedAt": "2026-11-24T20:35:46Z",
+      "price": 1.09709275,
+      "5": 0.01098,
+      "15": 0.01098,
+      "60": 0.01098
+    },
+    {
+      "symbol": "GBPUSD",
+      "label": "جنيه / دولار",
+      "category": "forex",
+      "proxy": false,
+      "quotedAt": "2026-11-24T20:35:46Z",
+      "price": 1.31183672,
+      "5": 0.00788,
+      "15": -0.00393,
+      "60": 0.00656
+    },
+    {
+      "symbol": "USDJPY",
+      "label": "دولار / ين",
+      "category": "forex",
+      "proxy": false,
+      "quotedAt": "2026-11-24T20:35:48Z",
+      "price": 159.17500305,
+      "5": 0.00314,
+      "15": -0.00817,
+      "60": -0.02701
+    },
+    {
+      "symbol": "USDCHF",
+      "label": "دولار / فرنك",
+      "category": "forex",
+      "proxy": false,
+      "quotedAt": "2026-11-24T20:35:46Z",
+      "price": 0.83502001,
+      "5": -0.00239,
+      "15": -0.00599,
+      "60": -0.03591
+    },
+    {
+      "symbol": "USDCAD",
+      "label": "دولار / كندي",
+      "category": "forex",
+      "proxy": false,
+      "quotedAt": "2026-11-24T20:35:48Z",
+      "price": 1.42681003,
+      "5": -0.0021,
+      "15": 0.02174,
+      "60": 0.02174
+    },
+    {
+      "symbol": "AUDUSD",
+      "label": "أسترالي / دولار",
+      "category": "forex",
+      "proxy": false,
+      "quotedAt": "2026-11-24T20:35:46Z",
+      "price": 0.6643194,
+      "5": -0.00664,
+      "15": -0.01329,
+      "60": -0.02658
+    },
+    {
+      "symbol": "NZDUSD",
+      "label": "نيوزيلندي / دولار",
+      "category": "forex",
+      "proxy": false,
+      "quotedAt": "2026-11-24T20:35:46Z",
+      "price": 0.54851627,
+      "5": -0.00549,
+      "15": -0.01096,
+      "60": -0.01096
+    },
+    {
+      "symbol": "XAUUSD",
+      "label": "الذهب — عقود COMEX الآجلة",
+      "category": "metals",
+      "proxy": true,
+      "quotedAt": "2026-11-24T20:25:41Z",
+      "price": 3554.10009766,
+      "5": 0.00844,
+      "15": -0.07591,
+      "60": -0.05905
+    },
+    {
+      "symbol": "XAGUSD",
+      "label": "الفضة — عقود COMEX الآجلة",
+      "category": "metals",
+      "proxy": true,
+      "quotedAt": "2026-11-24T20:25:49Z",
+      "price": 40.61500168,
+      "5": 0.01231,
+      "15": -0.20884,
+      "60": -0.44122
+    },
+    {
+      "symbol": "NAS100",
+      "label": "NASDAQ 100",
+      "category": "index",
+      "proxy": false,
+      "quotedAt": "2026-11-24T20:35:46Z",
+      "price": 26099.77734375,
+      "5": 0.00479,
+      "15": -0.05001,
+      "60": -0.29361
+    },
+    {
+      "symbol": "SP500",
+      "label": "S&P 500",
+      "category": "index",
+      "proxy": false,
+      "quotedAt": "2026-11-24T20:35:48Z",
+      "price": 7176.64990234,
+      "5": 0.00544,
+      "15": -0.02188,
+      "60": -0.18221
+    },
+    {
+      "symbol": "DJ30",
+      "label": "Dow Jones",
+      "category": "index",
+      "proxy": false,
+      "quotedAt": "2026-11-24T20:35:48Z",
+      "price": 49898.8984375,
+      "5": 0.01176,
+      "15": -0.0099,
+      "60": -0.11588
+    },
+    {
+      "symbol": "WTI",
+      "label": "خام WTI — عقد آجل",
+      "category": "energy",
+      "proxy": true,
+      "quotedAt": "2026-11-24T20:25:37Z",
+      "price": 81.51000214,
+      "5": -0.01226,
+      "15": -0.03679,
+      "60": -0.65814
+    },
+    {
+      "symbol": "BTCUSD",
+      "label": "Bitcoin",
+      "category": "crypto",
+      "proxy": false,
+      "quotedAt": "2026-11-24T20:35:45Z",
+      "price": 59422.62109375,
+      "5": -0.00572,
+      "15": -0.34641,
+      "60": -0.42981
+    },
+    {
+      "symbol": "ETHUSD",
+      "label": "Ethereum",
+      "category": "crypto",
+      "proxy": false,
+      "quotedAt": "2026-11-24T20:35:44Z",
+      "price": 1666.17004395,
+      "5": 0.01081,
+      "15": -0.3606,
+      "60": -0.48735
+    }
+  ]
 }
