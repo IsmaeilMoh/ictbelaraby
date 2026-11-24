@@ -1,6 +1,6 @@
 {
   "name": "ict-arabic-background-research-monitor",
-  "version": "8.0.5",
+  "version": "8.0.6",
   "private": true,
   "type": "commonjs",
   "engines": {
@@ -8,7 +8,8 @@
   },
   "scripts": {
     "start": "node server.js",
-    "test": "node test.cjs && node safety-gates.test.cjs && node execution-quotes.test.cjs"
+    "test": "node test.cjs && node safety-gates.test.cjs && node execution-quotes.test.cjs && node readiness-check.test.cjs && node operational-health.test.cjs",
+    "check:live": "node readiness-check.cjs"
   },
   "description": "Background market-data research monitor (no live execution recommendations or trades)",
   "license": "UNLICENSED"

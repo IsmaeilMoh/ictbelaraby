@@ -26,6 +26,7 @@ function parseTargets(str){const parsed=[];for(const raw of str.split(',')){
 const targets=parseTargets(process.env.MONITOR_TARGETS||DEFAULT);
 let state={schema:'ict-research-monitor/1',startedAt:new Date(started).toISOString(),lastCycleAt:null,targets:{},observations:[],cycleCount:0,readyForExecution:false,limitations:['لا توجد تغذية Bid/Ask تنفيذية','بوابة الأخبار اختيارية وتفشل بالإغلاق عند نقص التغطية','مخاطرة الحساب الشخصي غير مرتبطة بالخادم','لا تُرسل إشعارات Push','نتائج بحثية وليست صفقات أو توصيات معتمدة']};
 let stopping=false,inCycle=false,timer=null;
+let lastCycleError=null;
 const economicUrl=process.env.ECONOMIC_FEED_URL||'';
 const quoteUrl=process.env.QUOTE_FEED_URL||'';
 let quoteFeed={ok:false,reason:'QUOTE_FEED_NOT_CONFIGURED',quotes:new Map()};
@@ -75,15 +76,22 @@ async function cycle(){if(inCycle||stopping)return;inCycle=true;try{
  economic=await gates.fetchEconomic(economicUrl,Date.now());
  quoteFeed=await quotesGuard.fetchQuotes(quoteUrl,Date.now());
  for(const t of targets){if(stopping)break;await check(t)}
- state.lastCycleAt=new Date().toISOString();state.cycleCount++;await persist();
- }catch(e){process.stderr.write('Monitor cycle error: '+safeError(e)+'\n')}finally{inCycle=false}}
+ state.lastCycleAt=new Date().toISOString();state.cycleCount++;lastCycleError=null;await persist();
+ }catch(e){lastCycleError=safeError(e);process.stderr.write('Monitor cycle error: '+lastCycleError+'\n')}finally{inCycle=false}}
 function snapshot(){const now=Date.now(),last=state.lastCycleAt?Date.parse(state.lastCycleAt):NaN;
- return {...state,safety:{economic:{ok:economic.ok,reason:economic.reason||null,eventCount:economic.eventCount||0,invalid:economic.invalid||0,receivedAt:economic.receivedAt||null},accountRisk:'not_verified',bidAsk:{connected:quoteFeed.ok,reason:quoteFeed.reason||null,receivedAt:quoteFeed.receivedAt||null},executionApproved:false},serverTime:new Date(now).toISOString(),uptimeSeconds:Math.floor((now-started)/1000),active:!stopping&&Number.isFinite(last)&&now-last<=Math.max(3*intervalMs,900000),pollIntervalMs:intervalMs,targets:Object.fromEntries(Object.entries(state.targets).map(([key,v])=>[key,{...v,stale:!v.lastCompleteAt||now-Date.parse(v.lastCompleteAt)>Math.max(3*Number(v.frame)*60000,300000)}]))};}
+ const active=!stopping&&!lastCycleError&&Number.isFinite(last)&&now-last<=Math.max(3*intervalMs,900000);
+ const checked=Object.fromEntries(targets.map(t=>{const v=state.targets[t.id];const stale=!v?.lastCompleteAt||!Number.isFinite(Date.parse(v.lastCompleteAt))||now-Date.parse(v.lastCompleteAt)>Math.max(3*Number(t.tf)*60000,300000);
+ return [t.id,v?{...v,stale}:{market:t.market,symbol:t.symbol,frame:t.tf,status:'not_checked',stale:true}];}));
+ const totals={configured:targets.length,valid:0,blocked:0,stale:0,unchecked:0};
+ for(const t of Object.values(checked)){if(t.stale)totals.stale++;if(t.status==='not_checked')totals.unchecked++;else if(t.status==='research_data_valid'&&!t.stale)totals.valid++;else totals.blocked++;}
+ const marketDataReady=active&&totals.valid>0;
+ return {...state,safety:{economic:{ok:economic.ok,reason:economic.reason||null,eventCount:economic.eventCount||0,invalid:economic.invalid||0,receivedAt:economic.receivedAt||null},accountRisk:'not_verified',bidAsk:{connected:quoteFeed.ok,reason:quoteFeed.reason||null,receivedAt:quoteFeed.receivedAt||null},executionApproved:false},serverTime:new Date(now).toISOString(),uptimeSeconds:Math.floor((now-started)/1000),active,pollIntervalMs:intervalMs,cycleError:lastCycleError,marketDataReady,allMarketDataReady:marketDataReady&&totals.valid===totals.configured,marketSummary:totals,targets:checked};}
+
 function api(req,res){if(req.method!=='GET'||!['/health','/snapshot'].includes(new URL(req.url,'http://127.0.0.1').pathname)){res.writeHead(404);res.end('Not found');return}
  if(origin&&req.headers.origin===origin){res.setHeader('Access-Control-Allow-Origin',origin);res.setHeader('Vary','Origin')}
  res.setHeader('Cache-Control','no-store');res.setHeader('Content-Type','application/json; charset=utf-8');res.setHeader('X-Content-Type-Options','nosniff');
  const view=snapshot();const route=new URL(req.url,'http://127.0.0.1').pathname;
- const payload=route==='/health'?{schema:view.schema,active:view.active,lastCycleAt:view.lastCycleAt,serverTime:view.serverTime,uptimeSeconds:view.uptimeSeconds,cycleCount:view.cycleCount,pollIntervalMs:view.pollIntervalMs,readyForExecution:false,safety:view.safety,marketCount:Object.keys(view.targets).length,targets:view.targets}:view;
+ const payload=route==='/health'?{schema:view.schema,active:view.active,lastCycleAt:view.lastCycleAt,serverTime:view.serverTime,uptimeSeconds:view.uptimeSeconds,cycleCount:view.cycleCount,pollIntervalMs:view.pollIntervalMs,readyForExecution:false,safety:view.safety,marketCount:Object.keys(view.targets).length,marketDataReady:view.marketDataReady,allMarketDataReady:view.allMarketDataReady,marketSummary:view.marketSummary,cycleError:view.cycleError,targets:view.targets}:view;
  res.writeHead(200);res.end(JSON.stringify(payload));}
 function start(options={}){const httpServer=http.createServer(api);if(!options.noHttp)httpServer.listen(port,host,()=>process.stdout.write('Research monitor listening on '+host+':'+port+'\n'));
  const run=()=>cycle().catch(e=>process.stderr.write(safeError(e)+'\n'));
