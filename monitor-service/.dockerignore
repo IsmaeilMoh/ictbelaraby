@@ -1,0 +1,11 @@
+node_modules
+.git
+.env
+.env.*
+!.env.deploy.example
+monitor-data.json
+monitor-data.json.tmp
+*.log
+README_AR.md
+*.zip
+test.cjs

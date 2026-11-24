@@ -30,7 +30,25 @@ function checkStructure(model,maxStopDistancePct=5){const {entry,stop,target,dir
  if(!(dist>0&&dist<=maxStopDistancePct))return {status:'blocked',reason:'STOP_DISTANCE_OUT_OF_POLICY',stopDistancePct:dist};
  if(direction==='bull'&&!(stop<entry&&entry<target)||direction==='bear'&&!(target<entry&&entry<stop))return {status:'blocked',reason:'WRONG_LEVEL_ORDER'};
  return {status:'clear_research_only',reason:'STRUCTURAL_LEVELS_VALID',stopDistancePct:dist};}
-async function fetchEconomic(url,now,options={}){if(!url)return {ok:false,reason:'ECONOMIC_FEED_NOT_CONFIGURED'};
+async function fetchFreeCalendar(now,options={}){
+ // Free provider is an optional fallback; never claim complete multi-source coverage.
+ const endpoint='https://biquote.io/api/calendar?importance=high&limit=300';
+ try{
+  const response=await (options.fetch||global.fetch)(endpoint,{signal:AbortSignal.timeout(7000),headers:{Accept:'application/json'},cache:'no-store'});
+  if(!response.ok)throw Error('HTTP_'+response.status);
+  const body=await response.text();if(body.length>1000000)throw Error('ECONOMIC_FEED_TOO_LARGE');
+  const raw=JSON.parse(body);if(!Array.isArray(raw)||raw.length>500||!raw.length)throw Error('FREE_CALENDAR_EMPTY_OR_INVALID');
+  const shaped=raw.filter(e=>e&&String(e.importance||'').toLowerCase()==='high').map(e=>({
+   time_utc:e.timeMode==='exact'?e.time:null,
+   currency:e.currency,
+   impact:'high',title:e.name||e.title||'حدث اقتصادي'
+  }));
+  const normalized=normalizeFeed(shaped);
+  if(!normalized.events.some(e=>e.time>=now-3600000&&e.time<=now+7*86400000))throw Error('NO_CURRENT_OR_UPCOMING_EVENT_COVERAGE');
+  return {ok:true,feed:normalized,source:'Biquote calendar free (single-source, not official-verified)',receivedAt:new Date(now).toISOString(),eventCount:normalized.events.length,invalid:normalized.invalid};
+ }catch(e){return {ok:false,reason:'FREE_CALENDAR_'+String(e.message||e).slice(0,115)}}
+}
+async function fetchEconomic(url,now,options={}){if(!url)return fetchFreeCalendar(now,options);
  let parsed;try{parsed=new URL(url)}catch(_){return {ok:false,reason:'INVALID_ECONOMIC_FEED_URL'}}
  if(parsed.protocol!=='https:'||parsed.username||parsed.password||parsed.hash)return {ok:false,reason:'ECONOMIC_FEED_MUST_BE_HTTPS'};
  try{const response=await (options.fetch||global.fetch)(url,{signal:AbortSignal.timeout(7000),headers:{Accept:'application/json'},cache:'no-store'});
@@ -41,4 +59,4 @@ async function fetchEconomic(url,now,options={}){if(!url)return {ok:false,reason
  if(!normalized.events.some(e=>e.time>=now-3600000&&e.time<=now+7*86400000))throw Error('NO_CURRENT_OR_UPCOMING_EVENT_COVERAGE');
  return {ok:true,feed:normalized,receivedAt:new Date(now).toISOString(),eventCount:normalized.events.length,invalid:normalized.invalid};
  }catch(e){return {ok:false,reason:String(e.message||e).slice(0,120)}}}
-module.exports={normalizeFeed,checkNews,checkStructure,fetchEconomic,isoTime,currenciesFor};
+module.exports={normalizeFeed,checkNews,checkStructure,fetchEconomic,fetchFreeCalendar,isoTime,currenciesFor};

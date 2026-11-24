@@ -25,3 +25,15 @@ async function test(){
  console.log('8C.4 safety gates: 15+ assertions passed');
 }
 test().catch(e=>{console.error(e);process.exitCode=1});
+
+(async()=>{
+ const {fetchFreeCalendar,checkNews}=require('./safety-gates.js');
+ const base=Date.parse('2026-11-24T12:00:00Z');
+ const fake=rows=>async()=>({ok:true,text:async()=>JSON.stringify(rows)});
+ const good=await fetchFreeCalendar(base,{fetch:fake([{time:'2026-11-24T12:30:00Z',timeMode:'exact',currency:'USD',importance:'high',name:'High-impact CPI'}])});
+ assert.equal(good.ok,true);assert.equal(good.eventCount,1);assert.equal(checkNews(good.feed,{market:'metals',symbol:'XAUUSD'},base).status,'blocked');
+ const tentative=await fetchFreeCalendar(base,{fetch:fake([{time:'2026-11-24T12:30:00Z',timeMode:'tentative',currency:'USD',importance:'high',name:'Tentative CPI'}, {time:'2026-11-24T15:00:00Z',timeMode:'exact',currency:'USD',importance:'high',name:'Some event'}])});
+ assert.equal(tentative.ok,true);assert.ok(tentative.invalid>=1);assert.equal(checkNews(tentative.feed,{market:'metals',symbol:'XAUUSD'},base).status,'blocked');
+ const empty=await fetchFreeCalendar(base,{fetch:fake([])});assert.equal(empty.ok,false);
+ console.log('Free calendar fallback safety tests: PASS');
+})().catch(e=>{console.error(e);process.exitCode=1});

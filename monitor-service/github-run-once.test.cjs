@@ -7,3 +7,17 @@ s=publicSnapshot({...fixture,lastCycleAt:new Date(now-50*60000).toISOString()},n
 s=publicSnapshot({...fixture,targets:{'crypto:BTCUSDT:15':{...fixture.targets['crypto:BTCUSDT:15'],status:'blocked'}}},now);assert.equal(s.marketDataReady,false);
 assert.throws(()=>publicSnapshot({...fixture,readyForExecution:true},now),/UNSAFE/);
 console.log('GitHub static payload safety tests: PASS');
+
+const good={id:'crypto:BTCUSDT:15:setup-01',market:'crypto',symbol:'BTCUSDT',frame:'15',formedAt:now-240000,detectedAt:new Date(now-60000).toISOString(),status:'research_only_blocked',side:'BUY',entry:100,stop:99,target:102,accountRiskGate:'not_verified'};
+let o=publicSnapshot({...fixture,observations:[good]},now);
+assert.equal(o.observations.length,1);
+assert.equal(o.observations[0].entry,100);
+assert.equal(o.observations[0].executionApproved,false);
+assert.equal(o.observations[0].accountName,undefined);
+assert.equal(o.observations[0].accountRiskGate,'not_verified');
+assert.equal(publicSnapshot({...fixture,observations:[{...good,side:'SELL'}]},now).observations.length,0);
+assert.equal(publicSnapshot({...fixture,observations:[{...good,entry:NaN}]},now).observations.length,0);
+assert.equal(publicSnapshot({...fixture,observations:[{...good,detectedAt:new Date(now-3600000).toISOString()}]},now).observations.length,0);
+assert.equal(publicSnapshot({...fixture,observations:[{...good,accountName:'Private Account'}]},now).observations.length,0);
+assert.equal(publicSnapshot({...fixture,targets:{...fixture.targets,'crypto:BTCUSDT:15':{...fixture.targets['crypto:BTCUSDT:15'],status:'blocked'}},observations:[good]},now).observations.length,0);
+console.log('Public research observation sanitization: PASS');
