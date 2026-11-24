@@ -1,0 +1,44 @@
+/* ICT بالعربي 7.0/8A: conservative multi-engine coordination, NOT trade execution. */
+(function(root,factory){'use strict';const api=factory();if(typeof module==='object'&&module.exports)module.exports=api;if(root)root.ICTDecisionEngine708A=api})(typeof globalThis!=='undefined'?globalThis:null,function(){
+'use strict';
+const HOUR=3600000,MIN=60000;
+const knownMarkets=new Set(['crypto','forex','metals','indices','stocks','energy']);
+function nearNews(events,market,symbol,now){const relevant=market==='forex'?[symbol.slice(0,3),symbol.slice(3,6)]:market==='crypto'?['USD']:['USD'];return (events||[]).filter(e=>e&&Number.isFinite(e.when)&&relevant.includes(e.currency)&&Math.abs(e.when-now)<=30*MIN).sort((a,b)=>Math.abs(a.when-now)-Math.abs(b.when-now)).slice(0,8)}
+function inspect(input){
+ const {market,symbol,frame='15',candles15=[],candles60=[],account=null,riskAmount=NaN,events=[],eventFeedsLoaded=0,newsChecked=false,now=Date.now(),rollHour=0,structureEngine,signalEngine,contextEngine,scenarioEngine,accountEngine}=input;
+ if(!knownMarkets.has(market)||!symbol||!['5','15'].includes(String(frame)))throw Error('السوق أو الإطار المختار غير مدعوم');
+ if(!structureEngine||!signalEngine||!contextEngine||!scenarioEngine)throw Error('محرك تحليلي أساسي مفقود');
+ const warnings=[],blocks=[];
+ const context=contextEngine.build([],candles60,{market,rollHour,now,sources:market==='crypto'?'Bybit V5':'Biquote'});
+ const structure60=structureEngine.analyze(candles60,'60',{now,pivot:2});
+ const scenarios=scenarioEngine.build(context,structure60,{now});
+ const evaluation=signalEngine.evaluate(candles15,String(frame),{now,market,symbol});
+ const latest=evaluation.analysis.last,ms=structureEngine.FRAME_MS[String(frame)],age=latest==null?Infinity:now-(latest+ms);
+ if(!Number.isFinite(age)||age<0||age>2*ms+2*MIN)blocks.push('شموع إطار الدخول قديمة أو مفقودة');
+ if(!scenarios.qualified)blocks.push('السياق الساعي غير مكتمل أو غير حديث');
+ if(context.priorWeek==null)warnings.push('الأسبوع المرجعي السابق غير مكتمل؛ لا توجد مستويات PWH/PWL موثوقة');
+ if(!newsChecked||eventFeedsLoaded<3)blocks.push('الأجندة الاقتصادية غير مكتملة المصادر (المطلوب 3/3)؛ يُمنع اعتماد الخطة');
+ if(!(events||[]).some(e=>e&&Number.isFinite(e.when)&&Math.abs(e.when-now)<=7*86400000))blocks.push('لم تتوفر أحداث اقتصادية مؤرخة ضمن أسبوع من الفحص؛ لا يمكن تأكيد حداثة الأجندة');
+ const nearby=nearNews(events,market,symbol,now);
+ if(nearby.length)blocks.push('خبر اقتصادي قريب ضمن 30 دقيقة قبل الإعلان أو بعده');
+ if(!account||!accountEngine)blocks.push('لم يُحدد حساب تداول للتحقق من المخاطرة');
+ let risk=null;
+ if(account&&accountEngine){const amount=Number(riskAmount);risk=accountEngine.evaluate(account,amount);if(!(amount>0))blocks.push('أدخل مخاطرة مالية موجبة للمراجعة');if(!risk.ok)blocks.push('حد مخاطرة الحساب غير مستوفى: '+risk.message);if(account.currency!=='USD')blocks.push('عملة الحساب ليست USD؛ يلزم تحويل معتمد قبل اعتماد مبلغ المخاطرة');}
+ const models=evaluation.models||[];
+ const recent=models.filter(m=>m&&m.ageBars<=6&&['watching','retested'].includes(m.status)&&Number.isFinite(m.entry)&&Number.isFinite(m.stop)&&Number.isFinite(m.target));
+ const opportunities=recent.map(m=>{
+  const matched=scenarios.scenarios.find(s=>s.direction===m.direction),alignment=Boolean(matched&&matched.score>=2&&matched.evidence.some(v=>/MSS|BOS/.test(v)));
+  const localBlocks=[...blocks];if(!alignment)localBlocks.push('سيناريو الإطار الأعلى غير مؤكد في اتجاه النموذج');
+  if(m.status==='retested')localBlocks.push('عادت الأسعار إلى المنطقة بالفعل؛ لا نفترض تفعيلًا أو سعر تنفيذ');
+  if(m.status!=='watching')localBlocks.push('النموذج ليس في وضع انتظار دخول جديد');
+  const price=context.price;const entry=m.entry;
+  const side=m.direction==='bull'?'BUY':'SELL';
+  // Never conflate a last-hour close with a live bid/ask or an executable quote.
+  const status=localBlocks.length?'مراقبة فقط':'خطة مشروطة — تنتظر إعادة اختبار السعر والتحقق من التنفيذ';
+  return {id:m.id,symbol,market,direction:m.direction,side,formedAt:m.formedAt,status,entry,stop:m.stop,target:m.target,rr:m.rr,zone:m.zone,model:m.confirmation,blocks:localBlocks,waiting:['عودة السعر إلى منطقة FVG دون إبطال','التحقق من سعر Bid/Ask والسبريد عند التنفيذ','تأكيد عدم تغيّر الهيكل بعد آخر شمعة'],evidence:matched?.evidence||[],contextScore:matched?.score||0,ageBars:m.ageBars,referenceClose:price};
+ }).sort((a,b)=>b.formedAt-a.formedAt);
+ if(!opportunities.length)warnings.push('لم يرصد المحرك نموذج Sweep → MSS → FVG حديثًا ومؤهلًا ضمن الشموع المتاحة');
+ return {symbol,market,frame,checkedAt:now,source:market==='crypto'?'Bybit V5 USDT perpetual':'Biquote — أسعار أسواق تقليدية من مصدر مستقل',sourceBars:evaluation.analysis.sourceBars,context,scenarios,opportunities,warnings,blocks,nearbyNews:nearby,newsChecked,eventFeedsLoaded,accountName:account?.name||null,risk,priceAt:context.priceAt,price:context.price,disclaimer:'هذه فرص بحثية مشروطة مستخرجة من إغلاقات شموع، وليست أسعار Bid/Ask لحظية أو أوامر تنفيذ. لا تعتمد الربحية ولا الملاءمة المالية ولا تتضمن سبريدًا أو انزلاقًا أو حجم عقد. تتوقف المراقبة بإغلاق الصفحة.'};
+}
+return Object.freeze({inspect,nearNews});
+});
