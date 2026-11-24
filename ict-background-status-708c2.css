@@ -1,0 +1,6 @@
+/* 8C.2 limited to the new diagnostic panel. Reuses current glass-panel design. */
+#dc-background-8c2 .dc-bg-controls{display:flex;align-items:end;gap:10px;flex-wrap:wrap}
+#dc-background-8c2 .dc-bg-controls label{flex:1 1 250px;min-width:0}
+#dc-background-8c2 input{display:block;width:100%;max-width:100%;min-width:0;padding:10px;border-radius:12px}
+#dc-background-8c2 #dc-bg-status[data-bad="1"]{color:#e09a90}
+#dc-background-8c2 #dc-bg-results p{padding:6px 0;border-bottom:1px solid rgba(170,200,210,.12);overflow-wrap:anywhere}
