@@ -7,6 +7,7 @@ const live=require('./ict-live-feed-702a.js');
 const traditional=require('./ict-public-markets-702c2.js');
 const structure=require('./ict_phase2d/ict-structure-engine-702d.js');
 const signals=require('./ict_phase2e/ict-signal-engine-702e.js');
+const gates=require('./safety-gates.js');
 const started=Date.now();
 const intervalMs=Math.min(900000,Math.max(60000,Number(process.env.POLL_MS)||300000));
 const port=Math.max(1,Math.min(65535,Number(process.env.PORT)||8787));
@@ -22,8 +23,11 @@ function parseTargets(str){const parsed=[];for(const raw of str.split(',')){
  const id=[market,symbol,tf].join(':');if(!parsed.some(x=>x.id===id))parsed.push({id,market,symbol,tf});
  }if(!parsed.length||parsed.length>12)throw Error('TARGET_COUNT_MUST_BE_1_TO_12');return parsed}
 const targets=parseTargets(process.env.MONITOR_TARGETS||DEFAULT);
-let state={schema:'ict-research-monitor/1',startedAt:new Date(started).toISOString(),lastCycleAt:null,targets:{},observations:[],cycleCount:0,readyForExecution:false,limitations:['لا توجد تغذية Bid/Ask تنفيذية','فحص الأخبار ومخاطرة الحساب غير مربوط بالخادم','لا تُرسل إشعارات Push','نتائج بحثية وليست صفقات أو توصيات معتمدة']};
+let state={schema:'ict-research-monitor/1',startedAt:new Date(started).toISOString(),lastCycleAt:null,targets:{},observations:[],cycleCount:0,readyForExecution:false,limitations:['لا توجد تغذية Bid/Ask تنفيذية','بوابة الأخبار اختيارية وتفشل بالإغلاق عند نقص التغطية','مخاطرة الحساب الشخصي غير مرتبطة بالخادم','لا تُرسل إشعارات Push','نتائج بحثية وليست صفقات أو توصيات معتمدة']};
 let stopping=false,inCycle=false,timer=null;
+const economicUrl=process.env.ECONOMIC_FEED_URL||'';
+const maxStopDistancePct=Math.max(0.01,Math.min(100,Number(process.env.MAX_STOP_DISTANCE_PCT)||5));
+let economic={ok:false,reason:'NOT_CHECKED'};
 function safeError(e){return String(e?.message||e||'خطأ').slice(0,180)}
 async function fetchBars(target,now){if(target.market==='crypto')return live.fetchHistory({symbol:target.symbol,interval:target.tf,limit:200,now});
  const ins=traditional.resolve(target.market,target.symbol);
@@ -34,12 +38,16 @@ function validBars(bars,tf,now){const ms=Number(tf)*60000;const valid=bars.filte
  if(consecutive.length<30)throw Error('LATEST_SEGMENT_TOO_SHORT');
  const last=consecutive.at(-1);if(now-(last.start+ms)>Math.max(3*ms,180000))throw Error('STALE_CANDLES');
  return consecutive;}
-function recentObservation(m,target,now){return {id:target.id+':'+String(m.id),market:target.market,symbol:target.symbol,frame:target.tf,formedAt:m.formedAt,detectedAt:new Date(now).toISOString(),status:'research_only_blocked',reason:'لم يُتحقق من الأخبار والمخاطرة وBid/Ask؛ ليست توصية تنفيذ',side:m.direction==='bull'?'BUY':'SELL',entry:m.entry,stop:m.stop,target:m.target,model:'Sweep → MSS → FVG'};}
+function recentObservation(m,target,now,news,structureGate){return {id:target.id+':'+String(m.id),market:target.market,symbol:target.symbol,frame:target.tf,formedAt:m.formedAt,detectedAt:new Date(now).toISOString(),status:'research_only_blocked',reason:'غير معتمدة للتنفيذ: لا توجد مراجعة مخاطرة حساب أو أسعار Bid/Ask',newsGate:news,structureGate,accountRiskGate:'not_verified',side:m.direction==='bull'?'BUY':'SELL',entry:m.entry,stop:m.stop,target:m.target,model:'Sweep → MSS → FVG'};}
 async function check(target){const now=Date.now();const meta={market:target.market,symbol:target.symbol,frame:target.tf,lastAttempt:new Date(now).toISOString(),source:target.market==='crypto'?'Bybit V5 USDT':'Biquote independent feed',status:'unavailable',lastCompleteAt:null,modelCount:0};
  try {const bars=validBars(await fetchBars(target,now),target.tf,now);const last=bars.at(-1);meta.lastCompleteAt=new Date(last.start+Number(target.tf)*60000).toISOString();meta.status='research_data_valid';
  const result=signals.evaluate(bars,target.tf,{now,market:target.market,symbol:target.symbol});
  const models=result.models.filter(m=>m.ageBars<=2&&m.status==='watching'&&Number.isFinite(m.entry)&&Number.isFinite(m.stop)&&Number.isFinite(m.target));meta.modelCount=models.length;
- for(const model of models){const obs=recentObservation(model,target,now);if(!state.observations.some(x=>x.id===obs.id))state.observations.unshift(obs)}
+ for(const model of models){const news=gates.checkNews(economic.ok?economic.feed:null,target,now);
+ const plan=gates.checkStructure(model,maxStopDistancePct);
+ const obs=recentObservation(model,target,now,news,plan);if(!state.observations.some(x=>x.id===obs.id))state.observations.unshift(obs);
+ }
+ meta.newsGate=gates.checkNews(economic.ok?economic.feed:null,target,now).status;meta.accountRiskGate='not_verified';
  }catch(e){meta.status='blocked';meta.error=safeError(e)}
  state.targets[target.id]=meta;state.observations=state.observations.slice(0,100);}
 async function restore(){
@@ -57,16 +65,17 @@ async function restore(){
 }
 async function persist(){const tmp=storage+'.tmp';await fs.mkdir(path.dirname(storage),{recursive:true});await fs.writeFile(tmp,JSON.stringify(state,null,2),'utf8');await fs.rename(tmp,storage)}
 async function cycle(){if(inCycle||stopping)return;inCycle=true;try{
+ economic=await gates.fetchEconomic(economicUrl,Date.now());
  for(const t of targets){if(stopping)break;await check(t)}
  state.lastCycleAt=new Date().toISOString();state.cycleCount++;await persist();
  }catch(e){process.stderr.write('Monitor cycle error: '+safeError(e)+'\n')}finally{inCycle=false}}
 function snapshot(){const now=Date.now(),last=state.lastCycleAt?Date.parse(state.lastCycleAt):NaN;
- return {...state,serverTime:new Date(now).toISOString(),uptimeSeconds:Math.floor((now-started)/1000),active:!stopping&&Number.isFinite(last)&&now-last<=Math.max(3*intervalMs,900000),pollIntervalMs:intervalMs,targets:Object.fromEntries(Object.entries(state.targets).map(([key,v])=>[key,{...v,stale:!v.lastCompleteAt||now-Date.parse(v.lastCompleteAt)>Math.max(3*Number(v.frame)*60000,300000)}]))};}
+ return {...state,safety:{economic:{ok:economic.ok,reason:economic.reason||null,eventCount:economic.eventCount||0,invalid:economic.invalid||0,receivedAt:economic.receivedAt||null},accountRisk:'not_verified',bidAsk:'not_available',executionApproved:false},serverTime:new Date(now).toISOString(),uptimeSeconds:Math.floor((now-started)/1000),active:!stopping&&Number.isFinite(last)&&now-last<=Math.max(3*intervalMs,900000),pollIntervalMs:intervalMs,targets:Object.fromEntries(Object.entries(state.targets).map(([key,v])=>[key,{...v,stale:!v.lastCompleteAt||now-Date.parse(v.lastCompleteAt)>Math.max(3*Number(v.frame)*60000,300000)}]))};}
 function api(req,res){if(req.method!=='GET'||!['/health','/snapshot'].includes(new URL(req.url,'http://127.0.0.1').pathname)){res.writeHead(404);res.end('Not found');return}
  if(origin&&req.headers.origin===origin){res.setHeader('Access-Control-Allow-Origin',origin);res.setHeader('Vary','Origin')}
  res.setHeader('Cache-Control','no-store');res.setHeader('Content-Type','application/json; charset=utf-8');res.setHeader('X-Content-Type-Options','nosniff');
  const view=snapshot();const route=new URL(req.url,'http://127.0.0.1').pathname;
- const payload=route==='/health'?{schema:view.schema,active:view.active,lastCycleAt:view.lastCycleAt,serverTime:view.serverTime,uptimeSeconds:view.uptimeSeconds,cycleCount:view.cycleCount,pollIntervalMs:view.pollIntervalMs,readyForExecution:false,marketCount:Object.keys(view.targets).length,targets:view.targets}:view;
+ const payload=route==='/health'?{schema:view.schema,active:view.active,lastCycleAt:view.lastCycleAt,serverTime:view.serverTime,uptimeSeconds:view.uptimeSeconds,cycleCount:view.cycleCount,pollIntervalMs:view.pollIntervalMs,readyForExecution:false,safety:view.safety,marketCount:Object.keys(view.targets).length,targets:view.targets}:view;
  res.writeHead(200);res.end(JSON.stringify(payload));}
 function start(options={}){const httpServer=http.createServer(api);if(!options.noHttp)httpServer.listen(port,host,()=>process.stdout.write('Research monitor listening on '+host+':'+port+'\n'));
  const run=()=>cycle().catch(e=>process.stderr.write(safeError(e)+'\n'));

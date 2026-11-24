@@ -21,6 +21,8 @@
  line('آخر دورة فحص — نيويورك: '+new Intl.DateTimeFormat('ar-EG',{timeZone:'America/New_York',dateStyle:'medium',timeStyle:'short'}).format(new Date(heartbeat))+' | فلسطين: '+new Intl.DateTimeFormat('ar-EG',{timeZone:'Asia/Gaza',dateStyle:'medium',timeStyle:'short'}).format(new Date(heartbeat)));
  line('عدد دورات الفحص: '+Number(data.cycleCount||0)+' · عدد الأصول: '+Number(data.marketCount||0));
  for(const [name,value] of Object.entries(data.targets||{}).slice(0,12)){line(name+' — '+(value.status==='research_data_valid'?'شموع صالحة بحثيًا':'معلّق: '+(value.error||value.status)))}
- line('لا توجد أسعار Bid/Ask تنفيذية أو فحوص أخبار ومخاطرة على الخادم. لا يُستخدم هذا المؤشر لاعتماد التوصيات.');
+ const gate=data.safety||{};const news=gate.economic||{};
+ line('بوابة الأخبار على الخادم: '+(news.ok?'تم جلب أجندة زمنية ('+Number(news.eventCount||0)+' حدثًا)':'غير مكتملة / معلقة: '+(news.reason||'لا توجد بيانات')));
+ line('مخاطرة الحساب: غير متحقق منها على الخادم. أسعار Bid/Ask: غير متاحة. حتى لو كانت الأخبار واضحة، لا توجد موافقة تنفيذية.');
  }catch(e){describeError(e)}finally{clearTimeout(timeout)}});
 })();
