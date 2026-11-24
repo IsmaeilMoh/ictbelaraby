@@ -1,7 +1,18 @@
 {
-  "updated_at": "2026-11-24T10:32:13Z",
+  "updated_at": "2026-11-24T11:30:08Z",
   "mode": "rss-attributed",
   "items": [
+    {
+      "id": "fed822be407c30ca9317",
+      "title": "قيود أوروبية جديدة على السيارات الهجينة.. والصين تلوّح بالتصعيد",
+      "tag": "اقتصاد",
+      "src": "CNN Business Arabic",
+      "date": "2026-11-24T10:34:00Z",
+      "url": "https://cnnbusinessarabic.com/sectors/1153290/%D9%82%D9%8A%D9%88%D8%AF-%D8%A3%D9%88%D8%B1%D9%88%D8%A8%D9%8A%D8%A9-%D8%AC%D8%AF%D9%8A%D8%AF%D8%A9-%D8%B9%D9%84%D9%89-%D8%A7%D9%84%D8%B3%D9%8A%D8%A7%D8%B1%D8%A7%D8%AA-%D8%A7%D9%84%D9%87%D8%AC%D9%8A%D9%86%D8%A9-%D9%88%D8%A7%D9%84%D8%B5%D9%8A%D9%86-%D8%AA%D9%84%D9%88%D8%AD-%D8%A8%D8%A7%D9%84%D8%AA%D8%B5%D8%B9%D9%8A%D8%AF",
+      "priority": 2,
+      "language": "ar",
+      "image": "https://cnnbusinessarabic.com/businesscnn/uploads/images/2026/11/24/1712701.webp"
+    },
     {
       "id": "43fb552839468db64413",
       "title": "مرسوم كويتي جديد بشأن الضريبة الانتقائية.. ما التفاصيل؟",
@@ -375,17 +386,6 @@
       "priority": 2,
       "language": "ar",
       "image": "https://cnnbusinessarabic.com/businesscnn/uploads/images/2026/11/20/1712346.webp"
-    },
-    {
-      "id": "3d9cdceac140397ca683",
-      "title": "سنغافورة والصين تحدثان اتفاقية التجارة الحرة لتعزيز الذكاء الاصطناعي",
-      "tag": "اقتصاد",
-      "src": "CNN Business Arabic",
-      "date": "2026-11-20T07:30:00Z",
-      "url": "https://cnnbusinessarabic.com/sectors/1153024/%D8%B3%D9%86%D8%BA%D8%A7%D9%81%D9%88%D8%B1%D8%A9-%D9%88%D8%A7%D9%84%D8%B5%D9%8A%D9%86-%D8%AA%D8%AD%D8%AF%D8%AB%D8%A7%D9%86-%D8%A7%D8%AA%D9%81%D8%A7%D9%82%D9%8A%D8%A9-%D8%A7%D9%84%D8%AA%D8%AC%D8%A7%D8%B1%D8%A9-%D8%A7%D9%84%D8%AD%D8%B1%D8%A9-%D9%84%D8%AA%D8%B9%D8%B2%D9%8A%D8%B2-%D8%A7%D9%84%D8%B0%D9%83%D8%A7%D8%A1-%D8%A7%D9%84%D8%A7%D8%B5%D8%B7%D9%86%D8%A7%D8%B9%D9%8A",
-      "priority": 2,
-      "language": "ar",
-      "image": "https://cnnbusinessarabic.com/businesscnn/uploads/images/2026/11/20/1712344.webp"
     }
   ],
   "source_count": 2,
