@@ -28,4 +28,28 @@
  line('بوابة الأخبار على الخادم: '+(news.ok?'تم جلب أجندة زمنية ('+Number(news.eventCount||0)+' حدثًا)':'غير مكتملة / معلقة: '+(news.reason||'لا توجد بيانات')));
  line('مخاطرة الحساب: غير متحقق منها على الخادم. عرض سعر Bid/Ask: '+(gate.bidAsk?.connected?'المزود متصل (تحقق من حالة كل أصل)':'غير متاح: '+(gate.bidAsk?.reason||'لم يربط بعد'))+'. لا توجد موافقة تنفيذية.');
  }catch(e){describeError(e)}finally{clearTimeout(timeout)}});
+
+ // GitHub Actions free mode: a static research snapshot, not a live server.
+ const freeCheck=document.getElementById('dc-bg-free-check');
+ if(freeCheck)freeCheck.addEventListener('click',async()=>{
+  const snapshotUrl='https://raw.githubusercontent.com/ismaeilmoh/ictbelaraby/ict-monitor-feed/monitor-status.json';
+  status.textContent='جارٍ قراءة آخر تقرير بحثي منشور على GitHub...';status.dataset.bad='1';results.replaceChildren();freeCheck.disabled=true;
+  const controller=new AbortController(),timeout=setTimeout(()=>controller.abort(),12000);
+  try{
+   const res=await fetch(snapshotUrl+'?read='+Date.now(),{cache:'no-store',signal:controller.signal});
+   if(!res.ok)throw Error(res.status===404?'لم يُنشر أول تقرير بعد. شغّل المهمة يدويًا من GitHub Actions.':'HTTP '+res.status);
+   const d=await res.json();
+   if(d.schema!=='ict-research-monitor/1'||d.transport!=='github-actions-static'||d.readyForExecution!==false||d.safety?.executionApproved!==false)throw Error('صيغة التقرير غير متوافقة أو لا تضمن رفض التنفيذ');
+   const last=Date.parse(d.lastCycleAt),age=Date.now()-last;
+   const fresh=Number.isFinite(last)&&age>=-120000&&age<=45*60000&&d.active===true;
+   const valid=fresh&&d.marketDataReady===true;
+   status.textContent=!fresh?'التقرير قديم أو لم يكتمل؛ المراقبة غير مؤكدة':!valid?'التقرير حديث، لكن لا توجد شموع بحثية صالحة':'آخر تقرير حديث: توجد بيانات بحثية صالحة لبعض الأسواق، دون اعتماد تنفيذ';
+   status.dataset.bad=valid?'0':'1';
+   if(Number.isFinite(last))line('آخر فحص — نيويورك: '+new Intl.DateTimeFormat('ar-EG',{timeZone:'America/New_York',dateStyle:'medium',timeStyle:'short'}).format(new Date(last))+' | فلسطين: '+new Intl.DateTimeFormat('ar-EG',{timeZone:'Asia/Gaza',dateStyle:'medium',timeStyle:'short'}).format(new Date(last)));
+   const c=d.marketSummary||{};line('الأسواق: '+Number(c.valid||0)+' صالحة من '+Number(c.configured||0)+' · '+Number(c.blocked||0)+' معلقة');
+   for(const [symbol,item] of Object.entries(d.targets||{}).slice(0,12))line(symbol+' — '+(fresh&&item.status==='research_data_valid'&&!item.stale?'بيانات بحثية حديثة':'معلّق أو قديم')+(item.error?' · '+String(item.error).slice(0,90):''));
+   line('الأخبار: '+(d.safety?.economic?.ok?'تغذية متاحة':'غير مكتملة / معلقة')+' · Bid/Ask: غير متصل · المخاطرة: محلية فقط · الموافقة التنفيذية: غير متاحة');
+   line('GitHub Actions تشغيل مجدول بأفضل جهد، وليس مراقبة مستمرة أو إشعارات هاتف.');
+  }catch(e){describeError(e)}finally{clearTimeout(timeout);freeCheck.disabled=false}
+ });
 })();
