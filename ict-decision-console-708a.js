@@ -29,11 +29,26 @@ function show(res){clear(output);const info=block('حالة الفحص ومصا�
  const note=block('حدود هذا الإصدار');note.classList.add('dc-wide');node('p',res.disclaimer,note);node('p','لا يتم تداول آلي ولا حفظ توصية كصفقة منفذة. خدمة المراقبة تعمل أثناء فتح الصفحة فقط. سعر المرجع آخر إغلاق شمعة، وليس Bid/Ask مباشرًا.',note);
 }
 async function scan(auto=false){if(busy||auto&&document.hidden)return;if(!api||!live||!publicFeed||!acc||!structure||!signal||!context||!scenario||!econ){setState('بعض محركات المراحل السابقة غير محمّلة. تأكد من رفع ملفات 2A–7A.',true);return}if(!symbol.value){setState('اختر أصلًا متاحًا.',true);return}
- const id=++generation,selection=[market.value,symbol.value,frame.value,roll.value,account.value].join('|');busy=true;run.disabled=true;setState('جارٍ جلب شموع 15/5 دقيقة والساعة، وفحص الأجندة، ثم ربط الأدلة…');
- try{const [entryBars,hourly,news]=await Promise.all([getBars(frame.value==='5'?'5min':'15min',250),getBars('1h',market.value==='crypto'?1000:200),econ.loadEvents(fetch)]);if(id!==generation||selection!==[market.value,symbol.value,frame.value,roll.value,account.value].join('|'))return;
+ const id=++generation,selection=[market.value,symbol.value,frame.value,roll.value,account.value,risk.value].join('|');busy=true;run.disabled=true;setState('جارٍ جلب شموع 15/5 دقيقة والساعة، وفحص الأجندة، ثم ربط الأدلة…');
+ try{
+  // News availability must never be confused with market availability: show the
+  // price/ICT research with a HARD BLOCK if the news feed fails or times out.
+  const boundedFetch=(url,options={})=>{
+    const controller=new AbortController();const timeout=setTimeout(()=>controller.abort(),12000);
+    return fetch(url,{...options,signal:controller.signal}).finally(()=>clearTimeout(timeout));
+  };
+  const [entryBars,hourly,newsState]=await Promise.all([
+    getBars(frame.value==='5'?'5min':'15min',250),
+    getBars('1h',market.value==='crypto'?1000:200),
+    Promise.resolve().then(()=>econ.loadEvents(boundedFetch)).then(value=>({ok:true,value}),error=>({ok:false,error}))
+  ]);
+  if(id!==generation||selection!==[market.value,symbol.value,frame.value,roll.value,account.value,risk.value].join('|'))return;
+  const news=newsState.ok&&newsState.value&&Array.isArray(newsState.value.events)
+    ? newsState.value
+    : {events:[],feedsLoaded:0,failures:['تعذر التحقق من الأخبار: '+String(newsState.error?.message||newsState.error||'استجابة غير صالحة')]};
   const a=(acc.list()||[]).find(x=>x.id===account.value)||null;const res=api.inspect({market:market.value,symbol:symbol.value,frame:frame.value,candles15:entryBars,candles60:hourly,rollHour:Number(roll.value),account:a,accountEngine:acc,riskAmount:risk.value,newsChecked:news.feedsLoaded>0,eventFeedsLoaded:news.feedsLoaded,events:news.events,now:Date.now(),structureEngine:structure,signalEngine:signal,contextEngine:context,scenarioEngine:scenario});
   if(news.failures.length)res.warnings.push('تعذر تحميل بعض الأجندات: '+news.failures.join('؛ '));
-  show(res);record(res);lastRun=res;root.dispatchEvent(new CustomEvent('ict:decision-scanned',{detail:{result:res,bars:entryBars}}));setState('اكتمل الفحص عند الطلب. '+res.opportunities.length+' نموذج حديث؛ راجع التحذيرات وشروط كل فرصة.');
+  show(res);record(res);lastRun=res;root.dispatchEvent(new CustomEvent('ict:decision-scanned',{detail:{result:res,bars:entryBars}}));setState('اكتمل التحليل البحثي. '+res.opportunities.length+' نموذج؛ '+(news.feedsLoaded===3?'راجع شروط الفرص.':'الأجندة غير مكتملة: جميع الفرص معلقة حتى التحقق من الأخبار.'),news.feedsLoaded!==3);
  }catch(e){clear(output);setState('تعذر تكوين خطة موثوقة: '+(e?.message||e)+'. لم تُنشأ توصية.',true)}finally{if(id===generation){busy=false;run.disabled=false}}
 }
 function stop(){active=false;if(timer)clearInterval(timer);timer=null;monitor.textContent='تشغيل المراقبة أثناء فتح الصفحة';monitor.setAttribute('aria-pressed','false')}

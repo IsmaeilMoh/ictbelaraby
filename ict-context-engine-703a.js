@@ -13,7 +13,14 @@ function shiftDay(key,offset){const [y,m,d]=key.split('-').map(Number);return ne
 function nyWeek(key){const [y,m,d]=key.split('-').map(Number),dow=new Date(Date.UTC(y,m-1,d)).getUTCDay();return shiftDay(key,-((dow+6)%7))}
 // Find UTC instant at which local New York calendar day begins (DST aware).
 function nyMidnight(key){const [y,m,d]=key.split('-').map(Number),guess=Date.UTC(y,m-1,d);for(let t=guess-8*HOUR;t<=guess+8*HOUR;t+=HOUR){const p=nyParts(t);if(p.key===key&&p.hour===0)return t}throw Error('تعذّر تحديد منتصف ليل نيويورك')}
-function sessionStart(key,rollHour=0){return rollHour===17?nyMidnight(shiftDay(key,-1))+17*HOUR:nyMidnight(key)}
+function sessionStart(key,rollHour=0){
+ if(rollHour!==17)return nyMidnight(key);
+ // The 17:00 New York session begins on the preceding local calendar day.
+ // Adding 17 UTC hours to midnight is WRONG on DST transition days (23h/25h).
+ const localDay=shiftDay(key,-1),[y,m,d]=localDay.split('-').map(Number),guess=Date.UTC(y,m-1,d,17);
+ for(let t=guess-12*HOUR;t<=guess+12*HOUR;t+=HOUR){const p=nyParts(t);if(p.key===localDay&&p.hour===17)return t}
+ throw Error('تعذّر تحديد بداية جلسة 17:00 نيويورك');
+}
 function normalize(rows,ms,now=Date.now()){
  if(!Array.isArray(rows))throw Error('لم تصل مصفوفة شموع');const seen=new Set(),out=[],issues={invalid:0,unconfirmed:0,duplicate:0};
  for(const r of rows){const t=Number(r?.start),o=Number(r?.open),h=Number(r?.high),l=Number(r?.low),c=Number(r?.close);
