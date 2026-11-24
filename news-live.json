@@ -1,7 +1,29 @@
 {
-  "updated_at": "2026-11-24T12:37:44Z",
+  "updated_at": "2026-11-24T14:24:18Z",
   "mode": "rss-attributed",
   "items": [
+    {
+      "id": "b674f86dafcb1f963694",
+      "title": "الأردن يشتري 60 ألف طن من القمح في مناقصة دولية",
+      "tag": "اقتصاد",
+      "src": "CNN Business Arabic",
+      "date": "2026-11-24T13:16:00Z",
+      "url": "https://cnnbusinessarabic.com/sectors/1153310/%D8%A7%D9%84%D8%A3%D8%B1%D8%AF%D9%86-%D9%8A%D8%B4%D8%AA%D8%B1%D9%8A-60-%D8%A3%D9%84%D9%81-%D8%B7%D9%86-%D9%85%D9%86-%D8%A7%D9%84%D9%82%D9%85%D8%AD-%D9%81%D9%8A-%D9%85%D9%86%D8%A7%D9%82%D8%B5%D8%A9-%D8%AF%D9%88%D9%84%D9%8A%D8%A9",
+      "priority": 2,
+      "language": "ar",
+      "image": "https://cnnbusinessarabic.com/businesscnn/uploads/images/2026/11/24/1712731.webp"
+    },
+    {
+      "id": "8a4347e304d1d21d8d39",
+      "title": "عاجل| السعودية تقر ميزانية 2027 بعجز متوقع 190.6 مليار ريال",
+      "tag": "اقتصاد",
+      "src": "CNN Business Arabic",
+      "date": "2026-11-24T12:50:00Z",
+      "url": "https://cnnbusinessarabic.com/sectors/1153306/%D8%B9%D8%A7%D8%AC%D9%84-%D8%A7%D9%84%D8%B3%D8%B9%D9%88%D8%AF%D9%8A%D8%A9-%D8%AA%D9%82%D8%B1-%D9%85%D9%8A%D8%B2%D8%A7%D9%86%D9%8A%D8%A9-2027-%D8%A8%D8%B9%D8%AC%D8%B2-%D9%85%D8%AA%D9%88%D9%82%D8%B9-1906-%D9%85%D9%84%D9%8A%D8%A7%D8%B1-%D8%B1%D9%8A%D8%A7%D9%84",
+      "priority": 2,
+      "language": "ar",
+      "image": "https://cnnbusinessarabic.com/businesscnn/uploads/images/2026/11/24/1712728.webp"
+    },
     {
       "id": "1ae821b98744599626d7",
       "title": "5 دول في الشرق الأوسط مرشحة لإعادة ترتيب التجارة الإقليمية",
@@ -364,28 +386,6 @@
       "priority": 2,
       "language": "ar",
       "image": "https://cnnbusinessarabic.com/businesscnn/uploads/images/2026/11/20/1712372.webp"
-    },
-    {
-      "id": "24bbae0338367179099f",
-      "title": "ارتفاع مبيعات التجزئة البريطانية 0.7% في أكتوبر متجاوزة التوقعات",
-      "tag": "اقتصاد",
-      "src": "CNN Business Arabic",
-      "date": "2026-11-20T10:49:00Z",
-      "url": "https://cnnbusinessarabic.com/sectors/1153036/%D8%A7%D8%B1%D8%AA%D9%81%D8%A7%D8%B9-%D9%85%D8%A8%D9%8A%D8%B9%D8%A7%D8%AA-%D8%A7%D9%84%D8%AA%D8%AC%D8%B2%D8%A6%D8%A9-%D8%A7%D9%84%D8%A8%D8%B1%D9%8A%D8%B7%D8%A7%D9%86%D9%8A%D8%A9-07-%D9%81%D9%8A-%D8%A3%D9%83%D8%AA%D9%88%D8%A8%D8%B1-%D9%85%D8%AA%D8%AC%D8%A7%D9%88%D8%B2%D8%A9-%D8%A7%D9%84%D8%AA%D9%88%D9%82%D8%B9%D8%A7%D8%AA",
-      "priority": 2,
-      "language": "ar",
-      "image": "https://cnnbusinessarabic.com/businesscnn/uploads/images/2026/11/20/1712365.webp"
-    },
-    {
-      "id": "81f35d216292366108d2",
-      "title": "مباحثات سورية أردنية لتعزيز الشراكات الاستثمارية ‏",
-      "tag": "اقتصاد",
-      "src": "CNN Business Arabic",
-      "date": "2026-11-20T10:38:00Z",
-      "url": "https://cnnbusinessarabic.com/sectors/1153034/%D9%85%D8%A8%D8%A7%D8%AD%D8%AB%D8%A7%D8%AA-%D8%B3%D9%88%D8%B1%D9%8A%D8%A9-%D8%A3%D8%B1%D8%AF%D9%86%D9%8A%D8%A9-%D9%84%D8%AA%D8%B9%D8%B2%D9%8A%D8%B2-%D8%A7%D9%84%D8%B4%D8%B1%D8%A7%D9%83%D8%A7%D8%AA-%D8%A7%D9%84%D8%A7%D8%B3%D8%AA%D8%AB%D9%85%D8%A7%D8%B1%D9%8A%D8%A9",
-      "priority": 2,
-      "language": "ar",
-      "image": "https://cnnbusinessarabic.com/businesscnn/uploads/images/2026/11/20/1712363.webp"
     }
   ],
   "source_count": 2,
