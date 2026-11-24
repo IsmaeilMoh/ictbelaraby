@@ -8,6 +8,7 @@ const traditional=require('./ict-public-markets-702c2.js');
 const structure=require('./ict_phase2d/ict-structure-engine-702d.js');
 const signals=require('./ict_phase2e/ict-signal-engine-702e.js');
 const gates=require('./safety-gates.js');
+const quotesGuard=require('./execution-quotes.js');
 const started=Date.now();
 const intervalMs=Math.min(900000,Math.max(60000,Number(process.env.POLL_MS)||300000));
 const port=Math.max(1,Math.min(65535,Number(process.env.PORT)||8787));
@@ -26,6 +27,8 @@ const targets=parseTargets(process.env.MONITOR_TARGETS||DEFAULT);
 let state={schema:'ict-research-monitor/1',startedAt:new Date(started).toISOString(),lastCycleAt:null,targets:{},observations:[],cycleCount:0,readyForExecution:false,limitations:['لا توجد تغذية Bid/Ask تنفيذية','بوابة الأخبار اختيارية وتفشل بالإغلاق عند نقص التغطية','مخاطرة الحساب الشخصي غير مرتبطة بالخادم','لا تُرسل إشعارات Push','نتائج بحثية وليست صفقات أو توصيات معتمدة']};
 let stopping=false,inCycle=false,timer=null;
 const economicUrl=process.env.ECONOMIC_FEED_URL||'';
+const quoteUrl=process.env.QUOTE_FEED_URL||'';
+let quoteFeed={ok:false,reason:'QUOTE_FEED_NOT_CONFIGURED',quotes:new Map()};
 const maxStopDistancePct=Math.max(0.01,Math.min(100,Number(process.env.MAX_STOP_DISTANCE_PCT)||5));
 let economic={ok:false,reason:'NOT_CHECKED'};
 function safeError(e){return String(e?.message||e||'خطأ').slice(0,180)}
@@ -47,7 +50,11 @@ async function check(target){const now=Date.now();const meta={market:target.mark
  const plan=gates.checkStructure(model,maxStopDistancePct);
  const obs=recentObservation(model,target,now,news,plan);if(!state.observations.some(x=>x.id===obs.id))state.observations.unshift(obs);
  }
- meta.newsGate=gates.checkNews(economic.ok?economic.feed:null,target,now).status;meta.accountRiskGate='not_verified';
+ meta.newsGate=gates.checkNews(economic.ok?economic.feed:null,target,now).status;
+ const qt=quoteFeed.ok?quoteFeed.quotes.get(target.id):null;const checked=quotesGuard.parseQuote(qt,now);
+ meta.executionQuoteGate=checked.status;meta.executionQuoteReason=checked.reason;
+ meta.quoteSpreadBps=Number.isFinite(checked.spreadBps)?Math.round(checked.spreadBps*100)/100:null;
+ meta.quoteSource=checked.source||null;meta.accountRiskGate='not_verified';
  }catch(e){meta.status='blocked';meta.error=safeError(e)}
  state.targets[target.id]=meta;state.observations=state.observations.slice(0,100);}
 async function restore(){
@@ -66,11 +73,12 @@ async function restore(){
 async function persist(){const tmp=storage+'.tmp';await fs.mkdir(path.dirname(storage),{recursive:true});await fs.writeFile(tmp,JSON.stringify(state,null,2),'utf8');await fs.rename(tmp,storage)}
 async function cycle(){if(inCycle||stopping)return;inCycle=true;try{
  economic=await gates.fetchEconomic(economicUrl,Date.now());
+ quoteFeed=await quotesGuard.fetchQuotes(quoteUrl,Date.now());
  for(const t of targets){if(stopping)break;await check(t)}
  state.lastCycleAt=new Date().toISOString();state.cycleCount++;await persist();
  }catch(e){process.stderr.write('Monitor cycle error: '+safeError(e)+'\n')}finally{inCycle=false}}
 function snapshot(){const now=Date.now(),last=state.lastCycleAt?Date.parse(state.lastCycleAt):NaN;
- return {...state,safety:{economic:{ok:economic.ok,reason:economic.reason||null,eventCount:economic.eventCount||0,invalid:economic.invalid||0,receivedAt:economic.receivedAt||null},accountRisk:'not_verified',bidAsk:'not_available',executionApproved:false},serverTime:new Date(now).toISOString(),uptimeSeconds:Math.floor((now-started)/1000),active:!stopping&&Number.isFinite(last)&&now-last<=Math.max(3*intervalMs,900000),pollIntervalMs:intervalMs,targets:Object.fromEntries(Object.entries(state.targets).map(([key,v])=>[key,{...v,stale:!v.lastCompleteAt||now-Date.parse(v.lastCompleteAt)>Math.max(3*Number(v.frame)*60000,300000)}]))};}
+ return {...state,safety:{economic:{ok:economic.ok,reason:economic.reason||null,eventCount:economic.eventCount||0,invalid:economic.invalid||0,receivedAt:economic.receivedAt||null},accountRisk:'not_verified',bidAsk:{connected:quoteFeed.ok,reason:quoteFeed.reason||null,receivedAt:quoteFeed.receivedAt||null},executionApproved:false},serverTime:new Date(now).toISOString(),uptimeSeconds:Math.floor((now-started)/1000),active:!stopping&&Number.isFinite(last)&&now-last<=Math.max(3*intervalMs,900000),pollIntervalMs:intervalMs,targets:Object.fromEntries(Object.entries(state.targets).map(([key,v])=>[key,{...v,stale:!v.lastCompleteAt||now-Date.parse(v.lastCompleteAt)>Math.max(3*Number(v.frame)*60000,300000)}]))};}
 function api(req,res){if(req.method!=='GET'||!['/health','/snapshot'].includes(new URL(req.url,'http://127.0.0.1').pathname)){res.writeHead(404);res.end('Not found');return}
  if(origin&&req.headers.origin===origin){res.setHeader('Access-Control-Allow-Origin',origin);res.setHeader('Vary','Origin')}
  res.setHeader('Cache-Control','no-store');res.setHeader('Content-Type','application/json; charset=utf-8');res.setHeader('X-Content-Type-Options','nosniff');
