@@ -1,0 +1,9 @@
+/* Stage 6C: isolated panel; inherited dark/light site colors. */
+#ict-compare-6c{margin:24px 0;padding:clamp(14px,3vw,22px);background:var(--panel,rgba(20,43,48,.72));border:1px solid rgba(123,180,165,.3);border-radius:20px;box-sizing:border-box;min-width:0}
+#ict-compare-6c *{box-sizing:border-box}#ict-compare-6c h2{font-size:clamp(19px,4vw,25px);margin:5px 0 10px}#ict-compare-6c p{line-height:1.75;margin:8px 0 13px}
+#ict-compare-6c .ict6c-controls{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,170px),1fr));gap:10px;align-items:end}#ict-compare-6c label{display:flex;flex-direction:column;gap:6px;font-weight:600;font-size:13px}
+#ict-compare-6c select,#ict-compare-6c input,#ict-compare-6c button{min-height:40px;border-radius:11px;border:1px solid rgba(142,185,173,.38);padding:8px;color:inherit;background:rgba(50,79,79,.43);font:inherit;width:100%;max-width:100%}
+#ict-compare-6c option{background:#152a2d;color:#fff}#ict-compare-6c input::placeholder{color:#aabfba}#ict-compare-6c button{background:#1e665b;color:#f7fffd;cursor:pointer;font-weight:700}#ict-compare-6c button:disabled{opacity:.55;cursor:not-allowed}
+#ict-compare-6c .ict6c-actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:12px}#ict-compare-6c .ict6c-actions button{flex:1 1 160px;width:auto}
+#ict-compare-6c .ict6c-status,#ict-compare-6c .ict6c-card{border:1px solid rgba(142,185,173,.28);border-radius:12px;padding:12px;margin-top:12px;line-height:1.7;overflow-wrap:anywhere}#ict-compare-6c .ict6c-muted{opacity:.76;font-size:12px}#ict-compare-6c .ict6c-scroll{overflow-x:auto;max-width:100%}
+#ict-compare-6c table{border-collapse:collapse;width:100%;min-width:610px}#ict-compare-6c td,#ict-compare-6c th{padding:9px;border-bottom:1px solid rgba(142,185,173,.23);text-align:right;font-size:12px;vertical-align:top}#ict-compare-6c td small{display:block;opacity:.75;min-width:160px}
