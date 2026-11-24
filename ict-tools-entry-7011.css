@@ -1,0 +1,9 @@
+/* Discovery link, scoped: do not alter the existing theme/header geometry. */
+#ict-tools-header-link{display:inline-flex;align-items:center;justify-content:center;white-space:nowrap;font-size:12px;font-weight:700;line-height:1.2;letter-spacing:0;text-decoration:none;padding:8px 11px;margin-inline-end:7px;border-radius:12px;border:1px solid rgba(96,157,131,.42);background:rgba(56,121,94,.12);color:inherit;min-height:34px;box-sizing:border-box}
+#ict-tools-header-link:focus-visible,#ict-tools-mobile-link:focus-visible{outline:2px solid #65cfa6;outline-offset:2px}
+nav.mobile-bottom:has(#ict-tools-mobile-link){display:grid;grid-template-columns:repeat(6,minmax(0,1fr));align-items:stretch}
+nav.mobile-bottom #ict-tools-mobile-link{min-width:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;white-space:nowrap;font-size:clamp(9px,2.5vw,12px);text-decoration:none;color:inherit;box-sizing:border-box}
+nav.mobile-bottom #ict-tools-mobile-link .nav-icon{font-size:19px;line-height:1.1}
+@media(max-width:390px){#ict-tools-header-link{font-size:11px;padding:7px 8px;margin-inline-end:5px} nav.mobile-bottom:has(#ict-tools-mobile-link) a{font-size:10px!important;padding-inline:0!important}}
+
+@media(max-width:600px){nav.mobile-bottom:has(#ict-tools-mobile-link){column-gap:0}nav.mobile-bottom:has(#ict-tools-mobile-link) a{min-width:0!important}nav.mobile-bottom:has(#ict-tools-mobile-link) .nav-icon{font-size:17px!important}}
