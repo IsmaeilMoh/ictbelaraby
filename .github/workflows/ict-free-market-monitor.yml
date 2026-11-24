@@ -1,0 +1,65 @@
+name: ICT Arabic - free periodic market research
+on:
+  schedule:
+    # Offset avoids the most congested minute-0 schedule, cadence best effort.
+    - cron: '7,22,37,52 * * * *'
+  workflow_dispatch:
+permissions:
+  contents: write
+concurrency:
+  group: ict-free-monitor-publish
+  cancel-in-progress: false
+jobs:
+  market-research:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Verify scanner and safety checks
+        working-directory: monitor-service
+        run: |
+          npm test
+          npm run test:actions
+      - name: Restore prior research-only state from publication branch
+        shell: bash
+        run: |
+          git fetch --no-tags origin '+refs/heads/ict-monitor-feed:refs/remotes/origin/ict-monitor-feed' || true
+          if git rev-parse --verify refs/remotes/origin/ict-monitor-feed >/dev/null 2>&1; then
+            git show refs/remotes/origin/ict-monitor-feed:monitor-state.json > monitor-service/monitor-data.json || true
+          fi
+      - name: One-shot research scan (fail closed)
+        env:
+          MONITOR_TARGETS: crypto:BTCUSDT:15,crypto:ETHUSDT:15,metals:XAUUSD:15,forex:EURUSD:15
+          ECONOMIC_FEED_URL: ${{ vars.ICT_ECONOMIC_FEED_URL }}
+          QUOTE_FEED_URL: ${{ vars.ICT_QUOTE_FEED_URL }}
+          STORE_FILE: ${{ github.workspace }}/monitor-service/monitor-data.json
+          PUBLIC_OUTPUT_DIR: ${{ runner.temp }}/ict-monitor-publish
+        run: node monitor-service/github-run-once.cjs
+      - name: Publish research-only status to dedicated branch
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          PUBLIC_OUTPUT_DIR: ${{ runner.temp }}/ict-monitor-publish
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/ict-monitor-branch"
+          cd "$RUNNER_TEMP/ict-monitor-branch"
+          cp "$PUBLIC_OUTPUT_DIR/monitor-status.json" ./monitor-status.json
+          cp "$GITHUB_WORKSPACE/monitor-service/monitor-data.json" ./monitor-state.json
+          printf '%s\n' 'Research data only; never an executable trade recommendation.' > README.txt
+          git init -q
+          git checkout -q -b ict-monitor-feed
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add monitor-status.json monitor-state.json README.txt
+          git commit -qm 'Refresh non-executable ICT research snapshot'
+          git remote add origin "https://github.com/$GITHUB_REPOSITORY.git"
+          # Replaces one snapshot commit; does not write to the website's default branch.
+          basic=$(printf 'x-access-token:%s' "$GH_TOKEN" | base64 -w0)
+          git -c "http.extraheader=AUTHORIZATION: basic $basic" push --force origin HEAD:refs/heads/ict-monitor-feed
