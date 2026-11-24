@@ -33,7 +33,7 @@ async function scan(auto=false){if(busy||auto&&document.hidden)return;if(!api||!
  try{const [entryBars,hourly,news]=await Promise.all([getBars(frame.value==='5'?'5min':'15min',250),getBars('1h',market.value==='crypto'?1000:200),econ.loadEvents(fetch)]);if(id!==generation||selection!==[market.value,symbol.value,frame.value,roll.value,account.value].join('|'))return;
   const a=(acc.list()||[]).find(x=>x.id===account.value)||null;const res=api.inspect({market:market.value,symbol:symbol.value,frame:frame.value,candles15:entryBars,candles60:hourly,rollHour:Number(roll.value),account:a,accountEngine:acc,riskAmount:risk.value,newsChecked:news.feedsLoaded>0,eventFeedsLoaded:news.feedsLoaded,events:news.events,now:Date.now(),structureEngine:structure,signalEngine:signal,contextEngine:context,scenarioEngine:scenario});
   if(news.failures.length)res.warnings.push('تعذر تحميل بعض الأجندات: '+news.failures.join('؛ '));
-  show(res);record(res);lastRun=res;setState('اكتمل الفحص عند الطلب. '+res.opportunities.length+' نموذج حديث؛ راجع التحذيرات وشروط كل فرصة.');
+  show(res);record(res);lastRun=res;root.dispatchEvent(new CustomEvent('ict:decision-scanned',{detail:{result:res,bars:entryBars}}));setState('اكتمل الفحص عند الطلب. '+res.opportunities.length+' نموذج حديث؛ راجع التحذيرات وشروط كل فرصة.');
  }catch(e){clear(output);setState('تعذر تكوين خطة موثوقة: '+(e?.message||e)+'. لم تُنشأ توصية.',true)}finally{if(id===generation){busy=false;run.disabled=false}}
 }
 function stop(){active=false;if(timer)clearInterval(timer);timer=null;monitor.textContent='تشغيل المراقبة أثناء فتح الصفحة';monitor.setAttribute('aria-pressed','false')}
