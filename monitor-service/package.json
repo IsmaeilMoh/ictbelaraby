@@ -1,0 +1,1 @@
+{"name":"ict-arabic-background-research-monitor","version":"8.0.2","private":true,"type":"commonjs","engines":{"node":">=20"},"scripts":{"start":"node server.js","test":"node test.cjs"},"description":"Background market-data research monitor (no live execution recommendations or trades)","license":"UNLICENSED"}
