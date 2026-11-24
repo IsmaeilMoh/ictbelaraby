@@ -49,6 +49,18 @@
    const c=d.marketSummary||{};line('الأسواق: '+Number(c.valid||0)+' صالحة من '+Number(c.configured||0)+' · '+Number(c.blocked||0)+' معلقة');
    for(const [symbol,item] of Object.entries(d.targets||{}).slice(0,12))line(symbol+' — '+(fresh&&item.status==='research_data_valid'&&!item.stale?'بيانات بحثية حديثة':'معلّق أو قديم')+(item.error?' · '+String(item.error).slice(0,90):''));
    line('الأخبار: '+(d.safety?.economic?.ok?'تغذية متاحة':'غير مكتملة / معلقة')+' · Bid/Ask: غير متصل · المخاطرة: محلية فقط · الموافقة التنفيذية: غير متاحة');
+   const entries=Array.isArray(d.observations)?d.observations.slice(0,16):[];
+   const heading=document.createElement('h3');heading.textContent='النماذج المرصودة في آخر فحوص مجانية';results.append(heading);
+   if(!fresh||!entries.length){line(!fresh?'لا نعرض نماذج من تقرير قديم.':'لا توجد نماذج بحثية حديثة مستوفية لشروط النشر في هذه اللقطة.');}
+   else for(const x of entries){
+    if(!x||x.status!=='research_only_blocked'||x.executionApproved!==false||!['BUY','SELL'].includes(x.side))continue;
+    const age=Date.now()-Date.parse(x.detectedAt||'');if(!Number.isFinite(age)||age< -120000||age>45*60000)continue;
+    const box=document.createElement('article');box.className='dc-research-observation';results.append(box);
+    const h=document.createElement('h4');h.textContent=String(x.symbol||'')+' · '+x.side+' · رصد بحثي فقط';box.append(h);
+    const p=document.createElement('p');p.textContent='الدخول المرجعي: '+Number(x.entry)+' | الوقف الافتراضي: '+Number(x.stop)+' | الهدف الافتراضي: '+Number(x.target)+' | R:R '+Number(x.rr);box.append(p);
+    const t=document.createElement('p');t.textContent='رُصد: '+new Intl.DateTimeFormat('ar-EG',{timeZone:'America/New_York',dateStyle:'short',timeStyle:'short'}).format(new Date(x.detectedAt))+' نيويورك · '+String(x.model||'ICT');box.append(t);
+    const warning=document.createElement('p');warning.className='dc-warning';warning.textContent='معلّق: مخاطرة الحساب والسعر التنفيذي غير متحقق منهما. لا توجد موافقة تنفيذ.';box.append(warning);
+   }
    line('GitHub Actions تشغيل مجدول بأفضل جهد، وليس مراقبة مستمرة أو إشعارات هاتف.');
   }catch(e){describeError(e)}finally{clearTimeout(timeout);freeCheck.disabled=false}
  });

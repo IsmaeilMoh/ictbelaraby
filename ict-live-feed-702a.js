@@ -7,13 +7,10 @@
  if(root)root.ICTLiveFeed=api;
 })(typeof globalThis!=='undefined'?globalThis:null,function(){
  'use strict';
- const VERSION='7.0-2C', REST='https://api.bybit.com/v5/market/kline', WS='wss://stream.bybit.com/v5/public/linear';
+ const VERSION='7.0-2A', REST='https://api.bybit.com/v5/market/kline', WS='wss://stream.bybit.com/v5/public/linear';
  const SYMBOLS=Object.freeze(['BTCUSDT','ETHUSDT','SOLUSDT','XRPUSDT']);
- const VERIFIED=new Map();
- function registerVerified(instrument){if(!instrument||instrument.source!=='Bybit V5 public'||instrument.category!=='linear'||!['forex','metals','stocks','etfs'].includes(instrument.group)||!['forex','commodity','stock','ETF'].includes(instrument.symbolType)||!instrument.symbol||!/^[A-Z0-9]{4,25}$/.test(instrument.symbol))throw Error('INVALID_VERIFIED_INSTRUMENT');VERIFIED.set(instrument.symbol,instrument);return instrument.symbol;}
- function instrument(symbol){return VERIFIED.get(String(symbol||'').toUpperCase())||null;}
  const INTERVALS=Object.freeze({'1':60000,'5':300000,'15':900000,'60':3600000,'240':14400000,D:86400000});
- function checkPair(symbol,interval){const sym=String(symbol||'').toUpperCase(),tf=String(interval||'');if(!SYMBOLS.includes(sym)&&!VERIFIED.has(sym))throw Error('UNSUPPORTED_OR_UNVERIFIED_SYMBOL');if(!INTERVALS[tf])throw Error('UNSUPPORTED_INTERVAL');return {symbol:sym,interval:tf,ms:INTERVALS[tf]}}
+ function checkPair(symbol,interval){const sym=String(symbol||'').toUpperCase(),tf=String(interval||'');if(!SYMBOLS.includes(sym))throw Error('UNSUPPORTED_SYMBOL');if(!INTERVALS[tf])throw Error('UNSUPPORTED_INTERVAL');return {symbol:sym,interval:tf,ms:INTERVALS[tf]}}
  function n(v){if(v===undefined||v===null||v==='')return null;const x=Number(v);return Number.isFinite(x)?x:null}
  function parseRow(row,pair,kind){
   if(!Array.isArray(row)&&(!row||typeof row!=='object'))throw Error('INVALID_CANDLE_ROW');
@@ -42,7 +39,7 @@
  }
  async function fetchHistory(options){options=options||{};const p=checkPair(options.symbol,options.interval),limit=Math.min(Math.max(Number(options.limit)||160,1),1000);
   const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),Math.min(Math.max(options.timeout||9500,1000),20000));
-  try{const u=new URL(REST);u.searchParams.set('category','linear');u.searchParams.set('symbol',p.symbol);u.searchParams.set('interval',p.interval);u.searchParams.set('limit',String(limit));if(options.end!=null)u.searchParams.set('end',String(options.end));
+  try{const u=new URL(REST);u.searchParams.set('category','linear');u.searchParams.set('symbol',p.symbol);u.searchParams.set('interval',p.interval);u.searchParams.set('limit',String(limit));
    const res=await (options.fetch||fetch)(u.toString(),{method:'GET',cache:'no-store',headers:{Accept:'application/json'},signal:controller.signal});
    if(!res.ok)throw Error('BYBIT_HTTP_'+res.status);const data=await res.json();
    if(data.retCode!==0)throw Error('BYBIT_CODE_'+String(data.retCode));return parseHistory(data,p.symbol,p.interval,options.now||Date.now());
@@ -62,5 +59,5 @@
   }catch(error){notify('error',{message:error.message});retry++;timer=setTimeout(start,Math.min(30000,1000*2**Math.min(retry,5)))}}
   start();return {close(){closed=true;clearTimeout(timer);if(socket){socket.onclose=null;socket.close()}},lastMessageAt(){return lastMessage}};
  }
- return Object.freeze({VERSION,REST,WS,SYMBOLS,INTERVALS,registerVerified,instrument,checkPair,parseRow,parseHistory,parseStream,merge,fetchHistory,connect});
+ return Object.freeze({VERSION,REST,WS,SYMBOLS,INTERVALS,checkPair,parseRow,parseHistory,parseStream,merge,fetchHistory,connect});
 });

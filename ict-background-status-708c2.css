@@ -4,3 +4,9 @@
 #dc-background-8c2 input{display:block;width:100%;max-width:100%;min-width:0;padding:10px;border-radius:12px}
 #dc-background-8c2 #dc-bg-status[data-bad="1"]{color:#e09a90}
 #dc-background-8c2 #dc-bg-results p{padding:6px 0;border-bottom:1px solid rgba(170,200,210,.12);overflow-wrap:anywhere}
+/* One-upload research observations: accessible card hierarchy, no new global theme. */
+#dc-background-8c2 .dc-research-observation{margin:12px 0;padding:14px;border-radius:14px;border:1px solid rgba(165,190,205,.23);background:rgba(110,145,170,.065);min-width:0;overflow-wrap:anywhere}
+#dc-background-8c2 .dc-research-observation h4{margin:0 0 8px;font-weight:800;font-size:1rem;line-height:1.6}
+#dc-background-8c2 .dc-research-observation p{margin:6px 0;line-height:1.8}
+#dc-background-8c2 .dc-research-observation .dc-warning{font-weight:700;opacity:.94}
+@media(max-width:480px){#dc-background-8c2 .dc-research-observation{padding:11px}#dc-background-8c2 .dc-research-observation h4{font-size:.94rem}}
