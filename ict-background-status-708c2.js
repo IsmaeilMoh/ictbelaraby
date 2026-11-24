@@ -23,7 +23,7 @@
  if(data.cycleError)line('خطأ في دورة المراقبة: '+String(data.cycleError).slice(0,140));
  line('آخر دورة فحص — نيويورك: '+new Intl.DateTimeFormat('ar-EG',{timeZone:'America/New_York',dateStyle:'medium',timeStyle:'short'}).format(new Date(heartbeat))+' | فلسطين: '+new Intl.DateTimeFormat('ar-EG',{timeZone:'Asia/Gaza',dateStyle:'medium',timeStyle:'short'}).format(new Date(heartbeat)));
  line('عدد دورات الفحص: '+Number(data.cycleCount||0)+' · عدد الأصول: '+Number(data.marketCount||0));
- for(const [name,value] of Object.entries(data.targets||{}).slice(0,12)){line(name+' — '+(value.status==='research_data_valid'?'شموع صالحة بحثيًا':'معلّق: '+(value.error||value.status)))}
+ for(const [name,value] of Object.entries(data.targets||{}).slice(0,12)){line(name+' — '+(value.status==='research_data_valid'?'شموع صالحة بحثيًا'+(value.lastRecoveredAt?' · آخر تعافٍ: '+value.lastRecoveredAt:''):'معلّق: '+(value.error||value.status)+(value.consecutiveFailures?' · فشل متتالٍ: '+value.consecutiveFailures:'')))}
  const gate=data.safety||{};const news=gate.economic||{};
  line('بوابة الأخبار على الخادم: '+(news.ok?'تم جلب أجندة زمنية ('+Number(news.eventCount||0)+' حدثًا)':'غير مكتملة / معلقة: '+(news.reason||'لا توجد بيانات')));
  line('مخاطرة الحساب: غير متحقق منها على الخادم. عرض سعر Bid/Ask: '+(gate.bidAsk?.connected?'المزود متصل (تحقق من حالة كل أصل)':'غير متاح: '+(gate.bidAsk?.reason||'لم يربط بعد'))+'. لا توجد موافقة تنفيذية.');

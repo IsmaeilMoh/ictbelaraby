@@ -43,7 +43,7 @@ function validBars(bars,tf,now){const ms=Number(tf)*60000;const valid=bars.filte
  const last=consecutive.at(-1);if(now-(last.start+ms)>Math.max(3*ms,180000))throw Error('STALE_CANDLES');
  return consecutive;}
 function recentObservation(m,target,now,news,structureGate){return {id:target.id+':'+String(m.id),market:target.market,symbol:target.symbol,frame:target.tf,formedAt:m.formedAt,detectedAt:new Date(now).toISOString(),status:'research_only_blocked',reason:'غير معتمدة للتنفيذ: لا توجد مراجعة مخاطرة حساب أو أسعار Bid/Ask',newsGate:news,structureGate,accountRiskGate:'not_verified',side:m.direction==='bull'?'BUY':'SELL',entry:m.entry,stop:m.stop,target:m.target,model:'Sweep → MSS → FVG'};}
-async function check(target){const now=Date.now();const meta={market:target.market,symbol:target.symbol,frame:target.tf,lastAttempt:new Date(now).toISOString(),source:target.market==='crypto'?'Bybit V5 USDT':'Biquote independent feed',status:'unavailable',lastCompleteAt:null,modelCount:0};
+async function check(target){const now=Date.now();const previous=state.targets[target.id]||{};const meta={market:target.market,symbol:target.symbol,frame:target.tf,lastAttempt:new Date(now).toISOString(),source:target.market==='crypto'?'Bybit V5 USDT':'Biquote independent feed',status:'unavailable',lastCompleteAt:null,modelCount:0};
  try {const bars=validBars(await fetchBars(target,now),target.tf,now);const last=bars.at(-1);meta.lastCompleteAt=new Date(last.start+Number(target.tf)*60000).toISOString();meta.status='research_data_valid';
  const result=signals.evaluate(bars,target.tf,{now,market:target.market,symbol:target.symbol});
  const models=result.models.filter(m=>m.ageBars<=2&&m.status==='watching'&&Number.isFinite(m.entry)&&Number.isFinite(m.stop)&&Number.isFinite(m.target));meta.modelCount=models.length;
@@ -57,6 +57,10 @@ async function check(target){const now=Date.now();const meta={market:target.mark
  meta.quoteSpreadBps=Number.isFinite(checked.spreadBps)?Math.round(checked.spreadBps*100)/100:null;
  meta.quoteSource=checked.source||null;meta.accountRiskGate='not_verified';
  }catch(e){meta.status='blocked';meta.error=safeError(e)}
+ const healthy=meta.status==='research_data_valid';
+ meta.consecutiveFailures=healthy?0:Math.min(1000000,(Number(previous.consecutiveFailures)||0)+1);
+ meta.lastHealthyAt=healthy?meta.lastCompleteAt:(previous.lastHealthyAt||null);
+ meta.lastRecoveredAt=healthy&&Number(previous.consecutiveFailures)>0?new Date(now).toISOString():(previous.lastRecoveredAt||null);
  state.targets[target.id]=meta;state.observations=state.observations.slice(0,100);}
 async function restore(){
  try{
@@ -85,13 +89,14 @@ function snapshot(){const now=Date.now(),last=state.lastCycleAt?Date.parse(state
  const totals={configured:targets.length,valid:0,blocked:0,stale:0,unchecked:0};
  for(const t of Object.values(checked)){if(t.stale)totals.stale++;if(t.status==='not_checked')totals.unchecked++;else if(t.status==='research_data_valid'&&!t.stale)totals.valid++;else totals.blocked++;}
  const marketDataReady=active&&totals.valid>0;
- return {...state,safety:{economic:{ok:economic.ok,reason:economic.reason||null,eventCount:economic.eventCount||0,invalid:economic.invalid||0,receivedAt:economic.receivedAt||null},accountRisk:'not_verified',bidAsk:{connected:quoteFeed.ok,reason:quoteFeed.reason||null,receivedAt:quoteFeed.receivedAt||null},executionApproved:false},serverTime:new Date(now).toISOString(),uptimeSeconds:Math.floor((now-started)/1000),active,pollIntervalMs:intervalMs,cycleError:lastCycleError,marketDataReady,allMarketDataReady:marketDataReady&&totals.valid===totals.configured,marketSummary:totals,targets:checked};}
+ const failingTargets=Object.entries(checked).filter(([,v])=>v.status==='blocked'||v.stale).map(([id,v])=>({id,consecutiveFailures:Number(v.consecutiveFailures)||0,lastHealthyAt:v.lastHealthyAt||null}));
+ return {...state,safety:{economic:{ok:economic.ok,reason:economic.reason||null,eventCount:economic.eventCount||0,invalid:economic.invalid||0,receivedAt:economic.receivedAt||null},accountRisk:'not_verified',bidAsk:{connected:quoteFeed.ok,reason:quoteFeed.reason||null,receivedAt:quoteFeed.receivedAt||null},executionApproved:false},serverTime:new Date(now).toISOString(),uptimeSeconds:Math.floor((now-started)/1000),active,pollIntervalMs:intervalMs,cycleError:lastCycleError,marketDataReady,allMarketDataReady:marketDataReady&&totals.valid===totals.configured,marketSummary:totals,failingTargets,targets:checked};}
 
 function api(req,res){if(req.method!=='GET'||!['/health','/snapshot'].includes(new URL(req.url,'http://127.0.0.1').pathname)){res.writeHead(404);res.end('Not found');return}
  if(origin&&req.headers.origin===origin){res.setHeader('Access-Control-Allow-Origin',origin);res.setHeader('Vary','Origin')}
  res.setHeader('Cache-Control','no-store');res.setHeader('Content-Type','application/json; charset=utf-8');res.setHeader('X-Content-Type-Options','nosniff');
  const view=snapshot();const route=new URL(req.url,'http://127.0.0.1').pathname;
- const payload=route==='/health'?{schema:view.schema,active:view.active,lastCycleAt:view.lastCycleAt,serverTime:view.serverTime,uptimeSeconds:view.uptimeSeconds,cycleCount:view.cycleCount,pollIntervalMs:view.pollIntervalMs,readyForExecution:false,safety:view.safety,marketCount:Object.keys(view.targets).length,marketDataReady:view.marketDataReady,allMarketDataReady:view.allMarketDataReady,marketSummary:view.marketSummary,cycleError:view.cycleError,targets:view.targets}:view;
+ const payload=route==='/health'?{schema:view.schema,active:view.active,lastCycleAt:view.lastCycleAt,serverTime:view.serverTime,uptimeSeconds:view.uptimeSeconds,cycleCount:view.cycleCount,pollIntervalMs:view.pollIntervalMs,readyForExecution:false,safety:view.safety,marketCount:Object.keys(view.targets).length,marketDataReady:view.marketDataReady,allMarketDataReady:view.allMarketDataReady,marketSummary:view.marketSummary,failingTargets:view.failingTargets,cycleError:view.cycleError,targets:view.targets}:view;
  res.writeHead(200);res.end(JSON.stringify(payload));}
 function start(options={}){const httpServer=http.createServer(api);if(!options.noHttp)httpServer.listen(port,host,()=>process.stdout.write('Research monitor listening on '+host+':'+port+'\n'));
  const run=()=>cycle().catch(e=>process.stderr.write(safeError(e)+'\n'));
