@@ -1,0 +1,9 @@
+#dc-readiness-8c .dc-audit-list{list-style:none;padding:0;display:grid;gap:8px;margin:12px 0}
+#dc-readiness-8c .dc-audit-list li{display:flex;flex-direction:column;gap:3px;border:1px solid rgba(139,178,177,.18);border-radius:12px;padding:10px 12px;background:rgba(125,170,169,.055);overflow-wrap:anywhere}
+#dc-readiness-8c .dc-audit-list li strong{font-size:.91rem}
+#dc-readiness-8c .dc-audit-list li span{font-size:.8rem;opacity:.82;line-height:1.7}
+#dc-readiness-8c .dc-audit-list .dc-audit-block{border-inline-start:3px solid #d77d7d}
+#dc-readiness-8c .dc-audit-list .dc-audit-warn{border-inline-start:3px solid #bf9b5c}
+#dc-readiness-8c .dc-audit-list .dc-audit-pass{border-inline-start:3px solid #52aa92}
+#dc-readiness-8c #dc-audit-summary{font-weight:700;line-height:1.7}
+#dc-readiness-8c .dc-audit-limits{font-size:.84rem;opacity:.85;line-height:1.8}
