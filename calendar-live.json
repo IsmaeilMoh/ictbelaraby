@@ -1,5 +1,5 @@
 {
-  "updatedAt": "2026-11-24T13:37:10.370792Z",
+  "updatedAt": "2026-11-24T16:29:16.878524Z",
   "weekStart": "2026-11-23",
   "source": "Forex Factory",
   "sourceUrl": "https://www.forexfactory.com/calendar",
@@ -216,9 +216,9 @@
       "actual": "—"
     },
     {
-      "id": "2026-11-24T14:00:00+00:00-CNY-CB Leading Index m/m",
+      "id": "2026-11-24T13:51:00+00:00-CNY-CB Leading Index m/m",
       "title": "CB Leading Index m/m",
-      "date": "2026-11-24T14:00:00Z",
+      "date": "2026-11-24T13:51:00Z",
       "country": "CNY",
       "impact": "Low",
       "forecast": "—",
