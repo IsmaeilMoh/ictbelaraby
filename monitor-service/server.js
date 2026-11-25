@@ -10,6 +10,7 @@ const traditional=require('./ict-public-markets-702c2.js');
 const structure=require('./ict_phase2d/ict-structure-engine-702d.js');
 const signals=require('./ict_phase2e/ict-signal-engine-702e.js');
 const gates=require('./safety-gates.js');
+const {inspectHourly}=require('./hourly-context.js');
 const quotesGuard=require('./execution-quotes.js');
 const started=Date.now();
 const intervalMs=Math.min(900000,Math.max(60000,Number(process.env.POLL_MS)||300000));
@@ -44,7 +45,7 @@ async function fetchBars(target,now,getKrakenInstruments){
  if(target.market==='crypto')return live.fetchHistory({symbol:target.symbol,interval:target.tf,limit:200,now});
  if(target.market==='spot')return cryptoSpotBackup.fetchHistory(target.symbol,target.tf,{now});
  const ins=traditional.resolve(target.market,target.symbol);
- return traditional.get(ins,target.tf==='5'?'5min':'15min',{limit:200,now});}
+ return traditional.get(ins,target.tf==='60'?'1h':target.tf==='5'?'5min':'15min',{limit:200,now});}
 function validBars(bars,tf,now){
  const normalized=structure.normalize(bars,tf,now);
  if(normalized.rejected||normalized.duplicates)throw Error('INVALID_OR_DUPLICATE_CANDLES');
@@ -56,11 +57,12 @@ function validBars(bars,tf,now){
  return consecutive.map(b=>raw.get(b.start));
 }
 function recentObservation(m,target,now,news,structureGate,previous){return {id:target.id+':'+String(m.id),market:target.market,symbol:target.symbol,frame:target.tf,formedAt:m.formedAt,detectedAt:previous?.detectedAt||new Date(now).toISOString(),checkedAt:new Date(now).toISOString(),research:m.research,status:'research_only_blocked',reason:'غير معتمدة للتنفيذ: لا توجد مراجعة مخاطرة حساب أو أسعار Bid/Ask',newsGate:news,structureGate,accountRiskGate:'not_verified',side:m.direction==='bull'?'BUY':'SELL',entry:m.entry,stop:m.stop,target:m.target,model:'Sweep → MSS → FVG',zone:{low:m.zone.low,high:m.zone.high},evidence:{sweepAt:m.sweepAt,mssAt:m.mssAt,fvgAt:m.fvgAt},reasonCodes:['ACCOUNT_RISK_NOT_VERIFIED','EXECUTION_QUOTE_NOT_VERIFIED']};}
-async function check(target,draft,calendar,getKrakenInstruments){const now=Date.now();
+async function check(target,draft,calendar,getKrakenInstruments,getHourly){const now=Date.now();
  const previousModels=new Map(draft.observations.filter(x=>x.id.startsWith(target.id+':')).map(x=>[x.id,x]));
  const previous=draft.targets[target.id]||{};const meta={market:target.market,symbol:target.symbol,frame:target.tf,lastAttempt:new Date(now).toISOString(),source:target.market==='crypto'?'Bybit V5 USDT':target.market==='spot'?cryptoSpotBackup.SOURCE:target.market==='kraken'?kraken.SOURCE:'Biquote independent feed',status:'unavailable',lastCompleteAt:null,modelCount:0};
  try {const bars=validBars(await fetchBars(target,now,getKrakenInstruments),target.tf,now);const last=bars.at(-1);
  meta.source=last.source||meta.source;meta.marketType=target.market==='spot'?'SPOT_RESEARCH':['crypto','kraken'].includes(target.market)?'PERPETUAL':'PROVIDER_NATIVE';meta.lastCompleteAt=new Date(last.start+Number(target.tf)*60000).toISOString();meta.status='research_data_valid';
+ meta.hourlyContext=await getHourly(target);
  const result=signals.evaluate(bars,target.tf,{now,market:target.market,symbol:target.symbol});
  const news=gates.checkNews(calendar.ok?calendar.feed:null,target,now);
  const observations=[];
@@ -107,7 +109,18 @@ async function cycle(){if(inCycle||stopping)return;inCycle=true;try{
  const draft={...state,targets:{...state.targets}};
  let krakenInstruments;
  const getKrakenInstruments=()=>krakenInstruments??=kraken.fetchInstruments();
- for(const t of targets){if(stopping)return;await check(t,draft,calendar,getKrakenInstruments)}
+ const hourly=new Map();
+ const getHourly=target=>{
+  const key=target.market+':'+target.symbol;
+  if(!hourly.has(key)){
+   const cutoff=Date.now();
+   hourly.set(key,fetchBars({...target,tf:'60'},cutoff,getKrakenInstruments)
+    .then(bars=>inspectHourly(bars,target.market,cutoff))
+    .catch(()=>({status:'unavailable'})));
+  }
+  return hourly.get(key);
+ };
+ for(const t of targets){if(stopping)return;await check(t,draft,calendar,getKrakenInstruments,getHourly)}
  draft.lastCycleAt=new Date(Date.now()).toISOString();
  draft.cycleCount++;
  await persist(draft);

@@ -8,6 +8,15 @@ const spot=require('./crypto-spot-backup.js');
 const phases=new Set(['observed','awaiting_confirmation','confirmed_research','invalidated','expired']);
 const OUT=path.resolve(process.env.PUBLIC_OUTPUT_DIR||path.join(__dirname,'..','_monitor_publish'));
 const OUTFILE=path.join(OUT,'monitor-status.json');
+function publicHour(context,now){
+ const last=context?.lastCompleteAt;
+ if(context?.status==='ready'&&Number.isSafeInteger(last)&&last<=now&&now-last<=3*3600000){
+  const aligned=Array.isArray(context.aligned)?['bull','bear'].filter(side=>context.aligned.includes(side)):[];
+  return {status:'ready',lastCompleteAt:new Date(last).toISOString(),aligned};
+ }
+ if(Number.isSafeInteger(last)&&last<=now&&now-last>3*3600000)return {status:'stale',lastCompleteAt:new Date(last).toISOString()};
+ return {status:context?.status==='insufficient'?'insufficient':'unavailable'};
+}
 function publicSnapshot(data,now=Date.now()){
  if(!data||data.schema!=='ict-research-monitor/1'||data.readyForExecution!==false)throw Error('UNSAFE_OR_INVALID_MONITOR_STATE');
  const stamp=typeof data.lastCycleAt==='string'?Date.parse(data.lastCycleAt):NaN;
@@ -31,6 +40,7 @@ function publicSnapshot(data,now=Date.now()){
    consecutiveFailures:Math.max(0,Math.min(999999,Number(val.consecutiveFailures)||0)),
    modelCount:status==='research_data_valid'?patternCounts.valid:0,lastRecoveredAt:val.lastRecoveredAt||null,
    error:legacyProxy?'LEGACY_SPOT_PROXY':val.error?String(val.error).slice(0,120):null,
+   hourlyContext:publicHour(val.hourlyContext,now),
    newsGate:val.newsGate||null,executionQuoteGate:'not_verified',accountRiskGate:'not_verified'};
  }
  // Only expose recent, observed research setups with internally consistent levels.
@@ -78,7 +88,7 @@ async function main(){
  try{await runner.restore();await runner.cycle();const payload=publicSnapshot(runner.snapshot());
   await fs.writeFile(OUTFILE,JSON.stringify(payload,null,2)+'\n','utf8');
   process.stdout.write('One-shot market scan: '+payload.marketSummary.valid+'/'+payload.marketCount+' fresh sources; approval=false\n');
-  for(const [id,t] of Object.entries(payload.targets))process.stdout.write(id+' '+(t.error||t.source)+' '+JSON.stringify(t.patternCounts)+'\n');
+  for(const [id,t] of Object.entries(payload.targets))process.stdout.write(id+' '+(t.error||t.source)+' hourly='+t.hourlyContext.status+' '+JSON.stringify(t.patternCounts)+'\n');
   process.stdout.write('Public research observations: '+payload.observations.length+'\n');
   if(!payload.marketDataReady)process.stdout.write('WARNING: no verified current market data; status remains blocked\n');
  }finally{await monitor.stop()}

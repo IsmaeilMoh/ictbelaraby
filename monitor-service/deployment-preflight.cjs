@@ -4,7 +4,7 @@ const fs=require('node:fs');
 const path=require('node:path');
 const root=__dirname;
 const required=[
- 'server.js','package.json','safety-gates.js','execution-quotes.js','crypto-spot-backup.js','kraken-perpetual.js',
+ 'server.js','hourly-context.js','package.json','safety-gates.js','execution-quotes.js','crypto-spot-backup.js','kraken-perpetual.js',
  'ict-live-feed-702a.js','ict-public-markets-702c2.js',
  'ict_phase2d/ict-structure-engine-702d.js',
  'ict_phase2e/ict-signal-engine-702e.js',
@@ -15,10 +15,14 @@ function preflight(directory=root){
  for(const f of required){if(!fs.existsSync(path.join(directory,f)))errors.push('MISSING_FILE '+f)}
  const docker=fs.readFileSync(path.join(directory,'Dockerfile'),'utf8');
  const copyLines=docker.split('\n').filter(line=>/^COPY\s/.test(line.trim())).join(' ');
- for(const f of ['server.js','safety-gates.js','execution-quotes.js','crypto-spot-backup.js','kraken-perpetual.js','ict-live-feed-702a.js','ict-public-markets-702c2.js']){
+ for(const f of ['server.js','hourly-context.js','safety-gates.js','execution-quotes.js','crypto-spot-backup.js','kraken-perpetual.js','ict-live-feed-702a.js','ict-public-markets-702c2.js']){
+  if(!copyLines.split(/\s+/).includes('monitor-service/'+f))errors.push('DOCKER_COPY_MISSING '+f);
+ }
+ for(const folder of ['ict_phase2d','ict_phase2e'])if(!docker.includes('COPY monitor-service/'+folder))errors.push('DOCKER_COPY_MISSING '+folder);
+ for(const f of ['ict-context-engine-703a.js','ict-scenario-engine-703b.js']){
+  if(!fs.existsSync(path.join(directory,'..',f)))errors.push('MISSING_FILE '+f);
   if(!copyLines.split(/\s+/).includes(f))errors.push('DOCKER_COPY_MISSING '+f);
  }
- for(const folder of ['ict_phase2d','ict_phase2e'])if(!docker.includes('COPY '+folder))errors.push('DOCKER_COPY_MISSING '+folder);
  if(!docker.includes('USER node'))errors.push('CONTAINER_MUST_RUN_AS_NON_ROOT');
  if(!docker.includes('require(x)'))warnings.push('NO_IMAGE_BUILD_RUNTIME_IMPORT_CHECK');
  const compose=fs.readFileSync(path.join(directory,'compose.yaml'),'utf8');
