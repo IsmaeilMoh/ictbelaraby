@@ -95,3 +95,6 @@ jobs:
           console.log(`- Economic calendar: ${news.ok ? news.eventCount + ' dated events received' : news.reason}`);
           console.log(`- Research observations: ${status.observations.length}. Execution approved: false.`);
           JS
+      - name: Audit all traditional-market symbols without credentials
+        if: github.event_name == 'pull_request'
+        run: node monitor-service/audit-public-markets.cjs | tee -a "$GITHUB_STEP_SUMMARY"

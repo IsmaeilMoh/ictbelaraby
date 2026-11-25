@@ -28,6 +28,14 @@ for(const group of ['metals','forex','indices','stocks','energy']){
 }
 assert.match(decision,/embed-widget-symbol-info\.js/,'display uses the official public widget');
 assert.match(decision,/if\(publicView\(\)\|\|busy/,'reference display never runs the ICT price scanner');
+const {inspect:inspectQuote}=require('./audit-public-markets.cjs');
+const quote={symbol:'EURUSD',status:'LIVE',bid:'1.08',ask:'1.09',time:'2026-11-25T12:00:00Z'};
+const sampledAt=Date.parse(quote.time)+1000;
+const response={cors:true,data:{data:[quote]}};
+assert.equal(inspectQuote('EURUSD',response,sampledAt),'Fresh Bid/Ask snapshot with CORS');
+assert.equal(inspectQuote('EURUSD',response,sampledAt+15000),'Timestamp fails 15s freshness');
+assert.equal(inspectQuote('EURUSD',{data:{data:[{...quote,status:'MARKET_CLOSED'}]}},sampledAt),'MARKET_CLOSED');
+assert.equal(inspectQuote('USDJPY',response,sampledAt),'No matching quote');
 let now=1_000_000,clicks=0,tick,unload,visible;
 const button={disabled:false,click(){clicks++}};
 const doc={hidden:false,readyState:'complete',getElementById(id){return id==='dc-bg-free-check'?button:id==='dc-background-8c2'?{}:null;},addEventListener(event,fn){if(event==='visibilitychange')visible=fn}};

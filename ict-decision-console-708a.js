@@ -3,13 +3,7 @@
 const $=id=>document.getElementById(id),market=$('dc-market'),symbol=$('dc-symbol'),frame=$('dc-frame'),roll=$('dc-roll'),account=$('dc-account'),risk=$('dc-risk'),run=$('dc-run'),monitor=$('dc-monitor'),status=$('dc-status'),output=$('dc-output'),archive=$('dc-archive');
 const crypto=['BTCUSDT','ETHUSDT','SOLUSDT','XRPUSDT'],api=window.ICTDecisionEngine708A,live=window.ICTLiveFeed,publicFeed=window.ICTPublicMarkets,acc=window.ICTAccounts7A,structure=window.ICTStructureEngine,signal=window.ICTSignalEngine,context=window.ICTContextEngine,scenario=window.ICTScenarioEngine,econ=window.ICTEconomicLink706A;
 const scanActions=$('dc-scan-actions'),quoteActions=$('dc-public-quote-actions'),quotePanel=$('dc-public-quote-panel'),quoteContent=$('dc-public-quote-content');
-const quotes={
- metals:{XAUUSD:'OANDA:XAUUSD',XAGUSD:'OANDA:XAGUSD'},
- forex:Object.fromEntries(['EURUSD','GBPUSD','USDJPY','AUDUSD','NZDUSD','USDCHF','USDCAD'].map(pair=>[pair,'FX:'+pair])),
- indices:{NAS100:'FOREXCOM:NSXUSD',US500:'FOREXCOM:SPXUSD',US30:'FOREXCOM:DJI'},
- stocks:{AAPL:'NASDAQ:AAPL',TSLA:'NASDAQ:TSLA',NVDA:'NASDAQ:NVDA',MSFT:'NASDAQ:MSFT',NFLX:'NASDAQ:NFLX'},
- energy:{USOIL:'TVC:USOIL',UKOIL:'TVC:UKOIL'}
-};
+const quotes=publicFeed.PUBLIC_QUOTES;
 const publicView=()=>Object.hasOwn(quotes,market.value);
 const publicStatus='عرض السعر متاح. فحص ICT وتنبيهات الدخول معلّقة لهذا السوق حتى تتوفر تغذية يستخدمها المحرك.';
 const krakenSymbols=['PF_XBTUSD','PF_ETHUSD'];

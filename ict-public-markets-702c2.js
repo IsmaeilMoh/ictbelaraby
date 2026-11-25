@@ -13,6 +13,13 @@
   stocks:[],
   energy:[['USOIL','WTICO_USD'],['UKOIL','BCO_USD']]
  });
+ const PUBLIC_QUOTES=Object.freeze({
+  metals:{XAUUSD:'OANDA:XAUUSD',XAGUSD:'OANDA:XAGUSD'},
+  forex:Object.fromEntries(['EURUSD','GBPUSD','USDJPY','AUDUSD','NZDUSD','USDCHF','USDCAD'].map(pair=>[pair,'FX:'+pair])),
+  indices:{NAS100:'FOREXCOM:NSXUSD',US500:'FOREXCOM:SPXUSD',US30:'FOREXCOM:DJI'},
+  stocks:{AAPL:'NASDAQ:AAPL',TSLA:'NASDAQ:TSLA',NVDA:'NASDAQ:NVDA',MSFT:'NASDAQ:MSFT',NFLX:'NASDAQ:NFLX'},
+  energy:{USOIL:'TVC:USOIL',UKOIL:'TVC:UKOIL'}
+ });
  const FRAMES=Object.freeze({'1min':'1','5min':'5','15min':'15','1h':'60','4h':'240','1day':'1440'});
  const SOURCE='OANDA Practice · شموع المنتصف';
  const KEY='ict-oanda-research-key-v1';
@@ -60,5 +67,5 @@
    ...bar,source:SOURCE,symbol:instrument.symbol,providerSymbol:instrument.providerSymbol,interval:frame,market:instrument.group,quoteCurrency:instrument.quote
   }));
  }
- return Object.freeze({MARKETS,FRAMES,SOURCE,resolve,get,sessionKey,saveKey,endpoint});
+ return Object.freeze({MARKETS,PUBLIC_QUOTES,FRAMES,SOURCE,resolve,get,sessionKey,saveKey,endpoint});
 });
