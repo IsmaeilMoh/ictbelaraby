@@ -87,13 +87,14 @@ function clearScan(){
  clearTimeout(expiry);clearTimeout(quoteExpiry);
  closeStream('أُوقفت مراقبة الأسعار إلى أن يكتمل الفحص.');
  clear(output);
+ node('p',publicView()?'التحليل اليدوي لهذا الأصل معلّق حتى يتوفر مصدر مناسب.':'ستظهر هنا نتائج الفحص اليدوي.',output);
  root.dispatchEvent(new CustomEvent('ict:decision-cleared'));
 }
 function setState(v,bad=false){status.textContent=v;status.dataset.bad=bad?'1':'0'}
 function selectOptions(select,items,choose){clear(select);for(const item of items){const opt=document.createElement('option');opt.value=item;opt.textContent=item;select.append(opt)}if(choose&&items.includes(choose))select.value=choose}
-function marketsChanged(){
+function marketsChanged(preselected){
  const items=publicView()?Object.keys(quotes[market.value]):market.value==='crypto'?crypto:krakenSymbols;
- selectOptions(symbol,items);
+ selectOptions(symbol,items,preselected);
  roll.value=['forex','metals','energy'].includes(market.value)?'17':'0';
  selectionChanged();
 }
@@ -222,7 +223,7 @@ function selectionChanged(){
  monitor.disabled=publicView();
  setState(publicView()?publicStatus:'اختر الأصل واضغط فحص السوق.');
 }
-market.addEventListener('change',marketsChanged);
+market.addEventListener('change',()=>marketsChanged());
 for(const field of [frame,symbol,roll,account])field.addEventListener('change',selectionChanged);
 risk.addEventListener('input',selectionChanged);
 run.addEventListener('click',()=>scan(false));
@@ -230,5 +231,25 @@ monitor.addEventListener('click',()=>{if(publicView())return;if(active){stop();r
 document.addEventListener('visibilitychange',()=>{if(document.hidden)stop()});
 window.addEventListener('pagehide',stop);
 window.addEventListener('ict:accounts-changed',()=>{accountsChanged();selectionChanged()});
-accountsChanged();marketsChanged();showArchive();
+function openLinkedDetails(){
+ const id=window.location.hash.slice(1);
+ const advanced=$('dc-advanced');
+ const target=$(id);
+ if(target&&advanced.contains(target)){
+  advanced.open=true;
+  target.scrollIntoView();
+ }
+}
+const params=new URLSearchParams(window.location.search);
+const requestedMarket=params.get('market');
+const requestedSymbol=params.get('symbol');
+const marketSymbols=Object.hasOwn(quotes,requestedMarket)?Object.keys(quotes[requestedMarket]):
+ requestedMarket==='crypto'?crypto:requestedMarket==='kraken'?krakenSymbols:[];
+const validSelection=marketSymbols.includes(requestedSymbol);
+if(validSelection)market.value=requestedMarket;
+accountsChanged();
+marketsChanged(validSelection?requestedSymbol:undefined);
+showArchive();
+window.addEventListener('hashchange',openLinkedDetails);
+openLinkedDetails();
 })();

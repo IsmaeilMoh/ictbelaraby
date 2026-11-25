@@ -21,6 +21,13 @@ assert.match(status,/d\.readyForExecution!==false/,'dashboard rejects unsafe mon
 assert.match(status,/now-checked<=45\*60000/,'dashboard rejects stale observations');
 assert.match(html,/ict-execution-safety-708c5\.js/,'risk gate remains active');
 assert.doesNotMatch(script,/\b(placeOrder|executeTrade|submitOrder|createOrder)\s*\(/i,'status refresher must not issue orders');
+const sections=['dc-scan-actions','dc-results','dc-lifecycle','dc-advanced','dc-readiness-8c'];
+for(let i=1;i<sections.length;i++) {
+ assert.ok(html.indexOf('id="'+sections[i-1]+'"')<html.indexOf('id="'+sections[i]+'"'),'visitor sees scan, results, tracking and advanced settings in order');
+}
+assert.match(html,/href="#dc-lifecycle"/,'results link to opportunity tracking');
+assert.match(read('app.js'),/id="home-tools-grid"><a class="tool-card" href="decision-center.html"/,'homepage links to the scan directly');
+assert.match(read('asset.js'),/decision-center\.html\?['"]\+new URLSearchParams/,'asset link carries the selected instrument');
 const decision=read('ict-decision-console-708a.js');
 assert.doesNotMatch(html,/dc-public-quote|tradingview-widget/,'charts stay outside the scan form');
 assert.match(html,/<div class="dc-actions" id="dc-scan-actions"><button id="dc-run"/,'scan controls appear in their original location');

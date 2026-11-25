@@ -923,3 +923,8 @@ footer{padding-bottom:105px}
   #market-pulse .pulse-brief-grid .pulse-event .pulse-news-clock{font-size:14px}
   #market-pulse .pulse-brief-grid .pulse-event .pulse-news-head strong{font-size:13px}
 }
+
+.related-asset-links{margin-block:8px;overflow-wrap:anywhere}
+.related-asset-links summary{cursor:pointer}
+.related-asset-links ul{margin-block:6px;padding-inline-start:1.25rem}
+.related-asset-links a:focus-visible,.related-asset-links summary:focus-visible{outline:2px solid currentColor;outline-offset:3px}
