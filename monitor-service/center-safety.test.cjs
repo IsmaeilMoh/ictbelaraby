@@ -33,6 +33,34 @@ function syntheticBars() {
   });
 }
 
+function testModelTypes(){
+  const create=(file)=>fs.readFile(path.join(__dirname,'..',file),'utf8');
+  return Promise.all([create('ict-model-validation-704c3.js'),create('ict-advanced-validation-704c4.js')]).then(([models,advanced])=>{
+    const browser={Intl,Date};
+    vm.runInNewContext(models,browser);
+    vm.runInNewContext(advanced,browser);
+    const rule=browser.ICTModelValidation4C3,extra=browser.ICTAdvancedValidation4C4;
+    for(const close of ['2026-01-15T15:00:00Z','2026-07-15T14:00:00Z']){
+      const start=Date.parse(close);
+      const candle={sweepAt:start,mssAt:start+15*minute,fvgAt:start+30*minute};
+      assert.ok(rule.silverBulletMatch(candle));
+      assert.equal(rule.silverBulletMatch({...candle,fvgAt:start+60*minute}),false);
+      assert.equal(rule.silverBulletMatch({...candle,fvgAt:start}),false);
+    }
+    const candles=Array.from({length:13},(_,i)=>({start:now+i*minute,open:100,close:101,low:99,high:102}));
+    candles[12]={...candles[12],open:102,close:105,high:106};
+    const index=new Map(candles.map((bar,i)=>[bar.start,i]));
+    assert.ok(rule.displacementEvidence({direction:'bull',sweepAt:now+10*minute,mssAt:now+12*minute},candles,index).pass);
+    assert.equal(extra.oteEntry({direction:'bull',gapLow:102,gapHigh:104},[{low:100,high:110}],0,0),102.95);
+    const start=Date.parse('2026-11-01T04:00:00Z');
+    const sequence=Array.from({length:7},(_,i)=>({start:start+i*hour,high:110,low:i===6?95:100}));
+    const c={direction:'bull',sweepAt:sequence[6].start,mssAt:sequence[6].start+hour,fvgAt:sequence[6].start+hour};
+    assert.equal(extra.amdRange(c,sequence,6,'60').accumulationLow,100);
+    assert.equal(extra.amdRange(c,sequence.filter((_,i)=>i!==2),5,'60'),null);
+    assert.equal(extra.amdRange(c,sequence,6,'240'),null);
+  });
+}
+
 function testSessions() {
   for (const [day, start, next, hours, roll] of [
     ['2026-03-08', '2026-03-08T05:00:00Z', '2026-03-09T04:00:00Z', 23, '2026-03-08T21:00:00Z'],
@@ -206,6 +234,7 @@ async function testMonitor(bars) {
 (async () => {
   testSessions();
   await testCalendar();
+  await testModelTypes();
   await testMonitor(await testOpportunities());
   console.log('Center safety: DST, calendar coverage, real ICT engine, invalidation, outage, stale candles and quote expiry PASS');
 })().catch(error => { console.error(error); process.exitCode = 1; });

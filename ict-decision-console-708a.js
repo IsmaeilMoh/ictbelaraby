@@ -1,6 +1,6 @@
 /* ICT بالعربي 8A — user-invoked multi-market decision research center */
 (function(){'use strict';const root=document.getElementById('ict-decision-8a');if(!root)return;
-const $=id=>document.getElementById(id),market='crypto',symbol=$('dc-symbol'),frame=$('dc-frame'),modelPhase=$('dc-model-phase'),roll=$('dc-roll'),run=$('dc-run'),monitor=$('dc-monitor'),status=$('dc-status'),output=$('dc-output'),archive=$('dc-archive');
+const $=id=>document.getElementById(id),market='crypto',symbol=$('dc-symbol'),frame=$('dc-frame'),modelType=$('dc-model-type'),modelPhase=$('dc-model-phase'),roll=$('dc-roll'),run=$('dc-run'),monitor=$('dc-monitor'),status=$('dc-status'),output=$('dc-output'),archive=$('dc-archive');
 const api=window.ICTDecisionEngine708A,live=window.ICTLiveFeed,structure=window.ICTStructureEngine,signal=window.ICTSignalEngine,context=window.ICTContextEngine,scenario=window.ICTScenarioEngine,econ=window.ICTEconomicLink706A;
 const cancelBatch=$('dc-cancel-batch');
 let batchController=null;
@@ -135,6 +135,25 @@ function showArchive(){clear(archive);const arr=saved().slice(0,8);if(!arr.lengt
 function block(title,parent=output){const c=document.createElement('section');c.className='dc-card';node('h3',title,c);parent.append(c);return c}
 const phases={observed:'مرصودة',awaiting_confirmation:'بانتظار التأكيد',confirmed_research:'مؤكدة بحثيًا',invalidated:'ملغاة',expired:'منتهية الصلاحية'};
 const types={SPOT_RESEARCH:'Spot · سوق فوري',SPOT_RESEARCH_PROXY:'Spot · سوق فوري',PERPETUAL:'عقد دائم',PROVIDER_NATIVE:'أداة المزود'};
+function matchingModels(plan,bars,index,tf){
+ const matches=[{type:'composite',label:'Sweep → MSS → FVG'}];
+ const [sweepAt,mssAt,fvgAt]=plan.modelEvidence;
+ const si=index.get(sweepAt),mi=index.get(mssAt);
+ const rules=window.ICTModelValidation4C3,advanced=window.ICTAdvancedValidation4C4;
+ if(si==null||mi==null||!index.has(fvgAt)||!rules||!advanced)return matches;
+ const candidate={direction:plan.direction,sweepAt,mssAt,fvgAt,gapLow:plan.zone.low,gapHigh:plan.zone.high};
+ if(rules.silverBulletMatch(candidate)){
+  const hour=rules.nyParts(sweepAt).h;
+  matches.push({type:'silver-bullet',label:'Silver Bullet',evidence:'نافذة نيويورك '+hour+':00–'+(hour+1)+':00'});
+ }
+ const displacement=rules.displacementEvidence(candidate,bars,index);
+ if(displacement.pass)matches.push({type:'2022',label:'2022 Model',evidence:'شمعة الإزاحة · '+dual(displacement.at)});
+ const ote=advanced.oteEntry(candidate,bars,si,mi);
+ if(ote!==null)matches.push({type:'ote',label:'OTE',evidence:'تصحيح 70.5% داخل FVG · '+money(ote)});
+ const range=advanced.amdRange(candidate,bars,si,tf);
+ if(range)matches.push({type:'amd',label:'Power of Three (AMD)',evidence:'نطاق تراكم نيويورك 00–05 · '+money(range.accumulationLow)+' — '+money(range.accumulationHigh)});
+ return matches;
+}
 function card(parent,o,origin){
  const c=block([o.symbol,o.frame+' د',o.side,phases[o.research?.phase]||'رصد بحثي'].join(' · '),parent);
  c.classList.add('dc-wide');
@@ -148,6 +167,11 @@ function card(parent,o,origin){
  }
  const evidence=(o.modelEvidence||[]).map((at,i)=>Number.isFinite(at)?['سحب السيولة','MSS','FVG'][i]+' · '+dual(at):null).filter(Boolean);
  if(evidence.length)node('p',evidence.join(' | '),c);
+ if(o.modelMatches?.length){
+  node('h4','النماذج المطابقة',c);
+  const list=document.createElement('ul');c.append(list);
+  for(const match of o.modelMatches)node('li',[match.label,match.evidence].filter(Boolean).join(' · '),list);
+ }
  if(o.evidence?.length){node('h4','أدلة السياق الأعلى',c);const ul=document.createElement('ul');c.append(ul);o.evidence.forEach(s=>node('li',s,ul))}
  const list=document.createElement('ul');
  c.append(list);
@@ -175,7 +199,7 @@ function show(res){
  clear(output);
  if(!res.opportunities.length){
   const empty=block('لا توجد نتائج مطابقة');empty.classList.add('dc-wide');
-  node('p',modelPhase.value?'لم يُرصد نموذج حديث بالحالة المختارة: '+phases[modelPhase.value]+'.':'لم يُرصد نموذج حديث ضمن الشموع التي فُحصت.',empty);
+  node('p',modelPhase.value||modelType.value?'لم يُرصد نموذج حديث يطابق نوع النموذج والحالة المختارين.':'لم يُرصد نموذج حديث ضمن الشموع التي فُحصت.',empty);
   for(const message of res.blocks)node('p',message,empty);
   return;
  }
@@ -223,6 +247,14 @@ function inspectContract(contract,tf,{entryBars,hourly,higherCandles},news,batch
   structureEngine:structure,signalEngine:signal,contextEngine:context,scenarioEngine:scenario});
  if(news.failures?.length)res.warnings.push('تعذر تحميل بعض الأجندات: '+news.failures.join('؛ '));
  if(modelPhase.value)res.opportunities=res.opportunities.filter(plan=>plan.research?.phase===modelPhase.value);
+ if(res.opportunities.length){
+  const bars=structure.normalize(entryBars,tf,now).segments.at(-1)||[];
+  const index=new Map(bars.map((bar,i)=>[bar.start,i]));
+  for(const plan of res.opportunities)plan.modelMatches=matchingModels(plan,bars,index,tf);
+  if(modelType.value)res.opportunities=res.opportunities.filter(plan=>plan.modelMatches.some(match=>match.type===modelType.value));
+  // OTE is an additional research level; the existing entry stream tracks the composite midpoint.
+  if(modelType.value==='ote')for(const plan of res.opportunities)plan.blocks.push('مستوى OTE للبحث. الدخول المعروض للبطاقة هو الدخول المرجعي للنموذج المركب.');
+ }
  if(batch)for(const plan of res.opportunities)plan.blocks.push('الفحص الجماعي بحثي؛ افحص العقد منفردًا للتحقق من Bid/Ask والمراقبة اللحظية.');
  return res;
 }
@@ -238,7 +270,7 @@ async function scanBatch(){
  clearScan();
  clear(output);
  const results=block('نتائج الفحص الجماعي',output);
- node('p','حالة النموذج: '+(phases[modelPhase.value]||'جميع الحالات')+' · اختر عقدًا منفردًا لمتابعة سعر الدخول.',results);
+ node('p',modelType.selectedOptions[0].textContent+' · حالة النموذج: '+(phases[modelPhase.value]||'جميع الحالات')+' · اختر عقدًا منفردًا لمتابعة سعر الدخول.',results);
  let checked=0,failed=0,matched=0,models=0,halted=false;
  try{
   setState('جارٍ تحميل الأجندة للفحص الجماعي…');
@@ -309,7 +341,7 @@ function selectionChanged(){
  monitor.disabled=!symbol.value||symbol.value==='all';
  setState(symbol.value==='all'?'الفحص الجماعي يشمل جميع العقود المتاحة، حتى عند استخدام البحث.':'اختر الأصل واضغط فحص السوق.');
 }
-for(const field of [frame,symbol,modelPhase,roll])field.addEventListener('change',selectionChanged);
+for(const field of [frame,symbol,modelType,modelPhase,roll])field.addEventListener('change',selectionChanged);
 run.addEventListener('click',()=>symbol.value==='all'?scanBatch():scan(false));
 cancelBatch.addEventListener('click',cancelGroupedScan);
 monitor.addEventListener('click',()=>{if(active){stop();return}active=true;monitor.textContent='إيقاف المراقبة';monitor.setAttribute('aria-pressed','true');scan(false);timer=setInterval(()=>scan(true),60000)});

@@ -5,6 +5,9 @@ const VERSION='7.0.4c.3',tz='America/New_York';
 const RULES=Object.freeze({silverBulletWindows:[[3,4],[10,11],[14,15]],displacementRatio:1.5,medianWindow:12,bodyFloor:0});
 function num(x){return Number.isFinite(x)}
 function nyParts(t){const parts=new Intl.DateTimeFormat('en-US',{timeZone:tz,hour:'2-digit',minute:'2-digit',hourCycle:'h23'}).formatToParts(new Date(t));return {h:Number(parts.find(p=>p.type==='hour')?.value),m:Number(parts.find(p=>p.type==='minute')?.value)}}
+function silverBulletMatch({sweepAt,mssAt,fvgAt}){
+ return [sweepAt,mssAt,fvgAt].every(inSilverBullet)&&nyParts(sweepAt).h===nyParts(mssAt).h&&nyParts(mssAt).h===nyParts(fvgAt).h&&fvgAt>=mssAt&&fvgAt-sweepAt<3600000;
+}
 function inSilverBullet(t){const {h,m}=nyParts(t);return RULES.silverBulletWindows.some(([start,end])=>h*60+m>=start*60&&h*60+m<end*60)}
 function median(v){const a=v.slice().sort((a,b)=>a-b),n=a.length;return n?a.length%2?a[(n-1)/2]:(a[n/2-1]+a[n/2])/2:NaN}
 function displacementEvidence(candidate,bars,index){const i=index.get(candidate.mssAt),sweepIndex=index.get(candidate.sweepAt);if(i==null||sweepIndex==null)return {pass:false,reason:'لا توجد شمعة MSS في المقطع المتصل'};
@@ -24,11 +27,11 @@ function validate(candles,frame,opts={}){
  if(!base||!base.derive||!structure||!structure.normalize)throw Error('يجب تحميل محركي 2D و4C.2 قبل 4C.3');
  const costR=Number(opts.costR??.1),now=Number(opts.now??Date.now());if(!num(costR)||costR<0||costR>2)throw Error('التكلفة يجب أن تكون بين 0 و2 R');
  const scan=base.derive(candles,frame,now),parsed=structure.normalize(candles,frame,now),bars=parsed.segments.at(-1)||[],index=new Map(bars.map((b,i)=>[b.start,i]));
- const silver=scan.candidates.filter(r=>inSilverBullet(r.sweepAt)&&inSilverBullet(r.mssAt)&&inSilverBullet(r.fvgAt)&&nyParts(r.sweepAt).h===nyParts(r.fvgAt).h).map(r=>({...r,model:'silver-bullet'}));
+ const silver=scan.candidates.filter(silverBulletMatch).map(r=>({...r,model:'silver-bullet'}));
  const full=scan.candidates.map(r=>({r,e:displacementEvidence(r,bars,index)}));const mentorship=full.filter(x=>x.e.pass).map(x=>({...x.r,model:'2022-research',displacement:x.e}));
  return {version:VERSION,coverage:scan.coverage,source:'2D events + 4C.2 composite + 4C.3 independent checks',costR,
   models:{silverBullet:{...evalRows(silver,costR,base.RULES.rr),label:'Silver Bullet — تعريف بحثي بوقت نيويورك',excluded:scan.candidates.length-silver.length},mentorship2022:{...evalRows(mentorship,costR,base.RULES.rr),label:'2022 Model — تعريف بحثي مشروط بالإزاحة',excluded:full.length-mentorship.length}},
   assumptions:['يجب وقوع Sweep وMSS وFVG بالترتيب داخل الساعة نفسها من نوافذ 03–04 أو 10–11 أو 14–15 نيويورك لنموذج Silver Bullet البحثي. هذا تضييق مُعلن على الاستعمالات الممكنة، وليس نصًا مقدسًا.', 'يشترط نموذج 2022 البحثي إزاحة مع MSS أو خلال شمعتين سابقتين، بمتن شمعة أكبر من 1.5× وسيط أجسام آخر 12 شمعة، وإغلاق خلف نطاقها في اتجاه الحدث.', 'جميع الإشارات مستمدة من النموذج المركب 4C.2؛ لا إضافة نتائج مستقبلية لتأكيد شروط التكوين.', 'إحصاءات البحث لا تعتبر إثبات ربحية؛ لا سبريد حقيقي أو تنفيذ Tick ولا معالجة كاملة لتداخل الصفقات.', 'لا تظهر صلاحية تاريخية عند نقص العينة، وتُستبعد حالات التدريب المتداخلة زمنيًا مع فترة الاختبار.', 'حدود الشموع الأصلية تعتمد على المصدر؛ أوقات النوافذ تقاس على America/New_York مع تغيّر DST.']};
 }
-return Object.freeze({VERSION,RULES,nyParts,inSilverBullet,displacementEvidence,validate});
+return Object.freeze({VERSION,RULES,nyParts,inSilverBullet,silverBulletMatch,displacementEvidence,validate});
 });
