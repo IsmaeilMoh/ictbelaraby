@@ -43,6 +43,10 @@ function safeError(e){return String(e?.message||e||'خطأ').slice(0,180)}
 const DATA_REASONS=new Set(['stale_candles','candle_gap','not_enough_candles','provider_access_denied',
  'provider_rate_limited','provider_unavailable','invalid_candles','session_history_missing','instrument_mismatch','unknown']);
 const HISTORY_LIMIT=8;
+function observedTime(value,through){
+ const at=typeof value==='string'?Date.parse(value):NaN;
+ return Number.isFinite(at)&&at<=through?new Date(at).toISOString():null;
+}
 function sourceHistory(events,now){
  if(!Array.isArray(events))return [];
  return events.slice(0,HISTORY_LIMIT).flatMap(event=>{
@@ -50,18 +54,41 @@ function sourceHistory(events,now){
   if(!Number.isFinite(at)||at>now||!['blocked','reason_changed','recovered'].includes(event.kind))return [];
   const entry={kind:event.kind,at:new Date(at).toISOString()};
   if(event.kind!=='recovered')entry.reason=DATA_REASONS.has(event.reason)?event.reason:'unknown';
+  else {
+   const since=observedTime(event.since,at);
+   if(since)entry.since=since;
+  }
   return [entry];
  }).sort((a,b)=>Date.parse(b.at)-Date.parse(a.at));
+}
+function sourceDelay(target,now){
+ if(target.status!=='blocked')return null;
+ const through=observedTime(target.lastAttempt,now);
+ const since=through&&observedTime(target.blockedSince,Date.parse(through));
+ return since?{since,through}:null;
 }
 function recordSourceHistory(previous,current,now){
  const history=sourceHistory(previous.sourceHistory,now),last=history[0];
  const healthy=current.status==='research_data_valid';
+ const recoveryIndex=history.findIndex(event=>event.kind==='recovered');
+ const currentEpisode=recoveryIndex<0?history:history.slice(0,recoveryIndex);
+ const previousStart=previous.status==='blocked'?
+  observedTime(previous.blockedSince,now)||currentEpisode.find(event=>event.kind==='blocked')?.at:null;
+ const at=new Date(now).toISOString();
  let kind;
  if(healthy){
   if(last?last.kind!=='recovered':previous.status==='blocked')kind='recovered';
- }else if(!last||last.kind==='recovered')kind='blocked';
- else if(last.reason!==current.reason)kind='reason_changed';
- if(kind)history.unshift({kind,at:new Date(now).toISOString(),...(healthy?{}:{reason:current.reason})});
+ }else{
+  current.blockedSince=previousStart||at;
+  if(!last||last.kind==='recovered')kind='blocked';
+  else if(last.reason!==current.reason)kind='reason_changed';
+ }
+ if(kind){
+  const event={kind,at};
+  if(!healthy)event.reason=current.reason;
+  else if(previousStart)event.since=previousStart;
+  history.unshift(event);
+ }
  return history.slice(0,HISTORY_LIMIT);
 }
 function dataReason(error){
@@ -173,7 +200,7 @@ function snapshot(){const now=Date.now(),last=state.lastCycleAt?Date.parse(state
   if(!v)return [t.id,{market:t.market,symbol:t.symbol,frame:t.tf,status:'not_checked',stale:true}];
   const stale=!Number.isFinite(complete)||complete>now||now-complete>3*Number(t.tf)*60000;
   const quote=quotesGuard.parseQuote(active&&t.market!=='spot'&&v.status==='research_data_valid'&&!stale?quoteFeed.quotes.get(t.id):null,now);
-  return [t.id,{...v,stale,executionQuoteGate:quote.status,executionQuoteReason:quote.reason,
+  return [t.id,{...v,sourceDelay:sourceDelay(v,now),stale,executionQuoteGate:quote.status,executionQuoteReason:quote.reason,
    quoteSpreadBps:Number.isFinite(quote.spreadBps)?Math.round(quote.spreadBps*100)/100:null,
    quoteSource:quote.source||null,accountRiskGate:'not_verified'}];
  }));
@@ -198,4 +225,4 @@ function start(options={}){const httpServer=http.createServer(api);if(!options.n
  if(!options.noSchedule){restore().then(run).catch(e=>process.stderr.write(safeError(e)+'\n'));timer=setInterval(run,intervalMs)}
  return {httpServer,cycle,stop:async()=>{stopping=true;clearInterval(timer);if(httpServer.listening)await new Promise(r=>httpServer.close(r))},snapshot};}
 if(require.main===module){const app=start();for(const sig of ['SIGTERM','SIGINT'])process.on(sig,()=>app.stop().then(()=>process.exit(0)));}
-module.exports={DATA_REASONS,sourceHistory,dataReason,parseTargets,validBars,start,snapshot,cycle,restore,targets};
+module.exports={DATA_REASONS,sourceHistory,sourceDelay,dataReason,parseTargets,validBars,start,snapshot,cycle,restore,targets};
