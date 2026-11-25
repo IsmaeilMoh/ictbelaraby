@@ -63,6 +63,21 @@ jobs:
             }
           });
           JS
+          node <<'JS'
+          const stream = require('./ict-entry-stream.js');
+          async function probe(market,symbol) {
+            return new Promise(resolve=>{
+              let client;
+              const finish = message => { client?.close(); console.log('Public WebSocket',market,symbol,message); resolve(); };
+              client = stream.connect(market,symbol,{quote:quote=>finish('fresh bid/ask '+new Date(quote.at).toISOString()),failed:finish});
+              if(!client)finish('unavailable');
+            });
+          }
+          Promise.all([probe('kraken','PF_XBTUSD'),probe('crypto','BTCUSDT')]).catch(error=>{
+            console.error(error.message);
+            process.exitCode=1;
+          });
+          JS
           node <<'JS' >> "$GITHUB_STEP_SUMMARY"
           const assert = require('node:assert/strict');
           const path = require('node:path');

@@ -4,6 +4,71 @@ const $=id=>document.getElementById(id),market=$('dc-market'),symbol=$('dc-symbo
 const crypto=['BTCUSDT','ETHUSDT','SOLUSDT','XRPUSDT'],api=window.ICTDecisionEngine708A,live=window.ICTLiveFeed,publicFeed=window.ICTPublicMarkets,acc=window.ICTAccounts7A,structure=window.ICTStructureEngine,signal=window.ICTSignalEngine,context=window.ICTContextEngine,scenario=window.ICTScenarioEngine,econ=window.ICTEconomicLink706A;
 const krakenSymbols=['PF_XBTUSD','PF_ETHUSD'];
 const STORAGE='ict-8a-observation-archive-v1';let active=false,busy=false,timer=null,expiry=null,quoteExpiry=null,generation=0;
+const streamEngine=window.ICTEntryStream,streamPanel=$('dc-live-entry'),streamPrice=$('dc-live-entry-price'),
+ streamStatus=$('dc-live-entry-status'),streamEvents=$('dc-live-entry-events');
+let stream=null;
+const reported=new Set();
+function closeStream(message){
+ if(stream)stream.close();
+ stream=null;
+ if(streamPrice)streamPrice.textContent='';
+ if(message&&streamStatus)streamStatus.textContent=message;
+}
+function showEntryStream(res,news){
+ if(!streamPanel||!streamEngine?.subscription(res.market,res.symbol)||document.hidden){
+  if(streamPanel)streamPanel.hidden=true;
+  return;
+ }
+ streamPanel.hidden=false;
+ const keyFor=plan=>[res.market,res.symbol,res.frame,plan.id].join(':');
+ const plans=res.opportunities.filter(plan=>!plan.blocks.length&&!reported.has(keyFor(plan)));
+ if(!(res.entryFreshUntil>res.checkedAt)){
+  closeStream('الشمعة المطلوبة غير حديثة؛ أعد الفحص قبل بدء تنبيه الدخول.');
+  return;
+ }
+ const watch=streamEngine.watch(plans,{observedAt:res.checkedAt,until:res.entryFreshUntil,allowed:now=>
+  econ.scheduleCovers(news.parts||[],now)&&!api.nearNews(news.events,res.market,res.symbol,now).length
+ });
+ let lastPaint=0;
+ const ready=plans.length?plans.length+' خطة تستوفي شروط المراقبة اللحظية.':'لا توجد خطة مستوفية لتنبيه الدخول في هذا الفحص.';
+ streamStatus.textContent='جارٍ الاتصال بتدفق الأسعار العام. '+ready;
+ try{
+  stream=streamEngine.connect(res.market,res.symbol,{
+   failed(reason){
+    watch.pause();
+    closeStream(reason==='wide'?'السبريد واسع؛ توقفت التنبيهات حتى فحص جديد.':
+     'انقطع التدفق أو فقد حداثته؛ توقفت التنبيهات حتى فحص جديد.');
+   },
+   quote(quote,now){
+    if(document.hidden||now>=res.entryFreshUntil){
+     closeStream('توقفت مراقبة الدخول؛ يلزم فحص جديد.');
+     return;
+    }
+    if(now-lastPaint>=250){
+     lastPaint=now;
+     streamPrice.textContent=res.symbol+' · Bid '+money(quote.bid)+' | Ask '+money(quote.ask)+' · '+new Date(quote.at).toISOString();
+    }
+    const message='التدفق العام متصل. '+ready+' القراءة مرجعية ولا تؤكد تنفيذ أمر.';
+    if(streamStatus.textContent!==message)streamStatus.textContent=message;
+    for(const event of watch.push(quote,now)){
+     const key=keyFor(event.plan);
+     if(reported.has(key))continue;
+     reported.add(key);
+     if(reported.size>500)reported.delete(reported.values().next().value);
+     const label=event.kind==='entry'?'تنبيه بحثي: تحقق شرط سعر الدخول':
+      event.kind==='invalidated'?'أُلغي النموذج عند رصد تجاوز الوقف':'لم يمكن تأكيد عبور الدخول؛ أعد الفحص';
+     const row=document.createElement('li');
+     row.textContent=[label,res.symbol,res.frame+' د',event.plan.side,'السعر '+money(event.price),
+      'الدخول '+money(event.plan.entry),'الوقف '+money(event.plan.stop),'الهدف '+money(event.plan.target),
+      new Date(event.quote.at).toISOString()].join(' · ');
+     streamEvents.prepend(row);
+     if(streamEvents.children.length>6)streamEvents.lastElementChild.remove();
+    }
+   }
+  });
+  if(!stream)closeStream('التدفق اللحظي غير متاح في هذا المتصفح.');
+ }catch{closeStream('تعذّر بدء تدفق الأسعار؛ أعد الفحص لاحقًا.')}
+}
 function labelTime(ts,zone){return new Intl.DateTimeFormat('ar-EG',{timeZone:zone,year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',hourCycle:'h23'}).format(new Date(ts))}
 function dual(t){return 'نيويورك: '+labelTime(t,'America/New_York')+' | فلسطين: '+labelTime(t,'Asia/Gaza')}
 function money(n){return Number.isFinite(n)?n.toLocaleString('en-US',{maximumFractionDigits:6}):'غير متاح'}
@@ -11,6 +76,7 @@ function node(tag,value,parent,cls){const e=document.createElement(tag);if(cls)e
 function clear(el){el.replaceChildren()}
 function clearScan(){
  clearTimeout(expiry);clearTimeout(quoteExpiry);
+ closeStream('أُوقفت مراقبة الأسعار إلى أن يكتمل الفحص.');
  clear(output);
  root.dispatchEvent(new CustomEvent('ict:decision-cleared'));
 }
@@ -133,15 +199,16 @@ async function scan(auto=false){if(busy||auto&&document.hidden)return;if(!api||!
   const a=(acc.list()||[]).find(x=>x.id===account.value)||null;const res=api.inspect({market:market.value,symbol:symbol.value,frame:frame.value,candles15:entryBars,candles60:hourly,rollHour:Number(roll.value),account:a,accountEngine:acc,riskAmount:risk.value,newsChecked:news.feedsLoaded>0,newsCovered,eventFeedsLoaded:news.feedsLoaded,events:news.events,now,structureEngine:structure,signalEngine:signal,contextEngine:context,scenarioEngine:scenario});
   if(news.failures.length)res.warnings.push('تعذر تحميل بعض الأجندات: '+news.failures.join('؛ '));
   res.book=book;res.lastTrade=lastTrade;
-  show(res);record(res);
+  show(res);record(res);showEntryStream(res,news);
   if(res.entryFreshUntil>now)expiry=setTimeout(()=>{
+   closeStream('انتهت حداثة شمعة الدخول؛ يلزم فحص جديد.');
    root.dispatchEvent(new CustomEvent('ict:decision-cleared'));
    setState('أصبحت شموع الدخول قديمة؛ النتائج أدناه تخص وقت الفحص. أعد الفحص للتحديث.',true);
   },res.entryFreshUntil-now);
   root.dispatchEvent(new CustomEvent('ict:decision-scanned',{detail:{result:res,bars:entryBars}}));setState('اكتمل التحليل البحثي. '+res.opportunities.length+' نموذج؛ '+(res.blocks.length?'راجع أسباب تعليق الفرص.':'راجع شروط الفرص.'),res.blocks.length>0);
  }catch(e){if(id!==generation)return;clearScan();setState('تعذر تكوين خطة موثوقة: '+(e?.message||e)+'. لم تُنشأ توصية.',true)}finally{busy=false;run.disabled=false}
 }
-function stop(){active=false;if(timer)clearInterval(timer);timer=null;monitor.textContent='تشغيل المراقبة أثناء فتح الصفحة';monitor.setAttribute('aria-pressed','false')}
-function selectionChanged(){generation++;stop();clearScan();setState('أعد الفحص لتحديث نتائج الاختيار الحالي.')}
-market.addEventListener('change',()=>{selectionChanged();marketsChanged()});for(const field of [frame,symbol,roll,account])field.addEventListener('change',selectionChanged);risk.addEventListener('input',selectionChanged);run.addEventListener('click',()=>scan(false));monitor.addEventListener('click',()=>{if(active){stop();return}active=true;monitor.textContent='إيقاف المراقبة';monitor.setAttribute('aria-pressed','true');scan(false);timer=setInterval(()=>scan(true),60000)});document.addEventListener('visibilitychange',()=>{if(document.hidden&&active)stop()});window.addEventListener('pagehide',stop);window.addEventListener('ict:accounts-changed',()=>{accountsChanged();selectionChanged()});accountsChanged();marketsChanged();showArchive();
+function stop(){closeStream('توقفت مراقبة الأسعار.');active=false;if(timer)clearInterval(timer);timer=null;monitor.textContent='تشغيل المراقبة أثناء فتح الصفحة';monitor.setAttribute('aria-pressed','false')}
+function selectionChanged(){generation++;stop();clearScan();if(streamPanel){streamPanel.hidden=true;streamEvents.replaceChildren();}setState('أعد الفحص لتحديث نتائج الاختيار الحالي.')}
+market.addEventListener('change',()=>{selectionChanged();marketsChanged()});for(const field of [frame,symbol,roll,account])field.addEventListener('change',selectionChanged);risk.addEventListener('input',selectionChanged);run.addEventListener('click',()=>scan(false));monitor.addEventListener('click',()=>{if(active){stop();return}active=true;monitor.textContent='إيقاف المراقبة';monitor.setAttribute('aria-pressed','true');scan(false);timer=setInterval(()=>scan(true),60000)});document.addEventListener('visibilitychange',()=>{if(document.hidden)stop()});window.addEventListener('pagehide',stop);window.addEventListener('ict:accounts-changed',()=>{accountsChanged();selectionChanged()});accountsChanged();marketsChanged();showArchive();
 })();
