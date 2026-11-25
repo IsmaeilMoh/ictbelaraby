@@ -21,3 +21,8 @@ assert.equal(publicSnapshot({...fixture,observations:[{...good,detectedAt:new Da
 assert.equal(publicSnapshot({...fixture,observations:[{...good,accountName:'Private Account'}]},now).observations.length,0);
 assert.equal(publicSnapshot({...fixture,targets:{...fixture.targets,'crypto:BTCUSDT:15':{...fixture.targets['crypto:BTCUSDT:15'],status:'blocked'}},observations:[good]},now).observations.length,0);
 console.log('Public research observation sanitization: PASS');
+
+const proxy=publicSnapshot({...fixture,targets:{'crypto:BTCUSDT:15':{...fixture.targets['crypto:BTCUSDT:15'],source:'Binance Spot (research backup; NOT Bybit perpetual)',marketType:'SPOT_RESEARCH_PROXY'}}},now);
+assert.equal(proxy.targets['crypto:BTCUSDT:15'].marketType,'SPOT_RESEARCH_PROXY');
+assert.match(proxy.targets['crypto:BTCUSDT:15'].source,/NOT Bybit perpetual/);
+console.log('Spot backup provenance retained: PASS');

@@ -3,7 +3,7 @@ FROM node:22-alpine
 ENV NODE_ENV=production
 WORKDIR /app
 COPY package.json ./
-COPY server.js ict-live-feed-702a.js ict-public-markets-702c2.js safety-gates.js execution-quotes.js ./
+COPY server.js ict-live-feed-702a.js ict-public-markets-702c2.js safety-gates.js execution-quotes.js crypto-spot-backup.js ./
 COPY ict_phase2d ./ict_phase2d
 COPY ict_phase2e ./ict_phase2e
 # Verify runtime dependencies during image build, before a server can be deployed.

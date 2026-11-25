@@ -4,6 +4,7 @@ const http=require('node:http');
 const fs=require('node:fs/promises');
 const path=require('node:path');
 const live=require('./ict-live-feed-702a.js');
+const cryptoSpotBackup=require('./crypto-spot-backup.js');
 const traditional=require('./ict-public-markets-702c2.js');
 const structure=require('./ict_phase2d/ict-structure-engine-702d.js');
 const signals=require('./ict_phase2e/ict-signal-engine-702e.js');
@@ -33,7 +34,15 @@ let quoteFeed={ok:false,reason:'QUOTE_FEED_NOT_CONFIGURED',quotes:new Map()};
 const maxStopDistancePct=Math.max(0.01,Math.min(100,Number(process.env.MAX_STOP_DISTANCE_PCT)||5));
 let economic={ok:false,reason:'NOT_CHECKED'};
 function safeError(e){return String(e?.message||e||'خطأ').slice(0,180)}
-async function fetchBars(target,now){if(target.market==='crypto')return live.fetchHistory({symbol:target.symbol,interval:target.tf,limit:200,now});
+async function fetchBars(target,now){if(target.market==='crypto'){
+ try{return await live.fetchHistory({symbol:target.symbol,interval:target.tf,limit:200,now})}
+ catch(e){
+  // Only use Binance SPOT proxy when Bybit responds 403/451; NEVER label it as Bybit perpetual.
+  if(!/^BYBIT_HTTP_(403|451)$/.test(String(e?.message||e)))throw e;
+  try{return await cryptoSpotBackup.fetchHistory(target.symbol,target.tf,{now})}
+  catch(backupError){throw Error(String(e.message)+'; '+String(backupError.message||backupError))}
+ }
+}
  const ins=traditional.resolve(target.market,target.symbol);
  return traditional.get(ins,target.tf==='5'?'5min':'15min',{limit:200,now});}
 function validBars(bars,tf,now){const ms=Number(tf)*60000;const valid=bars.filter(x=>x.confirmed===true&&x.start+ms<=now).sort((a,b)=>a.start-b.start);
@@ -44,7 +53,8 @@ function validBars(bars,tf,now){const ms=Number(tf)*60000;const valid=bars.filte
  return consecutive;}
 function recentObservation(m,target,now,news,structureGate){return {id:target.id+':'+String(m.id),market:target.market,symbol:target.symbol,frame:target.tf,formedAt:m.formedAt,detectedAt:new Date(now).toISOString(),status:'research_only_blocked',reason:'غير معتمدة للتنفيذ: لا توجد مراجعة مخاطرة حساب أو أسعار Bid/Ask',newsGate:news,structureGate,accountRiskGate:'not_verified',side:m.direction==='bull'?'BUY':'SELL',entry:m.entry,stop:m.stop,target:m.target,model:'Sweep → MSS → FVG',zone:{low:Number(m.zone?.low),high:Number(m.zone?.high)},reasonCodes:['ACCOUNT_RISK_NOT_VERIFIED','EXECUTION_QUOTE_NOT_VERIFIED']};}
 async function check(target){const now=Date.now();const previous=state.targets[target.id]||{};const meta={market:target.market,symbol:target.symbol,frame:target.tf,lastAttempt:new Date(now).toISOString(),source:target.market==='crypto'?'Bybit V5 USDT':'Biquote independent feed',status:'unavailable',lastCompleteAt:null,modelCount:0};
- try {const bars=validBars(await fetchBars(target,now),target.tf,now);const last=bars.at(-1);meta.lastCompleteAt=new Date(last.start+Number(target.tf)*60000).toISOString();meta.status='research_data_valid';
+ try {const bars=validBars(await fetchBars(target,now),target.tf,now);const last=bars.at(-1);
+ meta.source=last.source||meta.source;meta.marketType=last.market==='spot'?'SPOT_RESEARCH_PROXY':'PERPETUAL_OR_PROVIDER_NATIVE';meta.lastCompleteAt=new Date(last.start+Number(target.tf)*60000).toISOString();meta.status='research_data_valid';
  const result=signals.evaluate(bars,target.tf,{now,market:target.market,symbol:target.symbol});
  const models=result.models.filter(m=>m.ageBars<=2&&m.status==='watching'&&Number.isFinite(m.entry)&&Number.isFinite(m.stop)&&Number.isFinite(m.target));meta.modelCount=models.length;
  for(const model of models){const news=gates.checkNews(economic.ok?economic.feed:null,target,now);

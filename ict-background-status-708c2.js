@@ -47,7 +47,7 @@
    status.dataset.bad=valid?'0':'1';
    if(Number.isFinite(last))line('آخر فحص — نيويورك: '+new Intl.DateTimeFormat('ar-EG',{timeZone:'America/New_York',dateStyle:'medium',timeStyle:'short'}).format(new Date(last))+' | فلسطين: '+new Intl.DateTimeFormat('ar-EG',{timeZone:'Asia/Gaza',dateStyle:'medium',timeStyle:'short'}).format(new Date(last)));
    const c=d.marketSummary||{};line('الأسواق: '+Number(c.valid||0)+' صالحة من '+Number(c.configured||0)+' · '+Number(c.blocked||0)+' معلقة');
-   for(const [symbol,item] of Object.entries(d.targets||{}).slice(0,12))line(symbol+' — '+(fresh&&item.status==='research_data_valid'&&!item.stale?'بيانات بحثية حديثة':'معلّق أو قديم')+(item.error?' · '+String(item.error).slice(0,90):''));
+   for(const [symbol,item] of Object.entries(d.targets||{}).slice(0,12))line(symbol+' — '+(fresh&&item.status==='research_data_valid'&&!item.stale?'بيانات بحثية حديثة':'معلّق أو قديم')+(item.error?' · '+String(item.error).slice(0,90):'')+(item.status==='research_data_valid'&&item.source?' · المصدر: '+String(item.source).slice(0,70):''));
    line('الأخبار: '+(d.safety?.economic?.ok?'تغذية متاحة':'غير مكتملة / معلقة')+' · Bid/Ask: غير متصل · المخاطرة: محلية فقط · الموافقة التنفيذية: غير متاحة');
    const entries=Array.isArray(d.observations)?d.observations.slice(0,16):[];
    const heading=document.createElement('h3');heading.textContent='النماذج المرصودة في آخر فحوص مجانية';results.append(heading);
