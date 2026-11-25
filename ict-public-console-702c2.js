@@ -5,6 +5,11 @@ function populate(){symbol.replaceChildren();for(const [name,provider] of api.MA
 function addMeta(label,v){const span=document.createElement('span');span.textContent=label+': '+v;meta.append(span)}
 function cell(tr,value){const td=document.createElement('td');td.textContent=String(value);tr.append(td)}
 function fmt(v){return Number(v).toLocaleString('en-US',{maximumFractionDigits:6})}
+const key=el('ict-usd-service-key');
+if(key){
+ key.value=api.sessionKey();
+ key.addEventListener('input',()=>api.saveKey(key.value));
+}
 market.addEventListener('change',populate);
 btn.addEventListener('click',async()=>{if(busy)return;busy=true;btn.disabled=true;rows.replaceChildren();meta.replaceChildren();let ins;try{ins=api.resolve(market.value,symbol.value);status('جارٍ الاتصال بخدمة OANDA Practice لجلب '+ins.providerSymbol+'…','warn');const candles=await api.get(ins,frame.value),complete=candles.filter(x=>x.confirmed);if(!candles.length){status('المزود لم يرجع شموعًا لهذا الأصل والإطار.','bad');return}const last=complete.at(-1),age=last?Date.now()-last.start:Infinity,barMs=Number(api.FRAMES[frame.value])*60000;const stale=age>Math.max(4*barMs,frame.value==='1day'?5*86400000:3600000);addMeta('وقت الفحص',window.ICTMarketTimes.format(Date.now()));addMeta('المصدر',ins.source);addMeta('رمز المصدر',ins.providerSymbol);addMeta('العملة المسعّر بها',ins.quote);addMeta('المكتملة',complete.length);addMeta('الجارية',candles.length-complete.length);addMeta('آخر إغلاق',last?fmt(last.close):'—');addMeta('وقت آخر شمعة مكتملة',last?window.ICTMarketTimes.format(last.start):'—');for(const r of candles.slice(-18).reverse()){const tr=document.createElement('tr');for(const v of [window.ICTMarketTimes.format(r.start),fmt(r.open),fmt(r.high),fmt(r.low),fmt(r.close),r.confirmed?'مكتملة':'جارية / غير مؤكدة'])cell(tr,v);rows.append(tr)}if(!last)status('الاستجابة تحتوي شموعًا غير مكتملة فقط؛ لا تعتمدها للتحليل.','bad');else if(stale)status('تم جلب الشموع لكن آخر شمعة مكتملة قديمة بالنسبة للإطار المختار؛ قد تكون السوق مغلقة أو التغذية متأخرة.','bad');else status('تم استقبال '+candles.length+' شمعة. بيانات طرف ثالث؛ تحقق من تطابق السعر مع وسيطك قبل أي تحليل.','ok');}catch(e){status('تعذر جلب الشموع: '+String(e.message||e)+' — تأكد من إتاحة الرمز واتصال الموقع والمصدر.','bad')}finally{busy=false;btn.disabled=false}});
 populate();

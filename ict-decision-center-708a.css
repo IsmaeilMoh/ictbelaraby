@@ -8,4 +8,4 @@ html[data-theme="light"] #ict-decision-8a .dc-panel,body[data-theme="light"] #ic
 
 #dc-background-output:not(:empty){margin-top:13px}
 
-#ict-decision-8a #dc-oanda-access[hidden]{display:none}
+#ict-decision-8a .dc-actions[hidden]{display:none}
