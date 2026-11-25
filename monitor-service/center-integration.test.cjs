@@ -30,7 +30,7 @@ for(const group of ['metals','forex','indices','stocks','energy']){
  assert.ok(html.includes('value="'+group+'"'),'public market category: '+group);
 }
 assert.match(decision,/if\(publicView\(\)\|\|busy/,'unsupported instruments never run the ICT price scanner');
-const {inspect:inspectQuote}=require('./audit-public-markets.cjs');
+const {inspect:inspectQuote,countCatalogMatches}=require('./audit-public-markets.cjs');
 const quote={symbol:'EURUSD',status:'LIVE',bid:'1.08',ask:'1.09',time:'2026-11-25T12:00:00Z'};
 const sampledAt=Date.parse(quote.time)+1000;
 const response={cors:true,data:{data:[quote]}};
@@ -38,6 +38,11 @@ assert.equal(inspectQuote('EURUSD',response,sampledAt),'Fresh Bid/Ask snapshot w
 assert.equal(inspectQuote('EURUSD',response,sampledAt+15000),'Timestamp fails 15s freshness');
 assert.equal(inspectQuote('EURUSD',{data:{data:[{...quote,status:'MARKET_CLOSED'}]}},sampledAt),'MARKET_CLOSED');
 assert.equal(inspectQuote('USDJPY',response,sampledAt),'No matching quote');
+const listed={status:'live',networkType:'mainnet',baseAsset:'EUR',quoteAsset:'USD'};
+const catalog={data:{feeds:[listed,{...listed,networkType:'testnet'},{...listed,quoteAsset:'JPY'},{...listed,status:'testing'}]}};
+assert.equal(countCatalogMatches(catalog,['EUR','USD']),'1 listed catalog entries');
+assert.equal(countCatalogMatches(catalog,['USD','EUR']),'No matching public catalog record');
+assert.equal(countCatalogMatches({failure:'HTTP 503'},['EUR','USD']),'HTTP 503 (unverified)');
 let now=1_000_000,clicks=0,tick,unload,visible;
 const button={disabled:false,click(){clicks++}};
 const doc={hidden:false,readyState:'complete',getElementById(id){return id==='dc-bg-free-check'?button:id==='dc-background-8c2'?{}:null;},addEventListener(event,fn){if(event==='visibilitychange')visible=fn}};

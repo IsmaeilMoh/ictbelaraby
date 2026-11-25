@@ -33,6 +33,39 @@ function inspect(symbol,reply,now){
  return reply.cors?'Fresh Bid/Ask snapshot with CORS':'Fresh Bid/Ask snapshot, browser CORS unverified';
 }
 
+// Index and crude aliases are catalog lookups only, never instrument substitutions.
+const discoveryAliases={
+ NAS100:['NDX','USD'],US500:['SPX','USD'],US30:['DJI','USD'],
+ USOIL:['WTI','USD'],UKOIL:['BRENT','USD']
+};
+function discoveryPair(group,symbol){
+ if(group==='forex'||group==='metals')return [symbol.slice(0,3),symbol.slice(3)];
+ return discoveryAliases[symbol]??[symbol,'USD'];
+}
+function countCatalogMatches(reply,[baseAsset,quoteAsset]){
+ if(reply.failure)return reply.failure+' (unverified)';
+ if(!Array.isArray(reply.data?.feeds))return 'Unexpected catalog response';
+ const matches=reply.data.feeds.filter(feed=>feed?.status==='live'&&feed.networkType==='mainnet'&&
+  feed.baseAsset===baseAsset&&feed.quoteAsset===quoteAsset);
+ return matches.length?matches.length+' listed catalog entries':'No matching public catalog record';
+}
+async function auditDiscovery(instruments){
+ const url=new URL('https://api.dataengine.chain.link/api/v1/discovery');
+ const checks=instruments.map(({group,symbol})=>({group,symbol,pair:discoveryPair(group,symbol)}));
+ url.searchParams.set('base_asset',[...new Set(checks.map(({pair})=>pair[0]))].join(','));
+ url.searchParams.set('status','live');
+ url.searchParams.set('network_type','mainnet');
+ const reply=await get(url);
+ console.log('### Chainlink public discovery (metadata only)');
+ console.log('The catalog is free to query. Mainnet reports use authenticated subscription access; no reports or candles were requested.');
+ console.log('');
+ console.log('| Asset class | Site symbol | Catalog lookup | Discovery result |');
+ console.log('| --- | --- | --- | --- |');
+ for(const {group,symbol,pair} of checks){
+  console.log('| '+group+' | '+symbol+' | '+pair.join('/')+' | '+countCatalogMatches(reply,pair)+' |');
+ }
+ console.log('');
+}
 async function main(){
  const instruments=Object.entries(PUBLIC_QUOTES).flatMap(([group,items])=>Object.keys(items).map(symbol=>({group,symbol})));
  console.log('### Traditional market source audit');
@@ -52,12 +85,14 @@ async function main(){
  console.log('');
  console.log('A matching quote symbol does not establish contract/venue equivalence. A fresh snapshot does not establish continuous monitoring.');
  console.log('');
+ await auditDiscovery(instruments);
  console.log('### Other free plans (documented limits)');
  console.log('| Provider | Relevant coverage | Limitation for this public site |');
  console.log('| --- | --- | --- |');
  console.log('| [SiftingIO](https://sifting.io/pricing) | Forex, metals, energy, US equities | Free tier is for internal use |');
  console.log('| [iTick](https://itick.io/en/pricing) | Forex, metals, indices, equities, energy futures | Free tier is for personal use |');
  console.log('| [TraderMade](https://marketdata.tradermade.com/docs/restful-api/free-tier.pdf) | Forex and CFDs | Free live REST prices are midpoint; not live Bid/Ask |');
+ console.log('| [Pyth Core / Hermes](https://www.pyth.network/blog/the-pyth-core-upgrade) | FX, metals, equities and commodities | Authenticated data plan required; no verified free public package for candles plus Bid/Ask |');
  console.log('| [IEX Exchange](https://www.iex.io/products/equities/market-data-connectivity) | US equities | Public IEX API was retired; direct real-time feeds require separate connectivity |');
  console.log('');
  try{
@@ -68,9 +103,9 @@ async function main(){
   const restored=hasScanControls&&!hasPublicChart&&!html.includes('id="dc-oanda-key"');
   console.log('GitHub Pages scan form: '+(restored?'restored layout verified':hasPublicChart?'earlier layout with embedded quote still deployed':'not verified (HTTP '+result.status+')'));
  }catch(error){
-  console.log('GitHub Pages public-price UI: not verified ('+(error.cause?.code||error.name)+')');
+  console.log('GitHub Pages scan form: not verified ('+(error.cause?.code||error.name)+')');
  }
 }
 
 if(require.main===module)main().catch(error=>{console.error(error.message);process.exitCode=1});
-module.exports={inspect};
+module.exports={inspect,countCatalogMatches};
