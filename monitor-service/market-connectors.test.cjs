@@ -1,15 +1,21 @@
 'use strict';
 const assert=require('node:assert/strict');
-const source=require('./ict-public-markets-702c2.js');
+const source=require('../ict-public-markets-702c2.js')
+const {candles}=require('./oanda-practice.js');;
 const bybit=require('./ict-live-feed-702a.js');
 const now=Date.parse('2026-11-24T12:42:00Z');
 const ms=900000,start=Math.floor(now/ms)*ms-35*ms;
-const rows=Array.from({length:36},(_,i)=>({openTime:new Date(start+i*ms).toISOString(),open:1.08,high:1.10,low:1.07,close:1.09,isOpen:i===35}));
+const rows=Array.from({length:36},(_,i)=>({time:new Date(start+i*ms).toISOString(),mid:{o:'1.08',h:'1.10',l:'1.07',c:'1.09'},complete:i!==35}));
 const ins=source.resolve('forex','EURUSD');
-const parsed=source.parse({symbol:'EURUSD',interval:'15m',bars:rows},ins,'15min',now);
-assert.equal(parsed.length,36);assert.equal(parsed[0].confirmed,true);assert.equal(parsed[35].confirmed,false);
-assert.throws(()=>source.parse({symbol:'XAUUSD',interval:'15m',bars:rows},ins,'15min',now),/رمز الاستجابة/);
-assert.throws(()=>source.parse({symbol:'EURUSD',interval:'15m',bars:[rows[0],rows[0]]},ins,'15min',now),/مكررة/);
+const parsed=candles({instrument:ins.providerSymbol,granularity:'M15',candles:rows},ins.providerSymbol,'15',now);
+assert.equal(parsed.length,35);assert.equal(parsed[0].confirmed,true);
+assert.throws(()=>candles({instrument:'XAU_USD',granularity:'M15',candles:rows},ins.providerSymbol,'15',now),/IDENTITY/);
+assert.throws(()=>candles({instrument:'EUR_USD',granularity:'M15',candles:[rows[0],rows[0]]},ins.providerSymbol,'15',now),/INVALID_CANDLE/);
+const daily={instrument:'EUR_USD',granularity:'D',candles:[{...rows[0],time:'2026-03-07T22:00:00Z'}]};
+assert.equal(candles(daily,'EUR_USD','1440',Date.parse('2026-03-08T21:00:00Z')).length,1);
+assert.throws(()=>candles(daily,'EUR_USD','1440',Date.parse('2026-03-08T20:59:00Z')),/INVALID_CANDLE/);
+daily.candles[0].time='2026-10-31T21:00:00Z';
+assert.equal(candles(daily,'EUR_USD','1440',Date.parse('2026-11-01T22:00:00Z')).length,1);
 const b=bybit.parseHistory({retCode:0,result:{symbol:'BTCUSDT',list:[
  [start+34*ms,'100','103','99','102','25','20'],[start+33*ms,'100','104','98','101','30','20']
 ]}},'BTCUSDT','15',now);

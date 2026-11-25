@@ -14,7 +14,7 @@ async function run() {
     ] }) };
   });
   assert.deepEqual([...instruments], [symbol]);
-  assert.equal(targets.length, 16);
+  assert.equal(targets.length, 12);
   assert.throws(() => parseTargets('kraken:BTCUSDT:5'), /UNSUPPORTED/);
   const now = Date.parse('2026-11-25T12:01:00Z');
 

@@ -6,7 +6,7 @@
       flush_interval -1
     }
   }
-  @allowed path /health /snapshot /market-research /oanda-research
+  @allowed path /health /snapshot /market-research /oanda-research /oanda-candles
   handle @allowed {
     reverse_proxy monitor:8787
   }

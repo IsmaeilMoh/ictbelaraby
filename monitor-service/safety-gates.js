@@ -33,21 +33,21 @@ function checkStructure(model,maxStopDistancePct=5){const {entry,stop,target,dir
  if(direction==='bull'&&!(stop<entry&&entry<target)||direction==='bear'&&!(target<entry&&entry<stop))return {status:'blocked',reason:'WRONG_LEVEL_ORDER'};
  return {status:'clear_research_only',reason:'STRUCTURAL_LEVELS_VALID',stopDistancePct:dist};}
 async function fetchFreeCalendar(now,options={}){
- // Free provider is an optional fallback; never claim complete multi-source coverage.
- const endpoint='https://biquote.io/api/calendar?importance=high&limit=300';
+ const endpoint='https://raw.githubusercontent.com/IsmaeilMoh/ictbelaraby/main/calendar-live.json';
  try{
   const response=await (options.fetch||global.fetch)(endpoint,{signal:AbortSignal.timeout(7000),headers:{Accept:'application/json'},cache:'no-store'});
   if(!response.ok)throw Error('HTTP_'+response.status);
   const body=await response.text();if(body.length>1000000)throw Error('ECONOMIC_FEED_TOO_LARGE');
-  const raw=JSON.parse(body);if(!Array.isArray(raw)||raw.length>500||!raw.length)throw Error('FREE_CALENDAR_EMPTY_OR_INVALID');
-  const shaped=raw.filter(e=>e&&String(e.importance||'').toLowerCase()==='high').map(e=>({
-   time_utc:e.timeMode==='exact'?e.time:null,
-   currency:e.currency,
-   impact:'high',title:e.name||e.title||'حدث اقتصادي'
+  const raw=JSON.parse(body);
+  const stamp=isoTime(raw?.updatedAt);
+  if(raw?.source!=='Forex Factory'||!Array.isArray(raw.events)||!raw.events.length||raw.events.length>500)throw Error('INVALID_SNAPSHOT');
+  if(!Number.isFinite(stamp)||stamp>now||now-stamp>48*3600000)throw Error('STALE_SNAPSHOT');
+  const shaped=raw.events.filter(e=>e&&!['low','medium','holiday'].includes(String(e.impact).toLowerCase())).map(e=>({
+   time_utc:e.date,currency:e.country,impact:e.impact,title:e.title
   }));
   const normalized={...normalizeFeed(shaped),partial:true};
   if(!normalized.events.some(e=>e.time>=now-3600000&&e.time<=now+7*86400000))throw Error('NO_CURRENT_OR_UPCOMING_EVENT_COVERAGE');
-  return {ok:true,feed:normalized,source:'Biquote calendar free (single-source, not official-verified)',receivedAt:new Date(now).toISOString(),eventCount:normalized.events.length,invalid:normalized.invalid};
+  return {ok:true,feed:normalized,source:'Forex Factory via site calendar (single-source)',receivedAt:new Date(now).toISOString(),eventCount:normalized.events.length,invalid:normalized.invalid};
  }catch(e){return {ok:false,reason:'FREE_CALENDAR_'+String(e.message||e).slice(0,115)}}
 }
 async function fetchEconomic(url,now,options={}){if(!url)return fetchFreeCalendar(now,options);

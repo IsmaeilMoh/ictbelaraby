@@ -32,10 +32,10 @@ test().catch(e=>{console.error(e);process.exitCode=1});
 (async()=>{
  const {fetchFreeCalendar,checkNews}=require('./safety-gates.js');
  const base=Date.parse('2026-11-24T12:00:00Z');
- const fake=rows=>async()=>({ok:true,text:async()=>JSON.stringify(rows)});
- const good=await fetchFreeCalendar(base,{fetch:fake([{time:'2026-11-24T12:30:00Z',timeMode:'exact',currency:'USD',importance:'high',name:'High-impact CPI'}])});
+ const fake=rows=>async()=>({ok:true,text:async()=>JSON.stringify({updatedAt:new Date(base).toISOString(),source:"Forex Factory",events:rows})});
+ const good=await fetchFreeCalendar(base,{fetch:fake([{date:'2026-11-24T12:30:00Z',country:'USD',impact:'high',title:'High-impact CPI'}])});
  assert.equal(good.ok,true);assert.equal(good.eventCount,1);assert.equal(checkNews(good.feed,{market:'metals',symbol:'XAUUSD'},base).status,'blocked');
- const tentative=await fetchFreeCalendar(base,{fetch:fake([{time:'2026-11-24T12:30:00Z',timeMode:'tentative',currency:'USD',importance:'high',name:'Tentative CPI'}, {time:'2026-11-24T15:00:00Z',timeMode:'exact',currency:'USD',importance:'high',name:'Some event'}])});
+ const tentative=await fetchFreeCalendar(base,{fetch:fake([{date:null,country:'USD',impact:'high',title:'Tentative CPI'}, {date:'2026-11-24T15:00:00Z',country:'USD',impact:'high',title:'Some event'}])});
  assert.equal(tentative.ok,true);assert.ok(tentative.invalid>=1);assert.equal(checkNews(tentative.feed,{market:'metals',symbol:'XAUUSD'},base).status,'blocked');
  const empty=await fetchFreeCalendar(base,{fetch:fake([])});assert.equal(empty.ok,false);
  console.log('Free calendar fallback safety tests: PASS');

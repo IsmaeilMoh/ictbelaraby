@@ -54,10 +54,11 @@ function publicSnapshot(data,now=Date.now()){
  for(const [id,val] of Object.entries(data.targets||{}).slice(0,16)){
   if(!/^[a-z]+:[A-Z0-9_]+:(5|15)$/.test(id)||!val||typeof val!=='object')continue;
   const [market,symbol,frame]=id.split(':');
+  if(!['spot','crypto','kraken'].includes(market))continue;
   if(market==='kraken'&&!kraken.SYMBOLS.includes(symbol))continue;
   if(val.market!==market||val.symbol!==symbol||String(val.frame)!==frame)continue;
   const marketType=market==='spot'?'SPOT_RESEARCH':['crypto','kraken'].includes(market)?'PERPETUAL':'PROVIDER_NATIVE';
-  const source=market==='spot'?spot.SOURCE:market==='crypto'?'Bybit V5 USDT perpetual':market==='kraken'?kraken.SOURCE:'Biquote independent feed';
+  const source=market==='spot'?spot.SOURCE:market==='crypto'?'Bybit V5 USDT perpetual':kraken.SOURCE;
   const last=Date.parse(val.lastCompleteAt||'');
   const legacyProxy=market!=='spot'&&(/SPOT/.test(val.marketType||'')||/Binance/i.test(val.source||''));
   const status=val.status==='not_checked'?'not_checked':val.status==='research_data_valid'&&!legacyProxy?'research_data_valid':'blocked';
@@ -118,7 +119,7 @@ async function main(){
  await fs.mkdir(OUT,{recursive:true});
  // Failure of a data source MUST NOT result in a misleading success payload.
  const monitor=runner.start({noHttp:true,noSchedule:true});
- try{await runner.restore();await runner.cycle();const snapshot=runner.snapshot();const payload=publicSnapshot(snapshot);
+ try{await runner.restore();await runner.cycle();const snapshot=runner.snapshot({publicOnly:true});const payload=publicSnapshot(snapshot);
   await fs.writeFile(OUTFILE,JSON.stringify(payload,null,2)+'\n','utf8');
   process.stdout.write('One-shot market scan: '+payload.marketSummary.valid+'/'+payload.marketCount+' fresh sources; approval=false\n');
   for(const [id,t] of Object.entries(payload.targets)){
