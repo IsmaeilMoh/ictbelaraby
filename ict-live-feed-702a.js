@@ -47,6 +47,23 @@
    if(data.retCode!==0)throw Error('BYBIT_CODE_'+String(data.retCode));return parseHistory(data,p.symbol,p.interval,options.now||Date.now());
   }finally{clearTimeout(timer)}
  }
+ function parseBook(payload,symbol,now=Date.now()){
+  const market=payload?.result;
+  if(payload?.retCode!==0||market?.s!==symbol)throw Error('BYBIT_ORDERBOOK_IDENTITY');
+  const at=market.cts??market.ts,bid=Number(market.b?.[0]?.[0]),ask=Number(market.a?.[0]?.[0]);
+  if(!Number.isSafeInteger(at)||at>now||now-at>15000||!Number.isFinite(bid)||!Number.isFinite(ask)||bid<=0||bid>=ask)throw Error('BYBIT_ORDERBOOK_STALE_OR_INVALID');
+  return {at,bid,ask};
+ }
+ async function fetchBook(symbol,fetchImpl=globalThis.fetch){
+  const pair=checkPair(symbol,'5');
+  const url=new URL('/v5/market/orderbook',REST);
+  url.searchParams.set('category','linear');
+  url.searchParams.set('symbol',pair.symbol);
+  url.searchParams.set('limit','1');
+  const response=await fetchImpl(url.toString(),{cache:'no-store',signal:AbortSignal.timeout(5000)});
+  if(!response.ok)throw Error('BYBIT_HTTP_'+response.status);
+  return parseBook(await response.json(),pair.symbol);
+ }
  function connect(options){options=options||{};const pair=checkPair(options.symbol,options.interval);const events=options.onEvent||(()=>{});
   const Socket=options.WebSocket||globalThis.WebSocket;if(typeof Socket!=='function')throw Error('WEBSOCKET_UNAVAILABLE');
   let socket=null,closed=false,retry=0,timer=null,lastMessage=0;
@@ -61,5 +78,5 @@
   }catch(error){notify('error',{message:error.message});retry++;timer=setTimeout(start,Math.min(30000,1000*2**Math.min(retry,5)))}}
   start();return {close(){closed=true;clearTimeout(timer);if(socket){socket.onclose=null;socket.close()}},lastMessageAt(){return lastMessage}};
  }
- return Object.freeze({VERSION,REST,WS,SYMBOLS,INTERVALS,checkPair,parseRow,parseHistory,parseStream,merge,fetchHistory,connect});
+ return Object.freeze({VERSION,REST,WS,SYMBOLS,INTERVALS,checkPair,parseRow,parseHistory,parseStream,merge,fetchHistory,fetchBook,parseBook,connect});
 });

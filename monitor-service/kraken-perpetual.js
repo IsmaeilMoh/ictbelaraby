@@ -52,4 +52,19 @@ async function fetchHistory(symbol, frame, { instruments, now = Date.now(), fetc
   return parseCandles(await read(url.toString(), fetchImpl), symbol, frame, now);
 }
 
-module.exports = { SYMBOLS, SOURCE, fetchInstruments, fetchHistory, parseCandles };
+async function fetchLastTrade(symbol,{instruments,fetchImpl=globalThis.fetch,clock=Date.now}={}){
+  if(!SYMBOLS.includes(symbol)||!instruments?.has(symbol))throw Error('KRAKEN_PERPETUAL_NOT_VERIFIED');
+  const url=new URL('/derivatives/api/v3/history',BASE);
+  url.searchParams.set('symbol',symbol);
+  const data=await read(url.toString(),fetchImpl);
+  const latest=data?.history?.[0];
+  const at=typeof latest?.time==='string'&&/(?:Z|[+-]\d{2}:\d{2})$/.test(latest.time)?Date.parse(latest.time):NaN;
+  const value=latest?.price;
+  const price=typeof value==='string'&&value.trim()!==''?Number(value):value,now=clock();
+  if(data?.result!=='success'||!Number.isFinite(price)||price<=0||!Number.isFinite(at)||at>now||now-at>15000){
+    throw Error('KRAKEN_TRADE_STALE_OR_INVALID');
+  }
+  return {at,price};
+}
+
+module.exports = { SYMBOLS, SOURCE, fetchInstruments, fetchHistory, fetchLastTrade, parseCandles };

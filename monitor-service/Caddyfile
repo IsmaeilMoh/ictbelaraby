@@ -1,6 +1,6 @@
 {$MONITOR_DOMAIN} {
   encode zstd gzip
-  @allowed path /health /snapshot
+  @allowed path /health /snapshot /market-research
   handle @allowed {
     reverse_proxy monitor:8787
   }

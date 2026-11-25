@@ -10,6 +10,7 @@ const traditional=require('./ict-public-markets-702c2.js');
 const structure=require('./ict_phase2d/ict-structure-engine-702d.js');
 const signals=require('./ict_phase2e/ict-signal-engine-702e.js');
 const gates=require('./safety-gates.js');
+const lifecycle=require('../ict-opportunity-lifecycle-708b.js');
 const {inspectHourly}=require('./hourly-context.js');
 const quotesGuard=require('./execution-quotes.js');
 const started=Date.now();
@@ -31,7 +32,7 @@ function parseTargets(str){const parsed=[];for(const raw of str.split(',')){
  const id=[market,symbol,tf].join(':');if(!parsed.some(x=>x.id===id))parsed.push({id,market,symbol,tf});
  }if(!parsed.length||parsed.length>16)throw Error('TARGET_COUNT_MUST_BE_1_TO_16');return parsed}
 const targets=parseTargets(process.env.MONITOR_TARGETS||DEFAULT);
-let state={schema:'ict-research-monitor/1',startedAt:new Date(started).toISOString(),lastCycleAt:null,targets:{},observations:[],cycleCount:0,readyForExecution:false,limitations:['لا توجد تغذية Bid/Ask تنفيذية','بوابة الأخبار اختيارية وتفشل بالإغلاق عند نقص التغطية','مخاطرة الحساب الشخصي غير مرتبطة بالخادم','لا تُرسل إشعارات Push','نتائج بحثية وليست صفقات أو توصيات معتمدة']};
+let state={schema:'ict-research-monitor/1',startedAt:new Date(started).toISOString(),lastCycleAt:null,targets:{},observations:[],forward:{},cycleCount:0,readyForExecution:false,limitations:['لا توجد تغذية Bid/Ask تنفيذية','بوابة الأخبار اختيارية وتفشل بالإغلاق عند نقص التغطية','مخاطرة الحساب الشخصي غير مرتبطة بالخادم','لا تُرسل إشعارات Push','نتائج بحثية وليست صفقات أو توصيات معتمدة']};
 let stopping=false,inCycle=false,timer=null;
 let lastCycleError=null;
 const economicUrl=process.env.ECONOMIC_FEED_URL||'';
@@ -120,6 +121,25 @@ function validBars(bars,tf,now){
  return consecutive.map(b=>raw.get(b.start));
 }
 function recentObservation(m,target,now,news,structureGate,previous){return {id:target.id+':'+String(m.id),market:target.market,symbol:target.symbol,frame:target.tf,formedAt:m.formedAt,detectedAt:previous?.detectedAt||new Date(now).toISOString(),checkedAt:new Date(now).toISOString(),research:m.research,status:'research_only_blocked',reason:'غير معتمدة للتنفيذ: لا توجد مراجعة مخاطرة حساب أو أسعار Bid/Ask',newsGate:news,structureGate,accountRiskGate:'not_verified',side:m.direction==='bull'?'BUY':'SELL',entry:m.entry,stop:m.stop,target:m.target,model:'Sweep → MSS → FVG',zone:{low:m.zone.low,high:m.zone.high},evidence:{sweepAt:m.sweepAt,mssAt:m.mssAt,fvgAt:m.fvgAt},reasonCodes:['ACCOUNT_RISK_NOT_VERIFIED','EXECUTION_QUOTE_NOT_VERIFIED']};}
+// Keep records separated by venue, instrument and timeframe, including after a restart.
+function updateForward(previous,target,bars,observations,now){
+ const ms=lifecycle.FRAME[target.tf];
+ const advanced=(previous||[]).map(record=>lifecycle.advance(record,bars,now));
+ const known=new Set(advanced.map(r=>r.id));
+ const current=bars.at(-1).start+ms===Math.floor(now/ms)*ms;
+ const candidates=current?observations.filter(o=>o.research.phase==='observed'||o.research.phase==='awaiting_confirmation'):[];
+ for(const o of candidates){
+  if(known.has(o.id))continue;
+  const row=lifecycle.create({...o,evidence:[],blocks:[
+   ...(o.newsGate.status==='clear_research_only'?[]:['بوابة الأخبار معلّقة']),
+   ...(o.hourlyAligned?[]:['اتجاه الساعة غير مؤكد']),
+   'سعر التنفيذ ومخاطرة الحساب غير متحقق منهما'
+  ],modelEvidence:[o.evidence.sweepAt,o.evidence.mssAt,o.evidence.fvgAt]},now,{researchOnly:true});
+  advanced.unshift(row);
+  known.add(o.id);
+ }
+ return advanced.filter(r=>!lifecycle.closed(r)).concat(advanced.filter(lifecycle.closed)).slice(0,32);
+}
 async function check(target,draft,calendar,getKrakenInstruments,getHourly){const now=Date.now();
  const previousModels=new Map(draft.observations.filter(x=>x.id.startsWith(target.id+':')).map(x=>[x.id,x]));
  const previous=draft.targets[target.id]||{};const meta={market:target.market,symbol:target.symbol,frame:target.tf,lastAttempt:new Date(now).toISOString(),source:target.market==='crypto'?'Bybit V5 USDT':target.market==='spot'?cryptoSpotBackup.SOURCE:target.market==='kraken'?kraken.SOURCE:'Biquote independent feed',status:'unavailable',lastCompleteAt:null,modelCount:0};
@@ -138,8 +158,14 @@ async function check(target,draft,calendar,getKrakenInstruments,getHourly){const
   if(model.ageBars>12||!model.research)continue;
   meta.patternCounts.recent++;
   const plan=gates.checkStructure(model,maxStopDistancePct);
-  if(plan.status==='clear_research_only')observations.push(recentObservation(model,target,now,news,plan,previousModels.get(target.id+':'+model.id)));
+  if(plan.status==='clear_research_only'){
+   const row=recentObservation(model,target,now,news,plan,previousModels.get(target.id+':'+model.id));
+   row.hourlyAligned=meta.hourlyContext.aligned?.includes(model.direction)===true;
+   row.trackable=model.status==='watching'&&model.ageBars<=6;
+   observations.push(row);
+  }
  }
+ draft.forward[target.id]=updateForward(draft.forward[target.id],target,bars,observations.filter(o=>o.trackable),Date.now());
  meta.patternCounts.valid=observations.length;
  meta.modelCount=observations.length;
  meta.newsGate=news.status;
@@ -161,6 +187,8 @@ async function restore(){
   if(existing?.schema!==state.schema||!Array.isArray(existing.observations)||!existing.targets||typeof existing.targets!=='object')return false;
   state.observations=existing.observations.filter(x=>x&&typeof x.id==='string'&&x.status==='research_only_blocked'&&x.research&&x.checkedAt).slice(0,100);
   state.targets=Object.fromEntries(Object.entries(existing.targets).filter(([id,value])=>targets.some(t=>t.id===id)&&value?.marketType!=='SPOT_RESEARCH_PROXY'));
+  state.forward=Object.fromEntries(targets.map(t=>[t.id,Array.isArray(existing.forward?.[t.id])?
+   existing.forward[t.id].filter(r=>lifecycle.valid(r)&&r.market===t.market&&r.symbol===t.symbol&&r.frame===t.tf&&Array.isArray(r.events)).slice(0,32):[]]));
   state.cycleCount=Number.isSafeInteger(existing.cycleCount)&&existing.cycleCount>=0?existing.cycleCount:0;
   state.lastCycleAt=typeof existing.lastCycleAt==='string'?existing.lastCycleAt:null;
   return true;
@@ -170,7 +198,7 @@ async function persist(draft){const tmp=storage+'.tmp';await fs.mkdir(path.dirna
 async function cycle(){if(inCycle||stopping)return;inCycle=true;try{
  const calendar=await gates.fetchEconomic(economicUrl,Date.now());
  const quotes=await quotesGuard.fetchQuotes(quoteUrl,Date.now());
- const draft={...state,targets:{...state.targets}};
+ const draft={...state,targets:{...state.targets},forward:{...state.forward}};
  let krakenInstruments;
  const getKrakenInstruments=()=>krakenInstruments??=kraken.fetchInstruments();
  const hourly=new Map();
@@ -214,10 +242,38 @@ function snapshot(){const now=Date.now(),last=state.lastCycleAt?Date.parse(state
  }):[];
  return {...state,observations,safety:{economic:{ok:economic.ok,reason:economic.reason||null,eventCount:economic.eventCount||0,invalid:economic.invalid||0,receivedAt:economic.receivedAt||null},accountRisk:'not_verified',bidAsk:{connected:quoteFeed.ok,reason:quoteFeed.reason||null,receivedAt:quoteFeed.receivedAt||null},executionApproved:false},serverTime:new Date(now).toISOString(),uptimeSeconds:Math.floor((now-started)/1000),active,pollIntervalMs:intervalMs,cycleError:lastCycleError,marketDataReady,allMarketDataReady:marketDataReady&&totals.valid===totals.configured,marketSummary:totals,failingTargets,targets:checked};}
 
-function api(req,res){if(req.method!=='GET'||!['/health','/snapshot'].includes(new URL(req.url,'http://127.0.0.1').pathname)){res.writeHead(404);res.end('Not found');return}
+const directScans=new Map();
+async function directKraken(symbol,frame){
+ const key=symbol+':'+frame,now=Date.now();
+ const previous=directScans.get(key);
+ if(previous&&(previous.pending||previous.until>now))return previous.task;
+ const scan={pending:true,until:0};
+ scan.task=(async()=>{
+  const instruments=await kraken.fetchInstruments();
+  const [entry,hourly,lastTrade]=await Promise.all([
+   kraken.fetchHistory(symbol,frame,{instruments,now}),
+   kraken.fetchHistory(symbol,'60',{instruments,now}),
+   kraken.fetchLastTrade(symbol,{instruments}).catch(()=>null)
+  ]);
+  return {schema:'ict-direct-kraken/1',symbol,frame,entry,hourly,lastTrade,readyForExecution:false};
+ })().finally(()=>{scan.pending=false;scan.until=Date.now()+2500});
+ directScans.set(key,scan);
+ return scan.task;
+}
+async function api(req,res){const url=new URL(req.url,'http://127.0.0.1');
+ if(req.method!=='GET'||!['/health','/snapshot','/market-research'].includes(url.pathname)){res.writeHead(404);res.end('Not found');return}
  if(origin&&req.headers.origin===origin){res.setHeader('Access-Control-Allow-Origin',origin);res.setHeader('Vary','Origin')}
  res.setHeader('Cache-Control','no-store');res.setHeader('Content-Type','application/json; charset=utf-8');res.setHeader('X-Content-Type-Options','nosniff');
- const view=snapshot();const route=new URL(req.url,'http://127.0.0.1').pathname;
+ if(url.pathname==='/market-research'){
+  const symbol=url.searchParams.get('symbol'),frame=url.searchParams.get('frame');
+  if(!kraken.SYMBOLS.includes(symbol)||!['5','15'].includes(frame)){
+   res.writeHead(400);res.end(JSON.stringify({error:'INVALID_RESEARCH_TARGET'}));return;
+  }
+  try{const market=await directKraken(symbol,frame);res.writeHead(200);res.end(JSON.stringify(market))}
+  catch{res.writeHead(503);res.end(JSON.stringify({error:'KRAKEN_SOURCE_UNAVAILABLE'}))}
+  return;
+ }
+ const view=snapshot();const route=url.pathname;
  const payload=route==='/health'?{schema:view.schema,active:view.active,lastCycleAt:view.lastCycleAt,serverTime:view.serverTime,uptimeSeconds:view.uptimeSeconds,cycleCount:view.cycleCount,pollIntervalMs:view.pollIntervalMs,readyForExecution:false,safety:view.safety,marketCount:Object.keys(view.targets).length,marketDataReady:view.marketDataReady,allMarketDataReady:view.allMarketDataReady,marketSummary:view.marketSummary,failingTargets:view.failingTargets,cycleError:view.cycleError,targets:view.targets}:view;
  res.writeHead(200);res.end(JSON.stringify(payload));}
 function start(options={}){const httpServer=http.createServer(api);if(!options.noHttp)httpServer.listen(port,host,()=>process.stdout.write('Research monitor listening on '+host+':'+port+'\n'));
@@ -225,4 +281,4 @@ function start(options={}){const httpServer=http.createServer(api);if(!options.n
  if(!options.noSchedule){restore().then(run).catch(e=>process.stderr.write(safeError(e)+'\n'));timer=setInterval(run,intervalMs)}
  return {httpServer,cycle,stop:async()=>{stopping=true;clearInterval(timer);if(httpServer.listening)await new Promise(r=>httpServer.close(r))},snapshot};}
 if(require.main===module){const app=start();for(const sig of ['SIGTERM','SIGINT'])process.on(sig,()=>app.stop().then(()=>process.exit(0)));}
-module.exports={DATA_REASONS,sourceHistory,sourceDelay,dataReason,parseTargets,validBars,start,snapshot,cycle,restore,targets};
+module.exports={updateForward,DATA_REASONS,sourceHistory,sourceDelay,dataReason,parseTargets,validBars,start,snapshot,cycle,restore,targets};

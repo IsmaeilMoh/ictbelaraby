@@ -3,7 +3,7 @@ FROM node:22-alpine
 ENV NODE_ENV=production
 # Build from the repository root so the service uses the website's analysis engines.
 WORKDIR /app/monitor-service
-COPY ict-context-engine-703a.js ict-scenario-engine-703b.js /app/
+COPY ict-opportunity-lifecycle-708b.js ict-context-engine-703a.js ict-scenario-engine-703b.js /app/
 COPY monitor-service/package.json ./
 COPY monitor-service/server.js monitor-service/ict-live-feed-702a.js monitor-service/ict-public-markets-702c2.js monitor-service/safety-gates.js monitor-service/execution-quotes.js monitor-service/crypto-spot-backup.js monitor-service/kraken-perpetual.js monitor-service/hourly-context.js ./
 COPY monitor-service/ict_phase2d ./ict_phase2d

@@ -116,6 +116,44 @@
  function showIntegrated(entries,message){
   document.getElementById('ict-decision-8a')?.dispatchEvent(new CustomEvent('ict:background-scanned',{detail:{entries,message}}));
  }
+ function showForward(view){
+  const container=document.getElementById('dc-forward-results');
+  if(!container)return;
+  container.replaceChildren();
+  if(!Array.isArray(view?.records))return;
+  const title=document.createElement('h3');
+  title.textContent='متابعة الفرص المرصودة تلقائيًا';
+  const note=document.createElement('p');
+  const counts=view.counts||{};
+  const count=key=>Number.isSafeInteger(counts[key])&&counts[key]>=0?counts[key]:0;
+  note.textContent='بانتظار الدخول '+count('waiting')+' · قيد التقييم '+count('active')+
+   ' · بلغ الهدف '+count('won')+' · بلغ الوقف بعد الدخول '+count('lost')+
+   ' · أُلغي قبل الدخول '+count('invalidated')+' · انتهت المدة '+count('expired')+
+   ' · غير محسوم '+(count('ambiguous')+count('gap'))+'. نتائج نظرية بالشموع من السجل المحتفظ به.';
+  container.append(title,note);
+  const labels={waiting:'بانتظار الدخول',active:'قيد التقييم',won:'بلغ الهدف',lost:'بلغ الوقف',expired:'انتهت المدة',
+   ambiguous:'غير محسوم داخل الشمعة',gap:'غير محسوم بسبب فجوة',invalidated:'أُلغي قبل الدخول'};
+  for(const row of view.records.slice(0,20)){
+   if(!row||row.executionApproved!==false||!Object.hasOwn(labels,row.state)||
+      ![row.observedAt,row.entry,row.stop,row.target].every(Number.isFinite))continue;
+   const detail=document.createElement('details');
+   const entry=document.createElement('summary');
+   entry.textContent=[row.symbol,row.source,row.frame+' د',row.side,labels[row.state],
+    'رُصد '+window.ICTMarketTimes.format(row.observedAt),'الدخول '+row.entry,'الوقف '+row.stop,'الهدف '+row.target].join(' · ');
+   detail.append(entry);
+   const evidence=document.createElement('p');
+   const labelsAt=['سحب السيولة','MSS','FVG'];
+   const times=Array.isArray(row.modelEvidence)?row.modelEvidence.slice(0,3):[];
+   evidence.textContent=times.map((at,i)=>Number.isFinite(at)?labelsAt[i]+' · '+window.ICTMarketTimes.format(at):'').filter(Boolean).join(' | ');
+   if(evidence.textContent)detail.append(evidence);
+   if(Array.isArray(row.originBlocks)&&row.originBlocks.length){
+    const limits=document.createElement('p');
+    limits.textContent='وقت الرصد: '+row.originBlocks.slice(0,3).join(' · ');
+    detail.append(limits);
+   }
+   container.append(detail);
+  }
+ }
  if(freeCheck)freeCheck.addEventListener('click',async()=>{
   const snapshotUrl='https://raw.githubusercontent.com/ismaeilmoh/ictbelaraby/ict-monitor-feed/monitor-status.json';
   status.textContent='جارٍ قراءة آخر تقرير بحثي منشور على GitHub...';status.dataset.bad='1';results.replaceChildren();freeCheck.disabled=true;
@@ -170,7 +208,8 @@
       hourlyNote(item,now,x.side),
       'مخاطرة الحساب غير متحققة','أسعار Bid/Ask غير متحققة']};
    }),fresh?'لا توجد فرص للعرض في التقرير المجدول الحالي.':'التقرير المجدول قديم أو غير مكتمل.');
+   showForward(d.forward);
    line('GitHub Actions تشغيل مجدول بأفضل جهد، وليس مراقبة مستمرة أو إشعارات هاتف.');
-  }catch(e){describeError(e);showIntegrated([],'تعذر تحديث نتائج المراقبة المجدولة.')}finally{clearTimeout(timeout);freeCheck.disabled=false}
+  }catch(e){describeError(e);showForward(null);showIntegrated([],'تعذر تحديث نتائج المراقبة المجدولة.')}finally{clearTimeout(timeout);freeCheck.disabled=false}
  });
 })();

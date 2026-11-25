@@ -2,22 +2,44 @@
 (function(){'use strict';const root=document.getElementById('ict-decision-8a');if(!root)return;
 const $=id=>document.getElementById(id),market=$('dc-market'),symbol=$('dc-symbol'),frame=$('dc-frame'),roll=$('dc-roll'),account=$('dc-account'),risk=$('dc-risk'),run=$('dc-run'),monitor=$('dc-monitor'),status=$('dc-status'),output=$('dc-output'),archive=$('dc-archive');
 const crypto=['BTCUSDT','ETHUSDT','SOLUSDT','XRPUSDT'],api=window.ICTDecisionEngine708A,live=window.ICTLiveFeed,publicFeed=window.ICTPublicMarkets,acc=window.ICTAccounts7A,structure=window.ICTStructureEngine,signal=window.ICTSignalEngine,context=window.ICTContextEngine,scenario=window.ICTScenarioEngine,econ=window.ICTEconomicLink706A;
-const STORAGE='ict-8a-observation-archive-v1';let active=false,busy=false,timer=null,expiry=null,generation=0;
+const krakenSymbols=['PF_XBTUSD','PF_ETHUSD'];
+const STORAGE='ict-8a-observation-archive-v1';let active=false,busy=false,timer=null,expiry=null,quoteExpiry=null,generation=0;
 function labelTime(ts,zone){return new Intl.DateTimeFormat('ar-EG',{timeZone:zone,year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',hourCycle:'h23'}).format(new Date(ts))}
 function dual(t){return 'نيويورك: '+labelTime(t,'America/New_York')+' | فلسطين: '+labelTime(t,'Asia/Gaza')}
 function money(n){return Number.isFinite(n)?n.toLocaleString('en-US',{maximumFractionDigits:6}):'غير متاح'}
 function node(tag,value,parent,cls){const e=document.createElement(tag);if(cls)e.className=cls;e.textContent=value;parent.append(e);return e}
 function clear(el){el.replaceChildren()}
 function clearScan(){
- clearTimeout(expiry);
+ clearTimeout(expiry);clearTimeout(quoteExpiry);
  clear(output);
  root.dispatchEvent(new CustomEvent('ict:decision-cleared'));
 }
 function setState(v,bad=false){status.textContent=v;status.dataset.bad=bad?'1':'0'}
 function selectOptions(select,items,choose){clear(select);for(const item of items){const opt=document.createElement('option');opt.value=item;opt.textContent=item;select.append(opt)}if(choose&&items.includes(choose))select.value=choose}
-function marketsChanged(){const items=market.value==='crypto'?crypto:publicFeed?.MARKETS?.[market.value]?.map(x=>x[0])||[];selectOptions(symbol,items);roll.value=['forex','metals','energy'].includes(market.value)?'17':'0'}
+function marketsChanged(){const items=market.value==='crypto'?crypto:market.value==='kraken'?krakenSymbols:publicFeed?.MARKETS?.[market.value]?.map(x=>x[0])||[];selectOptions(symbol,items);roll.value=['forex','metals','energy'].includes(market.value)?'17':'0'}
 function accountsChanged(){const previous=account.value,items=acc?.list()||[];clear(account);const neutral=document.createElement('option');neutral.value='';neutral.textContent='بدون حساب — فحص بحثي فقط';account.append(neutral);for(const a of items){const o=document.createElement('option');o.value=a.id;o.textContent=a.name+' — '+(a.type==='funded'?'ممول':'شخصي')+' — '+a.currency;account.append(o)}const preferred=items.some(x=>x.id===previous)?previous:acc?.selected();if(items.some(x=>x.id===preferred))account.value=preferred||''}
-async function getBars(tf,limit){if(market.value==='crypto')return live.fetchHistory({symbol:symbol.value,interval:tf==='1h'?'60':String(tf==='5min'?'5':'15'),limit:limit||250});return publicFeed.get(publicFeed.resolve(market.value,symbol.value),tf,{limit:limit||200})}
+async function getBars(tf,limit){
+ if(market.value==='crypto')return live.fetchHistory({symbol:symbol.value,interval:tf==='1h'?'60':String(tf==='5min'?'5':'15'),limit:limit||250});
+ return publicFeed.get(publicFeed.resolve(market.value,symbol.value),tf,{limit:limit||200});
+}
+async function getKraken(contract,interval){
+ const saved=localStorage.getItem('ict-background-service-url-v1');
+ if(!saved)throw Error('أضف عنوان خدمة المراقبة واحفظه أسفل إعداد الفحص لتشغيل Kraken عند الطلب');
+ const base=new URL(saved);
+ if(base.username||base.password||base.search||base.hash||
+    (base.protocol!=='https:'&&!(base.protocol==='http:'&&['localhost','127.0.0.1'].includes(base.hostname))))throw Error('عنوان خدمة المراقبة غير صالح');
+ const endpoint=new URL(base.href.replace(/\/$/,'')+'/market-research');
+ endpoint.searchParams.set('symbol',contract);
+ endpoint.searchParams.set('frame',interval);
+ const response=await fetch(endpoint,{cache:'no-store',signal:AbortSignal.timeout(17000)});
+ if(!response.ok)throw Error('خدمة بيانات Kraken غير متاحة لهذا الفحص');
+ const data=await response.json();
+ if(data?.schema!=='ict-direct-kraken/1'||data.symbol!==contract||data.frame!==interval||data.readyForExecution!==false||
+    !Array.isArray(data.entry)||!Array.isArray(data.hourly))throw Error('استجابة Kraken غير مطابقة للأداة أو الإطار');
+ const trade=data.lastTrade;
+ const lastTrade=Number.isFinite(trade?.price)&&trade.price>0&&Number.isSafeInteger(trade.at)?trade:null;
+ return {entryBars:data.entry,hourly:data.hourly,lastTrade};
+}
 function strip(res){return {market:res.market,symbol:res.symbol,frame:res.frame,checkedAt:res.checkedAt,source:res.source,opportunities:res.opportunities.map(o=>({id:o.id,side:o.side,formedAt:o.formedAt,status:o.status,entry:o.entry,stop:o.stop,target:o.target,blocks:o.blocks})),warnings:res.warnings,blocks:res.blocks}}
 function saved(){try{const x=JSON.parse(localStorage.getItem(STORAGE)||'[]');return Array.isArray(x)?x.slice(0,30):[]}catch{return []}}
 function record(res){try{let arr=saved();arr=arr.filter(x=>!(x.symbol===res.symbol&&x.market===res.market&&x.frame===res.frame&&x.checkedAt===res.checkedAt));arr.unshift(strip(res));localStorage.setItem(STORAGE,JSON.stringify(arr.slice(0,30)))}catch{}showArchive()}
@@ -61,12 +83,22 @@ root.addEventListener('ict:background-scanned',e=>{
   message:'انتهت حداثة الشموع المعروضة؛ بانتظار تقرير جديد.'
  }})),Math.max(0,expires-Date.now()));
 });
-function show(res){clear(output);const info=block('حالة الفحص ومصادره');info.classList.add('dc-wide');node('p','الأصل: '+res.symbol+' | المصدر: '+res.source+' | إطار الدخول '+res.frame+' دقائق | الشموع المستخدمة: '+res.sourceBars,info);node('p','وقت الفحص: '+dual(res.checkedAt),info);node('p','آخر إغلاق ساعة مرجعي: '+(res.price==null?'غير متاح':money(res.price))+' | '+(res.priceAt?dual(res.priceAt+3600000):'بيانات الساعة متأخرة'),info);
+function show(res){clear(output);const info=block('حالة الفحص ومصادره');info.classList.add('dc-wide');node('p','الأصل: '+res.symbol+' | المصدر: '+res.source+' | إطار الدخول '+res.frame+' دقائق | الشموع المستخدمة: '+res.sourceBars,info);node('p','وقت الفحص: '+dual(res.checkedAt)+' | آخر إغلاق لإطار الفرصة: '+(res.lastCompleteAt?dual(res.lastCompleteAt):'غير متاح'),info);
+ const quote=node('p','Bid/Ask حديث غير متاح لهذه القراءة. مستويات الفرصة مرجعية.',info);
+ if(res.lastTrade&&res.lastTrade.at<=res.checkedAt&&res.checkedAt-res.lastTrade.at<=15000){
+  quote.textContent='آخر صفقة عامة على Kraken: '+money(res.lastTrade.price)+' USD | '+dual(res.lastTrade.at)+' · Bid/Ask غير متاح';
+  quoteExpiry=setTimeout(()=>{quote.textContent='انتهت حداثة آخر صفقة مقروءة من Kraken؛ أعد الفحص لتحديثها.'},Math.max(0,res.lastTrade.at+15000-Date.now()));
+ }
+ if(res.book&&res.book.at<=res.checkedAt&&res.checkedAt-res.book.at<=15000){
+  quote.textContent='دفتر Bybit العام · Bid '+money(res.book.bid)+' | Ask '+money(res.book.ask)+' | '+dual(res.book.at);
+  quoteExpiry=setTimeout(()=>{quote.textContent='انتهت حداثة قراءة Bid/Ask؛ أعد الفحص للحصول على تسعير جديد.'},Math.max(0,res.book.at+15000-Date.now()));
+ }
+node('p','آخر إغلاق ساعة مرجعي: '+(res.price==null?'غير متاح':money(res.price))+' | '+(res.priceAt?dual(res.priceAt+3600000):'بيانات الساعة متأخرة'),info);
  const ctx=block('السياق بنيويورك');const day=res.context.previousDay;node('p','PDH: '+money(day.high)+' | PDL: '+money(day.low),ctx);node('p',res.context.priorWeek?'PWH: '+money(res.context.priorWeek.high)+' | PWL: '+money(res.context.priorWeek.low):'الأسبوع السابق غير مكتمل',ctx);node('p','نظام اليوم: '+res.context.sourceDay,ctx);
  const safety=block('بوابات الجودة والأخبار والمخاطرة');const checks=[...res.blocks,...res.warnings];node('p',checks.length?'ملاحظات توقف اعتماد الخطة أو تحد من الوثوق:':'الفحوص العامة متاحة؛ كل نموذج يخضع أيضًا لشروطه الخاصة.',safety);if(checks.length){const ul=document.createElement('ul');safety.append(ul);checks.forEach(x=>node('li',x,ul))}node('p',res.accountName?'الحساب: '+res.accountName+' | '+(res.risk?.message||'المخاطرة غير متحققة'):'لم يُختر حساب — لا يمكن اعتماد المخاطرة',safety);if(res.nearbyNews.length){const ul=document.createElement('ul');safety.append(ul);res.nearbyNews.forEach(x=>node('li',x.title+' · '+dual(x.when),ul))}
  if(!res.opportunities.length){const empty=block('لم تتكوّن فرصة مستوفية');empty.classList.add('dc-wide');node('p','لا يوجد نموذج حديث مكتمل في فترة الشموع الحالية. لا نولّد BUY أو SELL لمجرد طلب الفحص.',empty)}
  for(const o of res.opportunities.slice(0,8))card(output,{
-  ...o,frame:res.frame,source:res.source,marketType:res.market==='crypto'?'PERPETUAL':'PROVIDER_NATIVE',
+  ...o,frame:res.frame,source:res.source,marketType:['crypto','kraken'].includes(res.market)?'PERPETUAL':'PROVIDER_NATIVE',
   detectedAt:res.checkedAt,lastCompleteAt:res.lastCompleteAt
  },'فحص يدوي');
  const note=block('حدود هذا الإصدار');note.classList.add('dc-wide');node('p',res.disclaimer,note);node('p','لا يتم تداول آلي ولا حفظ توصية كصفقة منفذة. المراقبة اليدوية المتكررة تعمل أثناء فتح الصفحة. سعر المرجع آخر إغلاق شمعة، وليس Bid/Ask مباشرًا.',note);
@@ -84,10 +116,14 @@ async function scan(auto=false){if(busy||auto&&document.hidden)return;if(!api||!
       return {ok:true,json:()=>data};
     }).finally(()=>clearTimeout(timeout));
   };
-  const [entryBars,hourly,newsState]=await Promise.all([
-    getBars(frame.value==='5'?'5min':'15min',250),
-    getBars('1h',market.value==='crypto'?1000:200),
-    Promise.resolve().then(()=>econ.loadEvents(boundedFetch)).then(value=>({ok:true,value}),error=>({ok:false,error}))
+  const contract=symbol.value;
+  const marketData=market.value==='kraken'?getKraken(contract,frame.value):
+   Promise.all([getBars(frame.value==='5'?'5min':'15min',250),getBars('1h',market.value==='crypto'?1000:200)])
+    .then(([entryBars,hourly])=>({entryBars,hourly,lastTrade:null}));
+  const [{entryBars,hourly,lastTrade},newsState,book]=await Promise.all([
+    marketData,
+    Promise.resolve().then(()=>econ.loadEvents(boundedFetch)).then(value=>({ok:true,value}),error=>({ok:false,error})),
+    market.value==='crypto'?live.fetchBook(contract).catch(()=>null):null
   ]);
   if(id!==generation||selection!==[market.value,symbol.value,frame.value,roll.value,account.value,risk.value].join('|'))return;
   const news=newsState.ok&&newsState.value&&Array.isArray(newsState.value.events)
@@ -96,6 +132,7 @@ async function scan(auto=false){if(busy||auto&&document.hidden)return;if(!api||!
   const now=Date.now(),newsCovered=econ.scheduleCovers(news.parts||[],now);
   const a=(acc.list()||[]).find(x=>x.id===account.value)||null;const res=api.inspect({market:market.value,symbol:symbol.value,frame:frame.value,candles15:entryBars,candles60:hourly,rollHour:Number(roll.value),account:a,accountEngine:acc,riskAmount:risk.value,newsChecked:news.feedsLoaded>0,newsCovered,eventFeedsLoaded:news.feedsLoaded,events:news.events,now,structureEngine:structure,signalEngine:signal,contextEngine:context,scenarioEngine:scenario});
   if(news.failures.length)res.warnings.push('تعذر تحميل بعض الأجندات: '+news.failures.join('؛ '));
+  res.book=book;res.lastTrade=lastTrade;
   show(res);record(res);
   if(res.entryFreshUntil>now)expiry=setTimeout(()=>{
    root.dispatchEvent(new CustomEvent('ict:decision-cleared'));

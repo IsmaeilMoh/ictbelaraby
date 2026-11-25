@@ -20,6 +20,31 @@ function publicHour(context,now){
   reason:reasons.has(context?.reason)?context.reason:'unknown',
   ...(Number.isSafeInteger(last)&&last<=now?{lastCompleteAt:new Date(last).toISOString()}:{})};
 }
+function publicForward(data,targets,now){
+ const rows=[];
+ for(const [id,target] of Object.entries(targets)){
+  const records=Array.isArray(data.forward?.[id])?data.forward[id].slice(0,32):[];
+  for(const row of records){
+   if(!row||typeof row.id!=='string'||!row.id.startsWith(id+':')||!['BUY','SELL'].includes(row.side)||
+      !['waiting','active','won','lost','expired','ambiguous','gap','invalidated'].includes(row.state))continue;
+   const {entry,stop,target:goal,observedAt,formedAt,updatedAt,closedAt}=row;
+   if(![entry,stop,goal,observedAt,formedAt,updatedAt].every(v=>Number.isFinite(v)&&v>0)||
+      formedAt>observedAt||observedAt>updatedAt||updatedAt>now||
+      (row.side==='BUY'?!(stop<entry&&entry<goal):!(goal<entry&&entry<stop)))continue;
+   rows.push({id:row.id.slice(0,130),market:target.market,symbol:target.symbol,frame:target.frame,source:target.source,
+    side:row.side,state:row.state,entry,stop,target:goal,observedAt,formedAt,updatedAt,
+    closedAt:Number.isFinite(closedAt)&&closedAt>=observedAt&&closedAt<=updatedAt?closedAt:null,
+    modelEvidence:Array.isArray(row.modelEvidence)?row.modelEvidence.slice(0,3).filter(at=>Number.isSafeInteger(at)&&at>0&&at<formedAt):[],
+    originBlocks:Array.isArray(row.originBlocks)?row.originBlocks.filter(x=>[
+     'بوابة الأخبار معلّقة','اتجاه الساعة غير مؤكد','سعر التنفيذ ومخاطرة الحساب غير متحقق منهما'
+    ].includes(x)).slice(0,3):[],executionApproved:false});
+  }
+ }
+ const counts=Object.fromEntries(['waiting','active','won','lost','expired','ambiguous','gap','invalidated'].map(state=>[
+  state,rows.filter(row=>row.state===state).length
+ ]));
+ return {counts,records:rows.sort((a,b)=>b.updatedAt-a.updatedAt||b.observedAt-a.observedAt).slice(0,20)};
+}
 function publicSnapshot(data,now=Date.now()){
  if(!data||data.schema!=='ict-research-monitor/1'||data.readyForExecution!==false)throw Error('UNSAFE_OR_INVALID_MONITOR_STATE');
  const stamp=typeof data.lastCycleAt==='string'?Date.parse(data.lastCycleAt):NaN;
@@ -87,7 +112,7 @@ function publicSnapshot(data,now=Date.now()){
  const values=Object.values(targets);
  const valid=values.filter(t=>t.status==='research_data_valid'&&!t.stale).length;
  const news=data.safety?.economic||{};
- return {schema:'ict-research-monitor/1',transport:'github-actions-static',generatedAt:new Date(now).toISOString(),lastCycleAt:Number.isFinite(stamp)?new Date(stamp).toISOString():null,serverTime:new Date(now).toISOString(),active:fresh,marketDataReady:fresh&&valid>0,allMarketDataReady:fresh&&values.length>0&&values.every(t=>t.status==='research_data_valid'&&!t.stale),marketCount:values.length,cycleCount:Number(data.cycleCount)||0,pollIntervalMs:10*60000,cycleError:data.cycleError?String(data.cycleError).slice(0,120):null,marketSummary:{configured:values.length,valid,blocked:values.length-valid,stale:values.filter(t=>t.stale).length,unchecked:values.filter(t=>t.status==='not_checked').length},targets,safety:{economic:{ok:news.ok===true,reason:news.ok?null:(news.reason||'NOT_CONFIGURED'),eventCount:Number(news.eventCount)||0},bidAsk:{connected:false,reason:'NOT_CONNECTED_IN_FREE_RUNNER'},accountRisk:'not_verified',executionApproved:false},readyForExecution:false,observations};
+ return {schema:'ict-research-monitor/1',transport:'github-actions-static',generatedAt:new Date(now).toISOString(),lastCycleAt:Number.isFinite(stamp)?new Date(stamp).toISOString():null,serverTime:new Date(now).toISOString(),active:fresh,marketDataReady:fresh&&valid>0,allMarketDataReady:fresh&&values.length>0&&values.every(t=>t.status==='research_data_valid'&&!t.stale),marketCount:values.length,cycleCount:Number(data.cycleCount)||0,pollIntervalMs:10*60000,cycleError:data.cycleError?String(data.cycleError).slice(0,120):null,marketSummary:{configured:values.length,valid,blocked:values.length-valid,stale:values.filter(t=>t.stale).length,unchecked:values.filter(t=>t.status==='not_checked').length},targets,safety:{economic:{ok:news.ok===true,reason:news.ok?null:(news.reason||'NOT_CONFIGURED'),eventCount:Number(news.eventCount)||0},bidAsk:{connected:false,reason:'NOT_CONNECTED_IN_FREE_RUNNER'},accountRisk:'not_verified',executionApproved:false},readyForExecution:false,observations,forward:publicForward(data,targets,now)};
 }
 async function main(){
  await fs.mkdir(OUT,{recursive:true});
@@ -102,6 +127,7 @@ async function main(){
    process.stdout.write(id+' '+(snapshot.targets[id]?.error||t.error||t.source)+' reason='+(t.reason||'none')+' sourceChanges='+t.sourceHistory.length+' sourceDelay='+JSON.stringify(t.sourceDelay)+' hourly='+t.hourlyContext.status+coverage+' '+JSON.stringify(t.patternCounts)+'\n');
   }
   process.stdout.write('Public research observations: '+payload.observations.length+'\n');
+  process.stdout.write('Forward research journal: '+JSON.stringify(payload.forward.counts)+'\n');
   if(!payload.marketDataReady)process.stdout.write('WARNING: no verified current market data; status remains blocked\n');
  }finally{await monitor.stop()}
 }

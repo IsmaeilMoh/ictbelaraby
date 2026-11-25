@@ -19,7 +19,7 @@ function preflight(directory=root){
   if(!copyLines.split(/\s+/).includes('monitor-service/'+f))errors.push('DOCKER_COPY_MISSING '+f);
  }
  for(const folder of ['ict_phase2d','ict_phase2e'])if(!docker.includes('COPY monitor-service/'+folder))errors.push('DOCKER_COPY_MISSING '+folder);
- for(const f of ['ict-context-engine-703a.js','ict-scenario-engine-703b.js']){
+ for(const f of ['ict-context-engine-703a.js','ict-scenario-engine-703b.js','ict-opportunity-lifecycle-708b.js']){
   if(!fs.existsSync(path.join(directory,'..',f)))errors.push('MISSING_FILE '+f);
   if(!copyLines.split(/\s+/).includes(f))errors.push('DOCKER_COPY_MISSING '+f);
  }
