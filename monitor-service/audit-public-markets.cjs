@@ -66,6 +66,22 @@ async function auditDiscovery(instruments){
  }
  console.log('');
 }
+async function auditEquities(instruments){
+ const symbols=instruments.filter(item=>item.group==='stocks').map(item=>item.symbol).join(',');
+ const [quotes,bars]=await Promise.all(['quotes','bars'].map(kind=>{
+  const url=new URL('https://data.alpaca.markets/v2/stocks/'+kind+'/latest');
+  url.search=new URLSearchParams({symbols,feed:'iex'});
+  return get(url);
+ }));
+ console.log('### Alpaca IEX direct API access');
+ console.log('| Symbols | Bid/Ask endpoint | Bar endpoint |');
+ console.log('| --- | --- | --- |');
+ const result=reply=>reply.failure??'HTTP success; data and public usage rights require review';
+ console.log('| '+symbols+' | '+result(quotes)+' | '+result(bars)+' |');
+ console.log('The Basic Trading API requires server credentials. Public display rights for a general website are unverified; Broker API entitlements are separate.');
+ console.log('');
+}
+
 async function main(){
  const instruments=Object.entries(PUBLIC_QUOTES).flatMap(([group,items])=>Object.keys(items).map(symbol=>({group,symbol})));
  console.log('### Traditional market source audit');
@@ -86,6 +102,7 @@ async function main(){
  console.log('A matching quote symbol does not establish contract/venue equivalence. A fresh snapshot does not establish continuous monitoring.');
  console.log('');
  await auditDiscovery(instruments);
+ await auditEquities(instruments);
  console.log('### Other free plans (documented limits)');
  console.log('| Provider | Relevant coverage | Limitation for this public site |');
  console.log('| --- | --- | --- |');
@@ -93,7 +110,9 @@ async function main(){
  console.log('| [iTick](https://itick.io/en/pricing) | Forex, metals, indices, equities, energy futures | Free tier is for personal use |');
  console.log('| [TraderMade](https://marketdata.tradermade.com/docs/restful-api/free-tier.pdf) | Forex and CFDs | Free live REST prices are midpoint; not live Bid/Ask |');
  console.log('| [Pyth Core / Hermes](https://www.pyth.network/blog/the-pyth-core-upgrade) | FX, metals, equities and commodities | Authenticated data plan required; no verified free public package for candles plus Bid/Ask |');
- console.log('| [IEX Exchange](https://www.iex.io/products/equities/market-data-connectivity) | US equities | Public IEX API was retired; direct real-time feeds require separate connectivity |');
+ console.log('| [IEX Exchange](https://www.iex.io/resources/trading/fee-schedule) | US equities | Real-time access has a fee; the free delayed feed cannot trigger live alerts |');
+ console.log('| [CME Group](https://www.cmegroup.com/market-data/market-data-api.html) | Metals, equity index and energy futures | Real-time feed requires a subscription; futures are a different product from spot or CFDs |');
+ console.log('| [FOREX.com](https://www.forex.com/en-uk/help-and-support/accounts/) | FX and broker instruments | Demo API access is conditional on an open live account; public feed rights unverified |');
  console.log('');
  try{
   const result=await fetch(page,{signal:AbortSignal.timeout(8000),cache:'no-store'});
