@@ -58,6 +58,46 @@ function testModelTypes(){
     assert.equal(extra.amdRange(c,sequence,6,'60').accumulationLow,100);
     assert.equal(extra.amdRange(c,sequence.filter((_,i)=>i!==2),5,'60'),null);
     assert.equal(extra.amdRange(c,sequence,6,'240'),null);
+    for(const direction of ['bull','bear']){
+      const raw=[
+        {open:100,close:105,high:106,low:99},
+        {open:101,close:98,high:103,low:95},
+        {open:100,close:108,high:109,low:99},
+        {open:108,close:107,high:109,low:105}
+      ];
+      const series=raw.map((b,i)=>direction==='bull'?{...b,start:now+i*minute}:
+        {open:200-b.open,close:200-b.close,high:200-b.low,low:200-b.high,start:now+i*minute});
+      const pivot={type:direction==='bull'?'swing-high':'swing-low',start:now,confirmedAt:now};
+      const positions=new Map(series.map((b,i)=>[b.start,i]));
+      const candidate={direction,sweepAt:series[1].start,mssAt:series[2].start};
+      const evidence=extra.breakerEvidence(candidate,series,positions,[pivot]);
+      assert.equal(evidence.retestAt,series[3].start);
+      assert.equal(extra.breakerEvidence(candidate,series.slice(0,3),positions,[pivot]),null);
+      assert.equal(extra.breakerEvidence(candidate,series,positions,[{...pivot,confirmedAt:candidate.mssAt}]),null);
+      const invalid={...series[3],low:90,high:110,start:now+4*minute};
+      assert.equal(extra.breakerEvidence(candidate,[...series,invalid],positions,[pivot]),null);
+    }
+    // Replay exchange-provided historical candles by their closing time.
+    const datasets=require('./fixtures/ict-history.json').datasets.slice(0,2);
+    for(const dataset of datasets){
+      const tf=String(parseInt(dataset.frame,10)),ms=structure.FRAME_MS[tf];
+      const candles=dataset.rows.map(([t,open,high,low,close])=>({start:Date.parse(t),open,high,low,close,confirmed:true}));
+      const matches=new Set();
+      for(let end=25;end<=candles.length;end++){
+        const prefix=candles.slice(0,end),cutoff=prefix.at(-1).start+ms;
+        const {models,analysis}=monitorSignals.evaluate(prefix,tf,{now:cutoff});
+        const index=new Map(prefix.map((bar,i)=>[bar.start,i]));
+        for(const model of models.filter(item=>item.research&&item.ageBars<=12)){
+          const match=extra.breakerEvidence(model,prefix,index,analysis.pivots);
+          if(!match)continue;
+          assert.ok(match.blockAt<model.sweepAt&&model.sweepAt<match.breakAt&&match.breakAt<match.retestAt);
+          assert.ok(match.retestAt+ms<=cutoff);
+          assert.equal(extra.breakerEvidence(model,prefix.slice(0,index.get(match.retestAt)),index,analysis.pivots),null);
+          matches.add(model.id);
+        }
+      }
+      assert.ok(matches.size>0,'historical Breaker evidence '+dataset.symbol);
+    }
   });
 }
 
