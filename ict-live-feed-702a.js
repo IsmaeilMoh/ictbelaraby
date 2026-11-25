@@ -16,7 +16,8 @@
  function contract(symbol){
   return instruments.get(symbol)||(SYMBOLS.includes(symbol)?{symbol,category:'linear',settleCoin:'USDT'}:null);
  }
- async function readPerpetuals(category,fetchImpl,signal){
+ async function readPerpetuals(fetchImpl,signal){
+  const category='linear';
   const contracts=[],seen=new Set();
   let cursor='';
   do{
@@ -27,13 +28,10 @@
    if(!response.ok)throw Error('BYBIT_HTTP_'+response.status);
    const data=await response.json(),result=data?.result;
    if(data?.retCode!==0||result?.category!==category||!Array.isArray(result.list))throw Error('BYBIT_CATALOG_INVALID');
-   const type=category==='linear'?'LinearPerpetual':'InversePerpetual';
    for(const item of result.list){
-    if(item?.status!=='Trading'||item.contractType!==type||item.isPreListing===true||
-       !['','innovation'].includes(item.symbolType??'')||!/^[A-Z0-9]{3,35}$/.test(item.symbol??'')||
-       !/^[A-Z0-9]{1,24}$/.test(item.settleCoin??''))continue;
-    if(category==='linear'&&!['USDT','USDC'].includes(item.settleCoin))continue;
-    if(category==='inverse'&&(item.quoteCoin!=='USD'||item.baseCoin!==item.settleCoin))continue;
+    if(item?.status!=='Trading'||item.contractType!=='LinearPerpetual'||item.isPreListing===true||
+       !['','innovation'].includes(item.symbolType??'')||!/^[A-Z0-9]{1,31}USDT$/.test(item.symbol??'')||
+       item.settleCoin!=='USDT'||item.quoteCoin!=='USDT')continue;
     contracts.push(Object.freeze({symbol:item.symbol,category,settleCoin:item.settleCoin}));
    }
    cursor=result.nextPageCursor||'';
@@ -45,10 +43,10 @@
  function fetchPerpetuals(fetchImpl=globalThis.fetch){
   if(catalogRequest)return catalogRequest;
   const signal=AbortSignal.timeout(12000);
-  catalogRequest=Promise.all(['linear','inverse'].map(category=>readPerpetuals(category,fetchImpl,signal)))
-   .then(groups=>{
+  catalogRequest=readPerpetuals(fetchImpl,signal)
+   .then(contracts=>{
     const next=new Map();
-    for(const item of groups.flat()){
+    for(const item of contracts){
      if(next.has(item.symbol))throw Error('BYBIT_CATALOG_DUPLICATE');
      next.set(item.symbol,item);
     }

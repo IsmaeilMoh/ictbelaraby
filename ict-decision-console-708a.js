@@ -108,7 +108,7 @@ function displayBybitSymbols(preselected){
  const items=crypto.filter(item=>item.includes(query));
  selectOptions(symbol,items,preselected);
  if(preselected!==symbol.value)selectionChanged();
- bybitStatus.textContent=catalogLoaded?items.length+' عقدًا من '+crypto.length+' في قائمة Bybit الحالية':
+ bybitStatus.textContent=catalogLoaded?items.length+' عقدًا من '+crypto.length+' في قائمة Bybit لـ USDT':
   catalogLoading?'جارٍ جلب قائمة العقود الدائمة من Bybit…':'تعذر جلب القائمة الكاملة. تظهر قائمة محدودة. أعد اختيار Bybit للمحاولة.';
 }
 async function loadBybitCatalog(preselected){
@@ -232,7 +232,7 @@ async function scan(auto=false){if(publicView()||busy||auto&&document.hidden)ret
     ? newsState.value
     : {events:[],feedsLoaded:0,failures:['تعذر التحقق من الأخبار: '+String(newsState.error?.message||newsState.error||'استجابة غير صالحة')]};
   const now=Date.now(),newsCovered=econ.scheduleCovers(news.parts||[],now);
-  const a=(acc.list()||[]).find(x=>x.id===account.value)||null;const res=api.inspect({market:market.value,symbol:symbol.value,bybitContract:live.contract(symbol.value),frame:frame.value,candles15:entryBars,candles60:hourly,rollHour:Number(roll.value),account:a,accountEngine:acc,riskAmount:risk.value,newsChecked:news.feedsLoaded>0,newsCovered,eventFeedsLoaded:news.feedsLoaded,events:news.events,now,structureEngine:structure,signalEngine:signal,contextEngine:context,scenarioEngine:scenario});
+  const a=(acc.list()||[]).find(x=>x.id===account.value)||null;const res=api.inspect({market:market.value,symbol:symbol.value,frame:frame.value,candles15:entryBars,candles60:hourly,rollHour:Number(roll.value),account:a,accountEngine:acc,riskAmount:risk.value,newsChecked:news.feedsLoaded>0,newsCovered,eventFeedsLoaded:news.feedsLoaded,events:news.events,now,structureEngine:structure,signalEngine:signal,contextEngine:context,scenarioEngine:scenario});
   if(news.failures.length)res.warnings.push('تعذر تحميل بعض الأجندات: '+news.failures.join('؛ '));
   res.book=book;res.lastTrade=lastTrade;
   show(res);record(res);showEntryStream(res,news);
@@ -322,7 +322,7 @@ const requestedMarket=params.get('market');
 const requestedSymbol=params.get('symbol');
 const marketSymbols=Object.hasOwn(quotes,requestedMarket)?Object.keys(quotes[requestedMarket]):
  requestedMarket==='crypto'?crypto:requestedMarket==='kraken'?krakenSymbols:[];
-const validSelection=marketSymbols.includes(requestedSymbol)||requestedMarket==='crypto'&&/^[A-Z0-9]{3,35}$/.test(requestedSymbol??'');
+const validSelection=marketSymbols.includes(requestedSymbol)||requestedMarket==='crypto'&&/^[A-Z0-9]{1,31}USDT$/.test(requestedSymbol??'');
 if(validSelection)market.value=requestedMarket;
 accountsChanged();
 marketsChanged(validSelection?requestedSymbol:undefined);

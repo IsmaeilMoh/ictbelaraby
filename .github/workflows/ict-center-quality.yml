@@ -119,11 +119,6 @@ jobs:
           node <<'JS' | tee -a "$GITHUB_STEP_SUMMARY"
           const bybit = require('./ict-live-feed-702a.js');
           bybit.fetchPerpetuals().then(contracts => {
-            const counts = {};
-            for (const {category, settleCoin} of contracts) {
-              const key = category === 'inverse' ? 'inverse' : settleCoin;
-              counts[key] = (counts[key] || 0) + 1;
-            }
-            console.log('Bybit crypto perpetual catalog:', contracts.length, JSON.stringify(counts));
+            console.log('Bybit USDT crypto perpetual catalog:', contracts.length);
           }).catch(error => console.log('Bybit public catalog could not be verified from the runner:', error.message));
           JS

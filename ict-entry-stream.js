@@ -14,8 +14,8 @@
   };
   const category=bybitContract?.symbol===symbol?bybitContract.category:
    ['BTCUSDT','ETHUSDT','SOLUSDT','XRPUSDT'].includes(symbol)?'linear':null;
-  if(market==='crypto'&&/^[A-Z0-9]{3,35}$/.test(symbol)&&['linear','inverse'].includes(category))return {
-   url:'wss://stream.bybit.com/v5/public/'+category,request:{op:'subscribe',args:['orderbook.1.'+symbol]}
+  if(market==='crypto'&&/^[A-Z0-9]{1,31}USDT$/.test(symbol)&&category==='linear')return {
+   url:'wss://stream.bybit.com/v5/public/linear',request:{op:'subscribe',args:['orderbook.1.'+symbol]}
   };
   return null;
  }
