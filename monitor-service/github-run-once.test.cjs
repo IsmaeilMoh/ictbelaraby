@@ -20,6 +20,8 @@ assert.equal(publicSnapshot({...fixture,observations:[{...good,entry:NaN}]},now)
 assert.equal(publicSnapshot({...fixture,observations:[{...good,detectedAt:new Date(now-3600000).toISOString()}]},now).observations.length,0);
 assert.equal(publicSnapshot({...fixture,observations:[{...good,accountName:'Private Account'}]},now).observations.length,0);
 assert.equal(publicSnapshot({...fixture,targets:{...fixture.targets,'crypto:BTCUSDT:15':{...fixture.targets['crypto:BTCUSDT:15'],status:'blocked'}},observations:[good]},now).observations.length,0);
+assert.equal(publicSnapshot({...fixture,observations:[good],cycleError:'storage unavailable'},now).observations.length,0);
+assert.equal(publicSnapshot({...fixture,observations:[{...good,entry:'100'}]},now).observations.length,0);
 console.log('Public research observation sanitization: PASS');
 
 const proxy=publicSnapshot({...fixture,targets:{'crypto:BTCUSDT:15':{...fixture.targets['crypto:BTCUSDT:15'],source:'Binance Spot (research backup; NOT Bybit perpetual)',marketType:'SPOT_RESEARCH_PROXY'}}},now);

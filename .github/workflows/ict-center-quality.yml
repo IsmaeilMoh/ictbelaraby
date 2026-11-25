@@ -1,12 +1,16 @@
 name: ICT decision center quality gate
 on:
+  pull_request:
+    branches: [main]
   push:
     branches: [main]
     paths:
       - 'monitor-service/**'
       - 'ict-monitor-auto-refresh-709.js'
       - 'ict-background-status-708c2.js'
-      - 'decision-center.html'
+      - '*.html'
+      - 'ict-*.js'
+      - 'scripts/**'
       - 'sw.js'
       - '.github/workflows/ict-center-quality.yml'
   workflow_dispatch:
@@ -27,3 +31,35 @@ jobs:
       - name: Test publication safety and center integration
         working-directory: monitor-service
         run: npm run test:actions
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Test Python data parsers and static site references
+        run: |
+          python -m pip install requests beautifulsoup4
+          python -m unittest discover -s scripts
+          python scripts/qa_site.py
+      - name: Probe public market sources without publishing
+        if: github.event_name == 'pull_request'
+        env:
+          PUBLIC_OUTPUT_DIR: ${{ runner.temp }}/ict-live-probe
+          STORE_FILE: ${{ runner.temp }}/ict-live-probe/state.json
+        run: |
+          node monitor-service/github-run-once.cjs
+          node <<'JS' >> "$GITHUB_STEP_SUMMARY"
+          const assert = require('node:assert/strict');
+          const path = require('node:path');
+          const status = require(path.join(process.env.PUBLIC_OUTPUT_DIR, 'monitor-status.json'));
+          assert.equal(status.readyForExecution, false);
+          assert.equal(status.safety.executionApproved, false);
+          if (!status.marketDataReady) assert.equal(status.observations.length, 0);
+          console.log('### Live public source probe');
+          console.log(`Fresh research sources: ${status.marketSummary.valid}/${status.marketCount}`);
+          for (const [id, target] of Object.entries(status.targets)) {
+            const result = target.status === 'research_data_valid' && !target.stale ? target.source : (target.error || 'stale');
+            console.log(`- ${id}: ${result}`);
+          }
+          const news = status.safety.economic;
+          console.log(`- Economic calendar: ${news.ok ? news.eventCount + ' dated events received' : news.reason}`);
+          console.log(`- Research observations: ${status.observations.length}. Execution approved: false.`);
+          JS

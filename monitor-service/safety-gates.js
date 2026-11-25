@@ -23,11 +23,13 @@ function checkNews(feed,target,now,windowBeforeMin=30,windowAfterMin=15){if(!fee
  if(feed.invalid)return {status:'blocked',reason:'ECONOMIC_FEED_HAS_UNVERIFIED_TIMES',invalid:feed.invalid};
  const affected=currenciesFor(target),near=feed.events.filter(e=>affected.includes(e.currency)&&(!e.impact||IMPACT_HIGH.has(e.impact)||e.impact==='unknown')&&now>=e.time-windowBeforeMin*60000&&now<=e.time+windowAfterMin*60000);
  if(near.length)return {status:'blocked',reason:'HIGH_IMPACT_NEARBY',count:near.length,events:near.slice(0,3).map(e=>({title:e.title,at:new Date(e.time).toISOString(),currency:e.currency}))};
+ if(feed.partial)return {status:'blocked',reason:'ECONOMIC_FEED_COVERAGE_UNVERIFIED'};
  return {status:'clear_research_only',reason:'NO_NEARBY_HIGH_IMPACT_IN_FEED'};}
 function checkStructure(model,maxStopDistancePct=5){const {entry,stop,target,direction}=model;const all=[entry,stop,target].every(x=>Number.isFinite(x)&&x>0);
  if(!all)return {status:'blocked',reason:'MISSING_PLAN_LEVELS'};
  const dist=Math.abs(entry-stop)/entry*100;
  if(!(dist>0&&dist<=maxStopDistancePct))return {status:'blocked',reason:'STOP_DISTANCE_OUT_OF_POLICY',stopDistancePct:dist};
+ if(!['bull','bear'].includes(direction))return {status:'blocked',reason:'INVALID_DIRECTION'};
  if(direction==='bull'&&!(stop<entry&&entry<target)||direction==='bear'&&!(target<entry&&entry<stop))return {status:'blocked',reason:'WRONG_LEVEL_ORDER'};
  return {status:'clear_research_only',reason:'STRUCTURAL_LEVELS_VALID',stopDistancePct:dist};}
 async function fetchFreeCalendar(now,options={}){
@@ -43,7 +45,7 @@ async function fetchFreeCalendar(now,options={}){
    currency:e.currency,
    impact:'high',title:e.name||e.title||'حدث اقتصادي'
   }));
-  const normalized=normalizeFeed(shaped);
+  const normalized={...normalizeFeed(shaped),partial:true};
   if(!normalized.events.some(e=>e.time>=now-3600000&&e.time<=now+7*86400000))throw Error('NO_CURRENT_OR_UPCOMING_EVENT_COVERAGE');
   return {ok:true,feed:normalized,source:'Biquote calendar free (single-source, not official-verified)',receivedAt:new Date(now).toISOString(),eventCount:normalized.events.length,invalid:normalized.invalid};
  }catch(e){return {ok:false,reason:'FREE_CALENDAR_'+String(e.message||e).slice(0,115)}}
@@ -54,7 +56,9 @@ async function fetchEconomic(url,now,options={}){if(!url)return fetchFreeCalenda
  try{const response=await (options.fetch||global.fetch)(url,{signal:AbortSignal.timeout(7000),headers:{Accept:'application/json'},cache:'no-store'});
  if(!response.ok)throw Error('HTTP_'+response.status);
  const text=await response.text();if(text.length>1000000)throw Error('ECONOMIC_FEED_TOO_LARGE');
- const normalized=normalizeFeed(JSON.parse(text));
+ const payload=JSON.parse(text);
+ const start=isoTime(payload?.coverageStart),end=isoTime(payload?.coverageEnd);
+ const normalized={...normalizeFeed(payload),partial:!(start<=now-15*60000&&end>=now+30*60000)};
  // A feed of only past events cannot establish that there are no upcoming news releases.
  if(!normalized.events.some(e=>e.time>=now-3600000&&e.time<=now+7*86400000))throw Error('NO_CURRENT_OR_UPCOMING_EVENT_COVERAGE');
  return {ok:true,feed:normalized,receivedAt:new Date(now).toISOString(),eventCount:normalized.events.length,invalid:normalized.invalid};

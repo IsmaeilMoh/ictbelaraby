@@ -23,7 +23,7 @@
  if(data.cycleError)line('خطأ في دورة المراقبة: '+String(data.cycleError).slice(0,140));
  line('آخر دورة فحص — نيويورك: '+new Intl.DateTimeFormat('ar-EG',{timeZone:'America/New_York',dateStyle:'medium',timeStyle:'short'}).format(new Date(heartbeat))+' | فلسطين: '+new Intl.DateTimeFormat('ar-EG',{timeZone:'Asia/Gaza',dateStyle:'medium',timeStyle:'short'}).format(new Date(heartbeat)));
  line('عدد دورات الفحص: '+Number(data.cycleCount||0)+' · عدد الأصول: '+Number(data.marketCount||0));
- for(const [name,value] of Object.entries(data.targets||{}).slice(0,12)){line(name+' — '+(value.status==='research_data_valid'?'شموع صالحة بحثيًا'+(value.lastRecoveredAt?' · آخر تعافٍ: '+value.lastRecoveredAt:''):'معلّق: '+(value.error||value.status)+(value.consecutiveFailures?' · فشل متتالٍ: '+value.consecutiveFailures:'')))}
+ for(const [name,value] of Object.entries(data.targets||{}).slice(0,12)){line(name+' — '+(value.status==='research_data_valid'&&!value.stale?'شموع صالحة بحثيًا'+(value.lastRecoveredAt?' · آخر تعافٍ: '+value.lastRecoveredAt:''):'معلّق: '+(value.error||value.status)+(value.consecutiveFailures?' · فشل متتالٍ: '+value.consecutiveFailures:'')))}
  const gate=data.safety||{};const news=gate.economic||{};
  line('بوابة الأخبار على الخادم: '+(news.ok?'تم جلب أجندة زمنية ('+Number(news.eventCount||0)+' حدثًا)':'غير مكتملة / معلقة: '+(news.reason||'لا توجد بيانات')));
  line('مخاطرة الحساب: غير متحقق منها على الخادم. عرض سعر Bid/Ask: '+(gate.bidAsk?.connected?'المزود متصل (تحقق من حالة كل أصل)':'غير متاح: '+(gate.bidAsk?.reason||'لم يربط بعد'))+'. لا توجد موافقة تنفيذية.');
@@ -42,23 +42,38 @@
    if(d.schema!=='ict-research-monitor/1'||d.transport!=='github-actions-static'||d.readyForExecution!==false||d.safety?.executionApproved!==false)throw Error('صيغة التقرير غير متوافقة أو لا تضمن رفض التنفيذ');
    const last=Date.parse(d.lastCycleAt),age=Date.now()-last;
    const fresh=Number.isFinite(last)&&age>=-120000&&age<=45*60000&&d.active===true;
-   const valid=fresh&&d.marketDataReady===true;
+   const now=Date.now();
+   const isCurrent=(item,frame)=>{
+    const complete=Date.parse(item?.lastCompleteAt);
+    return fresh&&item?.status==='research_data_valid'&&!item.stale&&complete<=now&&now-complete<=3*Number(frame)*60000;
+   };
+   const targets=Object.entries(d.targets||{}).slice(0,12);
+   const validCount=targets.filter(([key,item])=>isCurrent(item,key.split(':')[2])).length;
+   const valid=d.marketDataReady===true&&validCount>0;
    status.textContent=!fresh?'التقرير قديم أو لم يكتمل؛ المراقبة غير مؤكدة':!valid?'التقرير حديث، لكن لا توجد شموع بحثية صالحة':'آخر تقرير حديث: توجد بيانات بحثية صالحة لبعض الأسواق، دون اعتماد تنفيذ';
    status.dataset.bad=valid?'0':'1';
-   if(Number.isFinite(last))line('آخر فحص — نيويورك: '+new Intl.DateTimeFormat('ar-EG',{timeZone:'America/New_York',dateStyle:'medium',timeStyle:'short'}).format(new Date(last))+' | فلسطين: '+new Intl.DateTimeFormat('ar-EG',{timeZone:'Asia/Gaza',dateStyle:'medium',timeStyle:'short'}).format(new Date(last)));
-   const c=d.marketSummary||{};line('الأسواق: '+Number(c.valid||0)+' صالحة من '+Number(c.configured||0)+' · '+Number(c.blocked||0)+' معلقة');
-   for(const [symbol,item] of Object.entries(d.targets||{}).slice(0,12))line(symbol+' — '+(fresh&&item.status==='research_data_valid'&&!item.stale?'بيانات بحثية حديثة':'معلّق أو قديم')+(item.error?' · '+String(item.error).slice(0,90):'')+(item.status==='research_data_valid'&&item.source?' · المصدر: '+String(item.source).slice(0,70):''));
+   if(Number.isFinite(last))line('آخر فحص — '+window.ICTMarketTimes.format(last));
+   line('الأسواق: '+validCount+' صالحة من '+targets.length+' · '+(targets.length-validCount)+' معلقة');
+   for(const [key,item] of targets)line(key+' — '+(isCurrent(item,key.split(':')[2])?'بيانات بحثية حديثة':'معلّق أو قديم')+(item.error?' · '+String(item.error).slice(0,90):'')+(item.source?' · المصدر: '+String(item.source).slice(0,70):''));
    line('الأخبار: '+(d.safety?.economic?.ok?'تغذية متاحة':'غير مكتملة / معلقة')+' · Bid/Ask: غير متصل · المخاطرة: محلية فقط · الموافقة التنفيذية: غير متاحة');
-   const entries=Array.isArray(d.observations)?d.observations.slice(0,16):[];
+   const entries=(valid&&Array.isArray(d.observations)?d.observations:[]).filter(x=>{
+    if(!x||x.status!=='research_only_blocked'||x.executionApproved!==false||!['BUY','SELL'].includes(x.side))return false;
+    if(!isCurrent(d.targets?.[[x.market,x.symbol,x.frame].join(':')],x.frame))return false;
+    const age=now-Date.parse(x.detectedAt);
+    return age>=0&&age<=45*60000&&[x.entry,x.stop,x.target,x.rr].every(v=>Number.isFinite(v)&&v>0)&&
+     (x.side==='BUY'?x.stop<x.entry&&x.entry<x.target:x.target<x.entry&&x.entry<x.stop);
+   }).slice(0,16);
    const heading=document.createElement('h3');heading.textContent='النماذج المرصودة في آخر فحوص مجانية';results.append(heading);
-   if(!fresh||!entries.length){line(!fresh?'لا نعرض نماذج من تقرير قديم.':'لا توجد نماذج بحثية حديثة مستوفية لشروط النشر في هذه اللقطة.');}
-   else for(const x of entries){
-    if(!x||x.status!=='research_only_blocked'||x.executionApproved!==false||!['BUY','SELL'].includes(x.side))continue;
-    const age=Date.now()-Date.parse(x.detectedAt||'');if(!Number.isFinite(age)||age< -120000||age>45*60000)continue;
+   if(!entries.length)line(!fresh?'لا نعرض نماذج من تقرير قديم.':'لا توجد نماذج بحثية حديثة مستوفية لشروط النشر في هذه اللقطة.');
+   for(const x of entries){
     const box=document.createElement('article');box.className='dc-research-observation';results.append(box);
     const h=document.createElement('h4');h.textContent=String(x.symbol||'')+' · '+x.side+' · رصد بحثي فقط';box.append(h);
-    const p=document.createElement('p');p.textContent='الدخول المرجعي: '+Number(x.entry)+' | الوقف الافتراضي: '+Number(x.stop)+' | الهدف الافتراضي: '+Number(x.target)+' | R:R '+Number(x.rr);box.append(p);
-    const t=document.createElement('p');t.textContent='رُصد: '+new Intl.DateTimeFormat('ar-EG',{timeZone:'America/New_York',dateStyle:'short',timeStyle:'short'}).format(new Date(x.detectedAt))+' نيويورك · '+String(x.model||'ICT');box.append(t);
+    const p=document.createElement('p');p.textContent='الدخول المرجعي: '+x.entry+' | الوقف الافتراضي: '+x.stop+' | الهدف الافتراضي: '+x.target+' | R:R '+x.rr;box.append(p);
+    const t=document.createElement('p');t.textContent='رُصد: '+window.ICTMarketTimes.format(x.detectedAt)+' · '+String(x.source||x.model||'ICT');box.append(t);
+    for(const [key,label] of [['sweepAt','سحب السيولة'],['mssAt','MSS'],['fvgAt','FVG']]){
+     const at=Date.parse(x.evidence?.[key]);
+     if(Number.isFinite(at)){const proof=document.createElement('p');proof.textContent=label+' · '+window.ICTMarketTimes.format(at);box.append(proof)}
+    }
     const warning=document.createElement('p');warning.className='dc-warning';warning.textContent='معلّق: مخاطرة الحساب والسعر التنفيذي غير متحقق منهما. لا توجد موافقة تنفيذ.';box.append(warning);
    }
    line('GitHub Actions تشغيل مجدول بأفضل جهد، وليس مراقبة مستمرة أو إشعارات هاتف.');

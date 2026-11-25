@@ -15,14 +15,15 @@ function evaluate(candles,frame,opts={}){
    const zone=zones.find(z=>z.direction===opposite&&indexes.get(z.at)>si&&indexes.get(z.at)>=mi-2&&indexes.get(z.at)<=mi+CONFIG.maxFVGAfterMSS);
    if(!zone)continue;const zi=indexes.get(zone.at),formedIndex=Math.max(mi,zi),formed=bars[formedIndex];
    // The setup is not known until *all three* steps have closed; fixed entry/stop are only an illustrative trade plan.
-   const after=bars.slice(formedIndex+1),zoneTouched=after.some(b=>b.low<=zone.high&&b.high>=zone.low);
+   const zoneTouched=bars.slice(zi+1).some(b=>b.low<=zone.high&&b.high>=zone.low);
    const sweptBar=bars[si],entry=(zone.low+zone.high)/2,stop=opposite==='bull'?Math.min(sweptBar.low,sweep.level):Math.max(sweptBar.high,sweep.level),risk=Math.abs(entry-stop);
-   const validRisk=opposite==='bull'?stop<zone.low:stop>zone.high;
-   const age=bars.length-1-formedIndex,invalid=after.some(b=>opposite==='bull'?b.close<=stop:b.close>=stop);
+   const target=opposite==='bull'?entry+CONFIG.rewardMultiple*risk:entry-CONFIG.rewardMultiple*risk;
+   const validRisk=Number.isFinite(target)&&target>0&&(opposite==='bull'?stop<zone.low:stop>zone.high);
+   const age=bars.length-1-formedIndex,invalid=bars.slice(si+1).some(b=>opposite==='bull'?b.low<=stop:b.high>=stop);
    const expired=age>CONFIG.maxSignalAgeBars;
    const status=!validRisk||risk<=0?'no-risk-plan':invalid?'invalidated':expired?'expired':zoneTouched?'retested':'watching';
    const key=[opts.market||'unknown',opts.symbol||'unknown',frame,sweep.at,mss.at,zone.at,opposite].join('|');if(seen.has(key))continue;seen.add(key);
-   models.push({id:key,direction:opposite,status,formedAt:formed.start,sweepAt:sweep.at,mssAt:mss.at,fvgAt:zone.at,level:sweep.level,zone:{low:zone.low,high:zone.high},entry:validRisk?entry:null,stop:validRisk?stop:null,target:validRisk?(opposite==='bull'?entry+CONFIG.rewardMultiple*risk:entry-CONFIG.rewardMultiple*risk):null,rr:validRisk?CONFIG.rewardMultiple:null,ageBars:age,confirmation:'سحب سيولة ثم MSS معاكس ثم FVG من شموع مغلقة',sourceBars:analysis.sourceBars});
+   models.push({id:key,direction:opposite,status,formedAt:formed.start+ms,sweepAt:sweep.at,mssAt:mss.at,fvgAt:zone.at,level:sweep.level,zone:{low:zone.low,high:zone.high},entry:validRisk?entry:null,stop:validRisk?stop:null,target:validRisk?target:null,rr:validRisk?CONFIG.rewardMultiple:null,ageBars:age,confirmation:'سحب سيولة ثم MSS معاكس ثم FVG من شموع مغلقة',sourceBars:analysis.sourceBars});
   }
  }
  return {analysis,models:models.sort((a,b)=>b.formedAt-a.formedAt).slice(0,40),reason:models.length?'':'لم يكتمل النموذج المركب في العينة المتصلة الأخيرة'};

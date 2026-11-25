@@ -18,7 +18,7 @@ assert.ok(html.indexOf('src="ict-background-status-708c2.js')<html.indexOf('src=
 assert.match(sw,/ict-monitor-auto-refresh-709\.js/,'PWA installs the refresh asset');
 assert.match(status,/ict-monitor-feed\/monitor-status\.json/,'dashboard reads published monitor feed');
 assert.match(status,/d\.readyForExecution!==false/,'dashboard rejects unsafe monitor payloads');
-assert.match(status,/age>45\*60000/,'dashboard rejects stale observations');
+assert.match(status,/age<=45\*60000/,'dashboard rejects stale observations');
 assert.match(html,/ict-execution-safety-708c5\.js/,'risk gate remains active');
 assert.doesNotMatch(script,/\b(placeOrder|executeTrade|submitOrder|createOrder)\s*\(/i,'status refresher must not issue orders');
 let now=1_000_000,clicks=0,tick,unload,visible;
