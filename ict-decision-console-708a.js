@@ -3,6 +3,7 @@
 const $=id=>document.getElementById(id),market=$('dc-market'),symbol=$('dc-symbol'),frame=$('dc-frame'),roll=$('dc-roll'),account=$('dc-account'),risk=$('dc-risk'),run=$('dc-run'),monitor=$('dc-monitor'),status=$('dc-status'),output=$('dc-output'),archive=$('dc-archive');
 const crypto=['BTCUSDT','ETHUSDT','SOLUSDT','XRPUSDT'],api=window.ICTDecisionEngine708A,live=window.ICTLiveFeed,publicFeed=window.ICTPublicMarkets,acc=window.ICTAccounts7A,structure=window.ICTStructureEngine,signal=window.ICTSignalEngine,context=window.ICTContextEngine,scenario=window.ICTScenarioEngine,econ=window.ICTEconomicLink706A;
 const oandaKey=$('dc-oanda-key'),oandaAccess=$('dc-oanda-access');
+oandaKey.value=publicFeed.sessionKey();
 const krakenSymbols=['PF_XBTUSD','PF_ETHUSD'];
 const STORAGE='ict-8a-observation-archive-v1';let active=false,busy=false,timer=null,expiry=null,quoteExpiry=null,generation=0;
 const streamEngine=window.ICTEntryStream,streamPanel=$('dc-live-entry'),streamPrice=$('dc-live-entry-price'),
@@ -72,7 +73,7 @@ function showEntryStream(res,news){
     }
    }
   };
-  stream=res.market==='oanda'?streamEngine.connectPractice(monitorEndpoint('/oanda-quotes',res.symbol,res.frame),oandaKey.value,callbacks):
+  stream=res.market==='oanda'?streamEngine.connectPractice(monitorEndpoint('/oanda-quotes',res.symbol,res.frame),publicFeed.sessionKey(),callbacks):
    streamEngine.connect(res.market,res.symbol,callbacks);
   if(!stream)closeStream('التدفق اللحظي غير متاح في هذا المتصفح.');
  }catch{closeStream('تعذّر بدء تدفق الأسعار؛ أعد الفحص لاحقًا.')}
@@ -91,23 +92,10 @@ function clearScan(){
 function setState(v,bad=false){status.textContent=v;status.dataset.bad=bad?'1':'0'}
 function selectOptions(select,items,choose){clear(select);for(const item of items){const opt=document.createElement('option');opt.value=item;opt.textContent=item;select.append(opt)}if(choose&&items.includes(choose))select.value=choose}
 function marketsChanged(){if(oandaAccess)oandaAccess.hidden=market.value!=='oanda';
-const items=market.value==='oanda'?['XAU_USD','EUR_USD']:market.value==='crypto'?crypto:market.value==='kraken'?krakenSymbols:publicFeed?.MARKETS?.[market.value]?.map(x=>x[0])||[];selectOptions(symbol,items);roll.value=['forex','metals','energy','oanda'].includes(market.value)?'17':'0'}
+const items=market.value==='oanda'?['metals','forex','indices','energy'].flatMap(group=>publicFeed.MARKETS[group].map(row=>row[1])):market.value==='crypto'?crypto:market.value==='kraken'?krakenSymbols:publicFeed?.MARKETS?.[market.value]?.map(x=>x[0])||[];selectOptions(symbol,items);setRoll()}
+function setRoll(){roll.value=market.value==='oanda'&&['forex','metals','energy'].some(group=>publicFeed.MARKETS[group].some(row=>row[1]===symbol.value))?'17':'0'}
 function accountsChanged(){const previous=account.value,items=acc?.list()||[];clear(account);const neutral=document.createElement('option');neutral.value='';neutral.textContent='بدون حساب — فحص بحثي فقط';account.append(neutral);for(const a of items){const o=document.createElement('option');o.value=a.id;o.textContent=a.name+' — '+(a.type==='funded'?'ممول':'شخصي')+' — '+a.currency;account.append(o)}const preferred=items.some(x=>x.id===previous)?previous:acc?.selected();if(items.some(x=>x.id===preferred))account.value=preferred||''}
-async function getBars(tf,limit){
- if(market.value==='crypto')return live.fetchHistory({symbol:symbol.value,interval:tf==='1h'?'60':String(tf==='5min'?'5':'15'),limit:limit||250});
- return publicFeed.get(publicFeed.resolve(market.value,symbol.value),tf,{limit:limit||200});
-}
-function monitorEndpoint(path,contract,interval){
- const saved=localStorage.getItem('ict-background-service-url-v1');
- if(!saved)throw Error('أضف عنوان خدمة المراقبة واحفظه أسفل إعداد الفحص لتشغيل مزود الأسعار عند الطلب');
- const base=new URL(saved);
- if(base.username||base.password||base.search||base.hash||
-    (base.protocol!=='https:'&&!(base.protocol==='http:'&&['localhost','127.0.0.1'].includes(base.hostname))))throw Error('عنوان خدمة المراقبة غير صالح');
- const endpoint=new URL(base.href.replace(/\/$/,'')+path);
- endpoint.searchParams.set('symbol',contract);
- endpoint.searchParams.set('frame',interval);
- return endpoint;
-}
+function monitorEndpoint(path,contract,interval){return publicFeed.endpoint(path,contract,interval)}
 async function getKraken(contract,interval){
  const endpoint=monitorEndpoint('/market-research',contract,interval);
  const response=await fetch(endpoint,{cache:'no-store',signal:AbortSignal.timeout(17000)});
@@ -120,9 +108,10 @@ async function getKraken(contract,interval){
  return {entryBars:data.entry,hourly:data.hourly,lastTrade};
 }
 async function getOanda(contract,interval){
- if(!oandaKey?.value)throw Error('أدخل مفتاح خدمة OANDA للقراءة');
+ const key=publicFeed.sessionKey();
+ if(!key)throw Error('احفظ عنوان الخدمة أولًا ثم أدخل مفتاح OANDA للقراءة');
  const endpoint=monitorEndpoint('/oanda-research',contract,interval);
- const response=await fetch(endpoint,{headers:{Authorization:'Bearer '+oandaKey.value},cache:'no-store',signal:AbortSignal.timeout(10000)});
+ const response=await fetch(endpoint,{headers:{Authorization:'Bearer '+key},cache:'no-store',signal:AbortSignal.timeout(10000)});
  if(!response.ok)throw Error(response.status===401?'مفتاح خدمة OANDA مفقود أو غير صالح.':'بيانات OANDA Practice غير متاحة للأداة المختارة.');
  const data=await response.json();
  if(data?.schema!=='ict-oanda-practice/1'||data.symbol!==contract||data.frame!==interval||data.readyForExecution!==false||
@@ -130,7 +119,7 @@ async function getOanda(contract,interval){
  return {entryBars:data.entry,hourly:data.hourly,lastTrade:null};
 }
 function strip(res){return {market:res.market,symbol:res.symbol,frame:res.frame,checkedAt:res.checkedAt,source:res.source,opportunities:res.opportunities.map(o=>({id:o.id,side:o.side,formedAt:o.formedAt,status:o.status,entry:o.entry,stop:o.stop,target:o.target,blocks:o.blocks})),warnings:res.warnings,blocks:res.blocks}}
-function saved(){try{const x=JSON.parse(localStorage.getItem(STORAGE)||'[]');return Array.isArray(x)?x.slice(0,30):[]}catch{return []}}
+function saved(){try{const x=JSON.parse(localStorage.getItem(STORAGE)||'[]');return Array.isArray(x)?x.filter(row=>['oanda','kraken','crypto'].includes(row?.market)).slice(0,30):[]}catch{return []}}
 function record(res){try{let arr=saved();arr=arr.filter(x=>!(x.symbol===res.symbol&&x.market===res.market&&x.frame===res.frame&&x.checkedAt===res.checkedAt));arr.unshift(strip(res));localStorage.setItem(STORAGE,JSON.stringify(arr.slice(0,30)))}catch{}showArchive()}
 function showArchive(){clear(archive);const arr=saved().slice(0,8);if(!arr.length){node('p','لا يوجد سجل فحوص محلي بعد.',archive);return}for(const x of arr){const b=node('div','',archive,'dc-archive-row');node('strong',x.symbol+' · '+x.opportunities.length+' نموذج/فرصة',b);node('small',dual(x.checkedAt)+' · فحص تاريخي محفوظ وليس عرضًا حيًا',b)}}
 function block(title,parent=output){const c=document.createElement('section');c.className='dc-card';node('h3',title,c);parent.append(c);return c}
@@ -207,7 +196,7 @@ async function scan(auto=false){if(busy||auto&&document.hidden)return;if(!api||!
   };
   const contract=symbol.value;
   const marketData=market.value==='oanda'?getOanda(contract,frame.value):market.value==='kraken'?getKraken(contract,frame.value):
-   Promise.all([getBars(frame.value==='5'?'5min':'15min',250),getBars('1h',market.value==='crypto'?1000:200)])
+   Promise.all([live.fetchHistory({symbol:contract,interval:frame.value,limit:250}),live.fetchHistory({symbol:contract,interval:'60',limit:1000})])
     .then(([entryBars,hourly])=>({entryBars,hourly,lastTrade:null}));
   const [{entryBars,hourly,lastTrade},newsState,book]=await Promise.all([
     marketData,
@@ -233,5 +222,5 @@ async function scan(auto=false){if(busy||auto&&document.hidden)return;if(!api||!
 }
 function stop(){closeStream('توقفت مراقبة الأسعار.');active=false;if(timer)clearInterval(timer);timer=null;monitor.textContent='تشغيل المراقبة أثناء فتح الصفحة';monitor.setAttribute('aria-pressed','false')}
 function selectionChanged(){generation++;stop();clearScan();if(streamPanel){streamPanel.hidden=true;streamEvents.replaceChildren();}setState('أعد الفحص لتحديث نتائج الاختيار الحالي.')}
-market.addEventListener('change',()=>{selectionChanged();marketsChanged()});for(const field of [frame,symbol,roll,account])field.addEventListener('change',selectionChanged);risk.addEventListener('input',selectionChanged);oandaKey?.addEventListener('input',selectionChanged);run.addEventListener('click',()=>scan(false));monitor.addEventListener('click',()=>{if(active){stop();return}active=true;monitor.textContent='إيقاف المراقبة';monitor.setAttribute('aria-pressed','true');scan(false);timer=setInterval(()=>scan(true),60000)});document.addEventListener('visibilitychange',()=>{if(document.hidden)stop()});window.addEventListener('pagehide',stop);window.addEventListener('ict:accounts-changed',()=>{accountsChanged();selectionChanged()});accountsChanged();marketsChanged();showArchive();
+market.addEventListener('change',()=>{selectionChanged();marketsChanged()});symbol.addEventListener('change',setRoll);for(const field of [frame,symbol,roll,account])field.addEventListener('change',selectionChanged);risk.addEventListener('input',selectionChanged);oandaKey.addEventListener('input',()=>{publicFeed.saveKey(oandaKey.value);selectionChanged()});run.addEventListener('click',()=>scan(false));monitor.addEventListener('click',()=>{if(active){stop();return}active=true;monitor.textContent='إيقاف المراقبة';monitor.setAttribute('aria-pressed','true');scan(false);timer=setInterval(()=>scan(true),60000)});document.addEventListener('visibilitychange',()=>{if(document.hidden)stop()});window.addEventListener('pagehide',stop);window.addEventListener('ict:accounts-changed',()=>{accountsChanged();selectionChanged()});accountsChanged();marketsChanged();showArchive();
 })();

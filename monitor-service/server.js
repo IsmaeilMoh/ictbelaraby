@@ -7,7 +7,7 @@ const live=require('./ict-live-feed-702a.js');
 const oanda=require('./oanda-practice.js');
 const kraken=require('./kraken-perpetual.js');
 const cryptoSpotBackup=require('./crypto-spot-backup.js');
-const traditional=require('./ict-public-markets-702c2.js');
+const traditional=require('../ict-public-markets-702c2.js');
 const structure=require('./ict_phase2d/ict-structure-engine-702d.js');
 const signals=require('./ict_phase2e/ict-signal-engine-702e.js');
 const gates=require('./safety-gates.js');
@@ -20,8 +20,10 @@ const port=Math.max(1,Math.min(65535,Number(process.env.PORT)||8787));
 const host=process.env.HOST||'127.0.0.1';
 const origin=process.env.ALLOWED_ORIGIN||'';
 const storage=path.resolve(process.env.STORE_FILE||path.join(__dirname,'monitor-data.json'));
+const publicMarket=market=>['crypto','spot','kraken'].includes(market);
 const DEFAULT=[
- 'crypto:BTCUSDT','crypto:ETHUSDT','spot:BTCUSDT','spot:ETHUSDT','metals:XAUUSD','forex:EURUSD','kraken:PF_XBTUSD','kraken:PF_ETHUSD'
+ 'crypto:BTCUSDT','crypto:ETHUSDT','spot:BTCUSDT','spot:ETHUSDT','kraken:PF_XBTUSD','kraken:PF_ETHUSD',
+ ...(oanda.config()?['metals:XAUUSD','forex:EURUSD']:[])
 ].flatMap(target=>['15','5'].map(frame=>target+':'+frame)).join(',');
 function parseTargets(str){const parsed=[];for(const raw of str.split(',')){
  const parts=raw.trim().split(':');if(parts.length!==3)throw Error('INVALID_TARGET '+raw);
@@ -96,6 +98,7 @@ function recordSourceHistory(previous,current,now){
 function dataReason(error){
  const code=String(error?.message||error||'');
  if(code==='KRAKEN_PERPETUAL_NOT_VERIFIED'||code==='BYBIT_SYMBOL_MISMATCH'||/الاستجابة لا يطابق/.test(code))return 'instrument_mismatch';
+ if(code==='OANDA_PRIVATE_RESEARCH_REQUIRED')return 'provider_access_denied';
  if(code==='STALE_CANDLES')return 'stale_candles';
  if(code==='LATEST_SEGMENT_TOO_SHORT')return 'candle_gap';
  if(code==='NOT_ENOUGH_CONFIRMED_CANDLES'||code==='NO_CANDLES')return 'not_enough_candles';
@@ -109,8 +112,10 @@ async function fetchBars(target,now,getKrakenInstruments){
  if(target.market==='kraken')return kraken.fetchHistory(target.symbol,target.tf,{now,instruments:await getKrakenInstruments()});
  if(target.market==='crypto')return live.fetchHistory({symbol:target.symbol,interval:target.tf,limit:200,now});
  if(target.market==='spot')return cryptoSpotBackup.fetchHistory(target.symbol,target.tf,{now});
+ const settings=oanda.config();
+ if(!settings)throw Error('OANDA_PRIVATE_RESEARCH_REQUIRED');
  const ins=traditional.resolve(target.market,target.symbol);
- return traditional.get(ins,target.tf==='60'?'1h':target.tf==='5'?'5min':'15min',{limit:200,now});}
+ return oanda.fetchCandles(ins.providerSymbol,target.tf,settings,{now});}
 function validBars(bars,tf,now){
  const normalized=structure.normalize(bars,tf,now);
  if(normalized.rejected||normalized.duplicates)throw Error('INVALID_OR_DUPLICATE_CANDLES');
@@ -143,7 +148,7 @@ function updateForward(previous,target,bars,observations,now){
 }
 async function check(target,draft,calendar,getKrakenInstruments,getHourly){const now=Date.now();
  const previousModels=new Map(draft.observations.filter(x=>x.id.startsWith(target.id+':')).map(x=>[x.id,x]));
- const previous=draft.targets[target.id]||{};const meta={market:target.market,symbol:target.symbol,frame:target.tf,lastAttempt:new Date(now).toISOString(),source:target.market==='crypto'?'Bybit V5 USDT':target.market==='spot'?cryptoSpotBackup.SOURCE:target.market==='kraken'?kraken.SOURCE:'Biquote independent feed',status:'unavailable',lastCompleteAt:null,modelCount:0};
+ const previous=draft.targets[target.id]||{};const meta={market:target.market,symbol:target.symbol,frame:target.tf,lastAttempt:new Date(now).toISOString(),source:target.market==='crypto'?'Bybit V5 USDT':target.market==='spot'?cryptoSpotBackup.SOURCE:target.market==='kraken'?kraken.SOURCE:traditional.SOURCE,status:'unavailable',lastCompleteAt:null,modelCount:0};
  try {const bars=validBars(await fetchBars(target,now,getKrakenInstruments),target.tf,now);const last=bars.at(-1);
  meta.source=last.source||meta.source;meta.marketType=target.market==='spot'?'SPOT_RESEARCH':['crypto','kraken'].includes(target.market)?'PERPETUAL':'PROVIDER_NATIVE';meta.lastCompleteAt=new Date(last.start+Number(target.tf)*60000).toISOString();meta.status='research_data_valid';
  meta.hourlyContext=await getHourly(target);
@@ -186,9 +191,10 @@ async function restore(){
   if(st.size>2_000_000)throw Error('STORAGE_FILE_TOO_LARGE');
   const existing=JSON.parse(await fs.readFile(storage,'utf8'));
   if(existing?.schema!==state.schema||!Array.isArray(existing.observations)||!existing.targets||typeof existing.targets!=='object')return false;
-  state.observations=existing.observations.filter(x=>x&&typeof x.id==='string'&&x.status==='research_only_blocked'&&x.research&&x.checkedAt).slice(0,100);
-  state.targets=Object.fromEntries(Object.entries(existing.targets).filter(([id,value])=>targets.some(t=>t.id===id)&&value?.marketType!=='SPOT_RESEARCH_PROXY'));
-  state.forward=Object.fromEntries(targets.map(t=>[t.id,Array.isArray(existing.forward?.[t.id])?
+  const currentSource=(id,value)=>publicMarket(id.split(':')[0])||value?.source===traditional.SOURCE;
+  state.observations=existing.observations.filter(x=>x&&typeof x.id==='string'&&currentSource(x.id,existing.targets[[x.market,x.symbol,x.frame].join(':')])&&x.status==='research_only_blocked'&&x.research&&x.checkedAt).slice(0,100);
+  state.targets=Object.fromEntries(Object.entries(existing.targets).filter(([id,value])=>targets.some(t=>t.id===id)&&currentSource(id,value)&&value?.marketType!=='SPOT_RESEARCH_PROXY'));
+  state.forward=Object.fromEntries(targets.map(t=>[t.id,currentSource(t.id,existing.targets[t.id])&&Array.isArray(existing.forward?.[t.id])?
    existing.forward[t.id].filter(r=>lifecycle.valid(r)&&r.market===t.market&&r.symbol===t.symbol&&r.frame===t.tf&&Array.isArray(r.events)).slice(0,32):[]]));
   state.cycleCount=Number.isSafeInteger(existing.cycleCount)&&existing.cycleCount>=0?existing.cycleCount:0;
   state.lastCycleAt=typeof existing.lastCycleAt==='string'?existing.lastCycleAt:null;
@@ -222,9 +228,9 @@ async function cycle(){if(inCycle||stopping)return;inCycle=true;try{
  quoteFeed=quotes;
  lastCycleError=null;
  }catch(e){lastCycleError=safeError(e);process.stderr.write('Monitor cycle error: '+lastCycleError+'\n')}finally{inCycle=false}}
-function snapshot(){const now=Date.now(),last=state.lastCycleAt?Date.parse(state.lastCycleAt):NaN;
+function snapshot({publicOnly=false}={}){const now=Date.now(),last=state.lastCycleAt?Date.parse(state.lastCycleAt):NaN;
  const active=!stopping&&!lastCycleError&&Number.isFinite(last)&&last<=now&&now-last<=Math.max(3*intervalMs,900000);
- const checked=Object.fromEntries(targets.map(t=>{
+ const checked=Object.fromEntries(targets.filter(t=>!publicOnly||publicMarket(t.market)).map(t=>{
   const v=state.targets[t.id],complete=Date.parse(v?.lastCompleteAt);
   if(!v)return [t.id,{market:t.market,symbol:t.symbol,frame:t.tf,status:'not_checked',stale:true}];
   const stale=!Number.isFinite(complete)||complete>now||now-complete>3*Number(t.tf)*60000;
@@ -233,7 +239,7 @@ function snapshot(){const now=Date.now(),last=state.lastCycleAt?Date.parse(state
    quoteSpreadBps:Number.isFinite(quote.spreadBps)?Math.round(quote.spreadBps*100)/100:null,
    quoteSource:quote.source||null,accountRiskGate:'not_verified'}];
  }));
- const totals={configured:targets.length,valid:0,blocked:0,stale:0,unchecked:0};
+ const totals={configured:Object.keys(checked).length,valid:0,blocked:0,stale:0,unchecked:0};
  for(const t of Object.values(checked)){if(t.stale)totals.stale++;if(t.status==='not_checked')totals.unchecked++;else if(t.status==='research_data_valid'&&!t.stale)totals.valid++;else totals.blocked++;}
  const marketDataReady=active&&totals.valid>0;
  const failingTargets=Object.entries(checked).filter(([,v])=>v.status==='blocked'||v.stale).map(([id,v])=>({id,consecutiveFailures:Number(v.consecutiveFailures)||0,lastHealthyAt:v.lastHealthyAt||null}));
@@ -241,7 +247,8 @@ function snapshot(){const now=Date.now(),last=state.lastCycleAt?Date.parse(state
   const target=checked[[x.market,x.symbol,x.frame].join(':')];
   return target?.status==='research_data_valid'&&!target.stale&&Date.parse(x.checkedAt)===Date.parse(target.lastAttempt);
  }):[];
- return {...state,observations,safety:{economic:{ok:economic.ok,reason:economic.reason||null,eventCount:economic.eventCount||0,invalid:economic.invalid||0,receivedAt:economic.receivedAt||null},accountRisk:'not_verified',bidAsk:{connected:quoteFeed.ok,reason:quoteFeed.reason||null,receivedAt:quoteFeed.receivedAt||null},executionApproved:false},serverTime:new Date(now).toISOString(),uptimeSeconds:Math.floor((now-started)/1000),active,pollIntervalMs:intervalMs,cycleError:lastCycleError,marketDataReady,allMarketDataReady:marketDataReady&&totals.valid===totals.configured,marketSummary:totals,failingTargets,targets:checked};}
+ const forward=Object.fromEntries(Object.entries(state.forward).filter(([id])=>Object.hasOwn(checked,id)));
+ return {...state,forward,observations,safety:{economic:{ok:economic.ok,reason:economic.reason||null,eventCount:economic.eventCount||0,invalid:economic.invalid||0,receivedAt:economic.receivedAt||null},accountRisk:'not_verified',bidAsk:{connected:quoteFeed.ok,reason:quoteFeed.reason||null,receivedAt:quoteFeed.receivedAt||null},executionApproved:false},serverTime:new Date(now).toISOString(),uptimeSeconds:Math.floor((now-started)/1000),active,pollIntervalMs:intervalMs,cycleError:lastCycleError,marketDataReady,allMarketDataReady:marketDataReady&&totals.valid===totals.configured,marketSummary:totals,failingTargets,targets:checked};}
 
 const directScans=new Map();
 async function directKraken(symbol,frame){
@@ -266,7 +273,14 @@ async function oandaResearch(req,res,url){
  const settings=oanda.config(),symbol=url.searchParams.get('symbol'),frame=url.searchParams.get('frame');
  const end=(code,value)=>{res.writeHead(code);res.end(JSON.stringify(value))};
  if(!settings||!oanda.authorized(req.headers.authorization,settings.key))return end(401,{error:'OANDA_ACCESS_REQUIRED'});
- if(!oanda.SYMBOLS.includes(symbol)||!['5','15'].includes(frame))return end(400,{error:'INVALID_RESEARCH_TARGET'});
+ const validFrame=url.pathname==='/oanda-candles'?Object.hasOwn(oanda.FRAMES,frame):['5','15'].includes(frame);
+ if(!oanda.SYMBOLS.includes(symbol)||!validFrame)return end(400,{error:'INVALID_RESEARCH_TARGET'});
+ if(url.pathname==='/oanda-candles'){
+  try{
+   const bars=await oanda.fetchCandles(symbol,frame,settings);
+   return end(200,{schema:'ict-oanda-candles/1',symbol,frame,bars});
+  }catch{return end(503,{error:'OANDA_DATA_UNAVAILABLE'})}
+ }
  if(url.pathname==='/oanda-research'){
   try{
    const now=Date.now();
@@ -301,12 +315,12 @@ async function oandaResearch(req,res,url){
  finally{controller.abort();oandaStreams--;if(!res.writableEnded&&!res.destroyed)res.end()}
 }
 async function api(req,res){const url=new URL(req.url,'http://127.0.0.1');
- const practice=['/oanda-research','/oanda-quotes'].includes(url.pathname);
- if(practice&&req.method==='OPTIONS'&&origin&&req.headers.origin===origin){
+ const practice=['/oanda-research','/oanda-quotes','/oanda-candles'].includes(url.pathname);
+ if((practice||['/health','/snapshot'].includes(url.pathname))&&req.method==='OPTIONS'&&origin&&req.headers.origin===origin){
   res.writeHead(204,{'Access-Control-Allow-Origin':origin,'Access-Control-Allow-Methods':'GET','Access-Control-Allow-Headers':'Authorization',Vary:'Origin'});
   res.end();return;
  }
- if(req.method!=='GET'||!['/health','/snapshot','/market-research','/oanda-research','/oanda-quotes'].includes(url.pathname)){res.writeHead(404);res.end('Not found');return}
+ if(req.method!=='GET'||!['/health','/snapshot','/market-research','/oanda-research','/oanda-quotes','/oanda-candles'].includes(url.pathname)){res.writeHead(404);res.end('Not found');return}
  if(origin&&req.headers.origin===origin){res.setHeader('Access-Control-Allow-Origin',origin);res.setHeader('Vary','Origin')}
  res.setHeader('Cache-Control','no-store');res.setHeader('Content-Type','application/json; charset=utf-8');res.setHeader('X-Content-Type-Options','nosniff');
  if(practice){await oandaResearch(req,res,url);return}
@@ -319,7 +333,8 @@ async function api(req,res){const url=new URL(req.url,'http://127.0.0.1');
   catch{res.writeHead(503);res.end(JSON.stringify({error:'KRAKEN_SOURCE_UNAVAILABLE'}))}
   return;
  }
- const view=snapshot();const route=url.pathname;
+ const settings=oanda.config();
+ const view=snapshot({publicOnly:!settings||!oanda.authorized(req.headers.authorization,settings.key)});const route=url.pathname;
  const payload=route==='/health'?{schema:view.schema,active:view.active,lastCycleAt:view.lastCycleAt,serverTime:view.serverTime,uptimeSeconds:view.uptimeSeconds,cycleCount:view.cycleCount,pollIntervalMs:view.pollIntervalMs,readyForExecution:false,safety:view.safety,marketCount:Object.keys(view.targets).length,marketDataReady:view.marketDataReady,allMarketDataReady:view.allMarketDataReady,marketSummary:view.marketSummary,failingTargets:view.failingTargets,cycleError:view.cycleError,targets:view.targets}:view;
  res.writeHead(200);res.end(JSON.stringify(payload));}
 function start(options={}){const httpServer=http.createServer(api);if(!options.noHttp)httpServer.listen(port,host,()=>process.stdout.write('Research monitor listening on '+host+':'+port+'\n'));

@@ -1,19 +1,64 @@
-/* ICT 7.0 / 2C2 — public OHLC for traditional markets; never remap CFD to USDT. */
-(function(root,factory){'use strict';const v=factory();if(typeof module==='object'&&module.exports)module.exports=v;if(root)root.ICTPublicMarkets=v})(typeof globalThis!=='undefined'?globalThis:null,function(){
-'use strict';
-const MARKETS=Object.freeze({
- forex:[['EURUSD','EURUSD'],['GBPUSD','GBPUSD'],['USDJPY','USDJPY'],['AUDUSD','AUDUSD'],['NZDUSD','NZDUSD'],['USDCHF','USDCHF'],['USDCAD','USDCAD']],
- metals:[['XAUUSD','XAUUSD'],['XAGUSD','XAGUSD']],
- indices:[['NAS100','USTEC'],['US500','US500'],['US30','US30']],
- stocks:[['AAPL','AAPL'],['TSLA','TSLA'],['NVDA','NVDA'],['MSFT','MSFT'],['NFLX','NFLX']],
- energy:[['USOIL','WTI'],['UKOIL','BRENT']]
-});
-const FRAMES=Object.freeze({'1min':['1m',60000],'5min':['5m',300000],'15min':['15m',900000],'1h':['1h',3600000],'4h':['4h',14400000],'1day':['1d',86400000]});
-const SOURCE='Biquote (مصدر طرف ثالث — ليس Bybit CFD)';
-function resolve(group,symbol){const found=MARKETS[group]?.find(r=>r[0]===symbol);if(!found)throw Error('رمز غير مدعوم في القائمة');const quote=group==='forex'?symbol.slice(3):'USD';return Object.freeze({symbol,providerSymbol:found[1],group,quote,source:SOURCE})}
-function parse(payload,ins,frame,now){if(!FRAMES[frame])throw Error('إطار زمني غير صالح');if(!payload||!Array.isArray(payload.bars))throw Error('لم يُرجع المزود مصفوفة شموع صالحة');if(payload.symbol&&String(payload.symbol).toUpperCase()!==ins.providerSymbol.toUpperCase())throw Error('رمز الاستجابة لا يطابق الرمز المطلوب');if(payload.interval&&String(payload.interval).toLowerCase()!==FRAMES[frame][0])throw Error('إطار الاستجابة لا يطابق المطلوب');const timestamp=Number.isFinite(now)?now:Date.now(),ms=FRAMES[frame][1],map=new Map();
-for(const raw of payload.bars){const t=Date.parse(raw.openTime),o=Number(raw.open),h=Number(raw.high),l=Number(raw.low),c=Number(raw.close);if(!Number.isFinite(t)||t<946684800000||t>timestamp+ms||![o,h,l,c].every(x=>Number.isFinite(x)&&x>0)||h<Math.max(o,c,l)||l>Math.min(o,c,h))throw Error('شمعة بتاريخ أو أسعار OHLC غير صالحة');if(typeof raw.isOpen!=='boolean')throw Error('حالة اكتمال الشمعة غير واضحة لدى المصدر');if(map.has(t))throw Error('شموع مكررة عند المصدر');const completed=!raw.isOpen&&t+ms<=timestamp;map.set(t,Object.freeze({start:t,open:o,high:h,low:l,close:c,confirmed:completed,source:SOURCE,symbol:ins.symbol,providerSymbol:ins.providerSymbol,interval:frame,market:ins.group,quoteCurrency:ins.quote}));}
-return [...map.values()].sort((a,b)=>a.start-b.start)}
-async function get(ins,frame,opts){opts=opts||{};if(!FRAMES[frame])throw Error('إطار غير مدعوم');const endpoint='https://biquote.io/api/'+encodeURIComponent(ins.providerSymbol)+'/ohlc?interval='+encodeURIComponent(FRAMES[frame][0])+'&limit='+encodeURIComponent(String(Math.min(200,Math.max(25,Number(opts.limit)||150))));const controller=new AbortController(),clock=(opts.setTimeout||setTimeout)(()=>controller.abort(),14000);try{const response=await (opts.fetch||fetch)(endpoint,{method:'GET',headers:{Accept:'application/json'},cache:'no-store',signal:controller.signal,referrerPolicy:'no-referrer'});if(!response.ok)throw Error('مزود البيانات: HTTP '+response.status);return parse(await response.json(),ins,frame,opts.now)}finally{(opts.clearTimeout||clearTimeout)(clock)}}
-return Object.freeze({MARKETS,FRAMES,SOURCE,resolve,parse,get});
+/* Traditional-market candles from the private OANDA Practice connector. */
+(function(root,factory){
+ 'use strict';
+ const api=factory(root);
+ if(typeof module==='object'&&module.exports)module.exports=api;
+ if(root)root.ICTPublicMarkets=api;
+})(typeof globalThis!=='undefined'?globalThis:null,function(root){
+ 'use strict';
+ const MARKETS=Object.freeze({
+  forex:[['EURUSD','EUR_USD'],['GBPUSD','GBP_USD'],['USDJPY','USD_JPY'],['AUDUSD','AUD_USD'],['NZDUSD','NZD_USD'],['USDCHF','USD_CHF'],['USDCAD','USD_CAD']],
+  metals:[['XAUUSD','XAU_USD'],['XAGUSD','XAG_USD']],
+  indices:[['NAS100','NAS100_USD'],['US500','SPX500_USD'],['US30','US30_USD']],
+  stocks:[],
+  energy:[['USOIL','WTICO_USD'],['UKOIL','BCO_USD']]
+ });
+ const FRAMES=Object.freeze({'1min':'1','5min':'5','15min':'15','1h':'60','4h':'240','1day':'1440'});
+ const SOURCE='OANDA Practice · شموع المنتصف';
+ const KEY='ict-oanda-research-key-v1';
+ function resolve(group,symbol){
+  const found=MARKETS[group]?.find(row=>row[0]===symbol);
+  if(!found)throw Error('هذه الأداة غير متاحة من OANDA Practice');
+  return {symbol,providerSymbol:found[1],group,quote:found[1].split('_')[1],source:SOURCE};
+ }
+ function serviceAddress(){return root.localStorage?.getItem('ict-background-service-url-v1')||'';}
+ function sessionKey(address=serviceAddress()){
+  if(!address||address!==root.sessionStorage?.getItem(KEY+'-service'))return '';
+  return root.sessionStorage.getItem(KEY)||'';
+ }
+ function saveKey(key){
+  const address=serviceAddress();
+  if(key&&address){
+   root.sessionStorage?.setItem(KEY+'-service',address);
+   root.sessionStorage?.setItem(KEY,key);
+  }else{
+   root.sessionStorage?.removeItem(KEY+'-service');
+   root.sessionStorage?.removeItem(KEY);
+  }
+ }
+ function endpoint(path,symbol,frame){
+  const saved=serviceAddress();
+  if(!saved)throw Error('احفظ عنوان خدمة المراقبة في مركز الفرص لتفعيل OANDA Practice');
+  const base=new URL(saved);
+  if(base.username||base.password||base.search||base.hash||
+    (base.protocol!=='https:'&&!(base.protocol==='http:'&&['localhost','127.0.0.1'].includes(base.hostname))))throw Error('عنوان خدمة المراقبة غير صالح');
+  const url=new URL(base.href.replace(/\/$/,'')+path);
+  url.searchParams.set('symbol',symbol);
+  url.searchParams.set('frame',frame);
+  return url;
+ }
+ async function get(instrument,frame,opts={}){
+  if(!Object.hasOwn(FRAMES,frame))throw Error('إطار غير مدعوم');
+  const key=sessionKey();
+  if(!key)throw Error('أدخل مفتاح خدمة OANDA في مركز الفرص في علامة التبويب الحالية');
+  const url=endpoint('/oanda-candles',instrument.providerSymbol,FRAMES[frame]);
+  const response=await (opts.fetch||root.fetch)(url,{headers:{Authorization:'Bearer '+key},cache:'no-store',signal:AbortSignal.timeout(10000)});
+  if(!response.ok)throw Error(response.status===401?'مفتاح خدمة OANDA غير صالح':'بيانات OANDA Practice غير متاحة للأداة المختارة');
+  const data=await response.json();
+  if(data?.schema!=='ict-oanda-candles/1'||data.symbol!==instrument.providerSymbol||data.frame!==FRAMES[frame]||!Array.isArray(data.bars))throw Error('استجابة OANDA لا تطابق الأداة أو الإطار');
+  return data.bars.slice(-Math.min(250,Math.max(25,Number(opts.limit)||150))).map(bar=>({
+   ...bar,source:SOURCE,symbol:instrument.symbol,providerSymbol:instrument.providerSymbol,interval:frame,market:instrument.group,quoteCurrency:instrument.quote
+  }));
+ }
+ return Object.freeze({MARKETS,FRAMES,SOURCE,resolve,get,sessionKey,saveKey,endpoint});
 });

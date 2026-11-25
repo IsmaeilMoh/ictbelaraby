@@ -89,7 +89,9 @@
  save.addEventListener('click',()=>{try{const u=validate();localStorage.setItem(key,u);status.textContent='تم حفظ عنوان الخدمة على هذا المتصفح فقط. لم يتم التحقق من اتصالها بعد.';status.dataset.bad='0'}catch(e){describeError(e)}});
  check.addEventListener('click',async()=>{let url;try{url=validate()}catch(e){describeError(e);return}results.replaceChildren();status.textContent='جارٍ اختبار اتصال خادم المراقبة...';status.dataset.bad='0';
  const controller=new AbortController(),timeout=setTimeout(()=>controller.abort(),9500);
- try{const res=await fetch(url+'/health',{cache:'no-store',signal:controller.signal});if(!res.ok)throw Error('HTTP '+res.status);const data=await res.json();
+ try{const access=window.ICTPublicMarkets?.sessionKey(url);
+ const headers=access?{Authorization:'Bearer '+access}:{};
+ const res=await fetch(url+'/health',{headers,cache:'no-store',signal:controller.signal});if(!res.ok)throw Error('HTTP '+res.status);const data=await res.json();
  if(data.schema!=='ict-research-monitor/1'||data.readyForExecution!==false||typeof data.active!=='boolean')throw Error('استجابة خادم غير متوافقة');
  const heartbeat=Date.parse(data.lastCycleAt);if(!Number.isFinite(heartbeat))throw Error('الخادم لم ينجز أي دورة فحص بعد');
  const ms=Date.now()-heartbeat;if(ms< -120000||ms>Math.max(900000,(data.pollIntervalMs||300000)*3))throw Error('آخر فحص متأخر أو توقيت الخادم غير صحيح');
@@ -112,6 +114,7 @@
  }catch(e){describeError(e)}finally{clearTimeout(timeout)}});
 
  // GitHub Actions free mode: a static research snapshot, not a live server.
+ const publicMarkets=new Set(['crypto','spot','kraken']);
  const freeCheck=document.getElementById('dc-bg-free-check');
  function showIntegrated(entries,message){
   document.getElementById('ict-decision-8a')?.dispatchEvent(new CustomEvent('ict:background-scanned',{detail:{entries,message}}));
@@ -170,7 +173,7 @@
     const complete=Date.parse(item?.lastCompleteAt);
     return fresh&&item?.status==='research_data_valid'&&!item.stale&&complete<=now&&now-complete<=3*Number(frame)*60000;
    };
-   const targets=Object.entries(d.targets||{}).slice(0,16);
+   const targets=Object.entries(d.targets||{}).filter(([id])=>publicMarkets.has(id.split(':')[0])).slice(0,16);
    const validCount=targets.filter(([key,item])=>isCurrent(item,key.split(':')[2])).length;
    const valid=d.marketDataReady===true&&validCount>0;
    status.textContent=!fresh?'التقرير قديم أو لم يكتمل؛ المراقبة غير مؤكدة':!valid?'التقرير حديث، لكن لا توجد شموع بحثية صالحة':'آخر تقرير حديث: توجد بيانات بحثية صالحة لبعض الأسواق، دون اعتماد تنفيذ';
@@ -185,7 +188,7 @@
    }
    line('الأخبار: '+(d.safety?.economic?.ok?'تغذية متاحة':'غير مكتملة / معلقة')+' · Bid/Ask: غير متصل · المخاطرة: محلية فقط · الموافقة التنفيذية: غير متاحة');
    const entries=(valid&&Array.isArray(d.observations)?d.observations:[]).filter(x=>{
-    if(!x||x.status!=='research_only_blocked'||x.executionApproved!==false||!['BUY','SELL'].includes(x.side))return false;
+    if(!x||!publicMarkets.has(x.market)||x.status!=='research_only_blocked'||x.executionApproved!==false||!['BUY','SELL'].includes(x.side))return false;
     const item=d.targets?.[[x.market,x.symbol,x.frame].join(':')];
     if(!isCurrent(item,x.frame)||item.marketType==='SPOT_RESEARCH_PROXY')return false;
     const checked=Date.parse(x.checkedAt||x.detectedAt),detected=Date.parse(x.detectedAt);
@@ -208,7 +211,12 @@
       hourlyNote(item,now,x.side),
       'مخاطرة الحساب غير متحققة','أسعار Bid/Ask غير متحققة']};
    }),fresh?'لا توجد فرص للعرض في التقرير المجدول الحالي.':'التقرير المجدول قديم أو غير مكتمل.');
-   showForward(d.forward);
+   if(Array.isArray(d.forward?.records)){
+    const records=d.forward.records.filter(row=>publicMarkets.has(row?.market));
+    const counts={};
+    for(const row of records)counts[row.state]=(counts[row.state]||0)+1;
+    showForward({records,counts:records.length===d.forward.records.length?d.forward.counts:counts});
+   }
    line('GitHub Actions تشغيل مجدول بأفضل جهد، وليس مراقبة مستمرة أو إشعارات هاتف.');
   }catch(e){describeError(e);showForward(null);showIntegrated([],'تعذر تحديث نتائج المراقبة المجدولة.')}finally{clearTimeout(timeout);freeCheck.disabled=false}
  });

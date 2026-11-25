@@ -1,7 +1,6 @@
 'use strict';
 const assert=require('node:assert/strict');
 const oanda=require('./oanda-practice.js');
-const {compare}=require('./compare-oanda.cjs');
 const origin='https://ismaeilmoh.github.io';
 const key='demo-test-service-key-123456789012345';
 Object.assign(process.env,{ALLOWED_ORIGIN:origin,OANDA_PRACTICE_TOKEN:'upstream-mock',
@@ -16,8 +15,7 @@ assert.equal(oanda.quote({...tick,time:'2026-11-25T12:00:00'},'XAU_USD'),null);
 assert.equal(oanda.quote({...tick,status:undefined,tradeable:true},'XAU_USD').ask,2501);
 assert.equal(oanda.config({}),null);
 assert.equal(oanda.authorized('Bearer wrong',key),false);
-assert.deepEqual(compare([{start:now,close:101,confirmed:true},{start:now+1000,close:200,confirmed:true}],
- [{start:now,close:100,confirmed:true}]),[{closedAt:iso(now+900000),oandaMidClose:101,biquoteClose:100,differenceBps:100}]);
+
 
 (async()=>{
  const nativeFetch=global.fetch,originalNow=Date.now;
@@ -44,8 +42,17 @@ assert.deepEqual(compare([{start:now,close:101,confirmed:true},{start:now+1000,c
   await new Promise(resolve=>monitor.httpServer.listen(0,'127.0.0.1',resolve));
   const base='http://127.0.0.1:'+monitor.httpServer.address().port;
   const endpoint=base+'/oanda-research?symbol=XAU_USD&frame=15';
-  const access={headers:{Origin:origin,Authorization:'Bearer '+key}};
+  const candlesEndpoint=base+'/oanda-candles?symbol=SPX500_USD&frame=15';
+ const access={headers:{Origin:origin,Authorization:'Bearer '+key}};
   assert.equal((await nativeFetch(endpoint)).status,401);
+  assert.equal((await nativeFetch(candlesEndpoint)).status,401);
+  const index=await (await nativeFetch(candlesEndpoint,access)).json();
+  assert.equal(index.symbol,'SPX500_USD');
+  assert.equal(index.bars.length,1);
+  const publicHealth=await (await nativeFetch(base+'/health')).json();
+  const privateHealth=await (await nativeFetch(base+'/health',access)).json();
+  assert.ok(!Object.hasOwn(publicHealth.targets,'metals:XAUUSD:15'));
+  assert.ok(Object.hasOwn(privateHealth.targets,'metals:XAUUSD:15'));
   const preflight=await nativeFetch(endpoint,{method:'OPTIONS',headers:{Origin:origin,'Access-Control-Request-Headers':'authorization'}});
   assert.equal(preflight.status,204);
   assert.equal(preflight.headers.get('access-control-allow-headers'),'Authorization');
@@ -65,5 +72,5 @@ assert.deepEqual(compare([{start:now,close:101,confirmed:true},{start:now+1000,c
   assert.ok(!data.includes('upstream-mock'));
   assert.equal((await nativeFetch(base+'/oanda-research?symbol=BTC_USD&frame=15',access)).status,400);
  }finally{await monitor.stop();global.fetch=nativeFetch;Date.now=originalNow}
- console.log('OANDA Practice: same-instrument candles, private live quotes, closed market and time-aligned comparison PASS');
+ console.log('OANDA Practice: same-instrument candles, private live quotes, closed market and private background isolation PASS');
 })().catch(error=>{console.error(error);process.exitCode=1});

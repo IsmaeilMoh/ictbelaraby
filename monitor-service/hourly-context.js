@@ -4,7 +4,7 @@ const structure = require('./ict_phase2d/ict-structure-engine-702d.js');
 const context = require('../ict-context-engine-703a.js');
 const scenarios = require('../ict-scenario-engine-703b.js');
 
-// Biquote XAUUSD omits the 17:00 New York bar Mon–Thu. Analyze each
+// XAUUSD can have a scheduled break at 17:00 New York Mon–Thu. Analyze each
 // side independently, so the closure cannot create a pivot or an FVG.
 function goldSessionAnalysis(analysis, segments, now) {
   if (analysis.eligible || segments.length < 2) return analysis;

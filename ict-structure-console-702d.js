@@ -6,7 +6,7 @@ const el=id=>document.getElementById(id),kind=el('ict-2d-market'),sym=el('ict-2d
 const SYMBOLS={crypto:['BTCUSDT','ETHUSDT','SOLUSDT','XRPUSDT']};
 function status(msg,t){state.textContent=msg;state.dataset.level=t||'info'}
 function option(parent,v,label){const o=document.createElement('option');o.value=v;o.textContent=label??v;parent.append(o)}
-function fillSymbols(){sym.replaceChildren();const market=kind.value,items=market==='crypto'?SYMBOLS.crypto:pub.MARKETS[market]?.map(x=>x[0])||[];for(const s of items)option(sym,s);if(market==='crypto')status('Bybit USDT: تحليل الشموع المكتملة بطلب يدوي.');else status('مصدر الأسواق التقليدية: Biquote، وليس Bybit CFD.');stats.replaceChildren();eventsBox.replaceChildren();zonesBox.replaceChildren();details.textContent=''}
+function fillSymbols(){sym.replaceChildren();const market=kind.value,items=market==='crypto'?SYMBOLS.crypto:pub.MARKETS[market]?.map(x=>x[0])||[];for(const s of items)option(sym,s);if(market==='crypto')status('Bybit USDT: تحليل الشموع المكتملة بطلب يدوي.');else status('مصدر الأسواق التقليدية: OANDA Practice.');stats.replaceChildren();eventsBox.replaceChildren();zonesBox.replaceChildren();details.textContent=''}
 kind.addEventListener('change',fillSymbols);
 function item(parent,label,val){const box=document.createElement('div');box.className='ict-2d-stat';const k=document.createElement('span');k.textContent=label;const v=document.createElement('strong');v.textContent=String(val);box.append(k,v);parent.append(box)}
 function num(x){return Number(x).toLocaleString('en-US',{maximumFractionDigits:7})}
