@@ -2,10 +2,9 @@
 (function(){'use strict';const root=document.getElementById('ict-decision-8a');if(!root)return;
 const $=id=>document.getElementById(id),market=$('dc-market'),symbol=$('dc-symbol'),frame=$('dc-frame'),roll=$('dc-roll'),account=$('dc-account'),risk=$('dc-risk'),run=$('dc-run'),monitor=$('dc-monitor'),status=$('dc-status'),output=$('dc-output'),archive=$('dc-archive');
 const crypto=['BTCUSDT','ETHUSDT','SOLUSDT','XRPUSDT'],api=window.ICTDecisionEngine708A,live=window.ICTLiveFeed,publicFeed=window.ICTPublicMarkets,acc=window.ICTAccounts7A,structure=window.ICTStructureEngine,signal=window.ICTSignalEngine,context=window.ICTContextEngine,scenario=window.ICTScenarioEngine,econ=window.ICTEconomicLink706A;
-const scanActions=$('dc-scan-actions'),quoteActions=$('dc-public-quote-actions'),quotePanel=$('dc-public-quote-panel'),quoteContent=$('dc-public-quote-content');
 const quotes=publicFeed.PUBLIC_QUOTES;
 const publicView=()=>Object.hasOwn(quotes,market.value);
-const publicStatus='عرض السعر متاح. فحص ICT وتنبيهات الدخول معلّقة لهذا السوق حتى تتوفر تغذية يستخدمها المحرك.';
+const publicStatus='فحص السوق والمراقبة معلّقان لهذا الأصل حتى يتوفر مصدر مجاني لشموع مكتملة وأسعار Bid/Ask حديثة.';
 const krakenSymbols=['PF_XBTUSD','PF_ETHUSD'];
 const STORAGE='ict-8a-observation-archive-v1';let active=false,busy=false,timer=null,expiry=null,quoteExpiry=null,generation=0;
 const streamEngine=window.ICTEntryStream,streamPanel=$('dc-live-entry'),streamPrice=$('dc-live-entry-price'),
@@ -96,28 +95,7 @@ function marketsChanged(){
  const items=publicView()?Object.keys(quotes[market.value]):market.value==='crypto'?crypto:krakenSymbols;
  selectOptions(symbol,items);
  roll.value=['forex','metals','energy'].includes(market.value)?'17':'0';
- scanActions.hidden=publicView();
- quoteActions.hidden=!publicView();
  selectionChanged();
-}
-function showPublicQuote(){
- if(!publicView())return;
- const ticker=quotes[market.value][symbol.value];
- if(!ticker)return;
- const container=node('div','',quoteContent,'tradingview-widget-container');
- const widget=node('div','',container,'tradingview-widget-container__widget');
- const credit=node('div','',container,'tradingview-widget-copyright');
- const link=node('a',ticker+' · TradingView',credit);
- link.href='https://www.tradingview.com/symbols/'+ticker.replace(':','-')+'/';
- link.target='_blank';link.rel='noopener noreferrer nofollow';
- const embed=document.createElement('script');
- embed.async=true;
- embed.src='https://s3.tradingview.com/external-embedding/embed-widget-symbol-info.js';
- embed.textContent=JSON.stringify({symbol:ticker,colorTheme:'dark',isTransparent:false,locale:'ar',width:'100%'});
- embed.onerror=()=>{widget.textContent='تعذّر تحميل عرض السعر داخل الصفحة.'};
- container.append(embed);
- quoteContent.replaceChildren(container);
- quotePanel.hidden=false;
 }
 function accountsChanged(){const previous=account.value,items=acc?.list()||[];clear(account);const neutral=document.createElement('option');neutral.value='';neutral.textContent='بدون حساب — فحص بحثي فقط';account.append(neutral);for(const a of items){const o=document.createElement('option');o.value=a.id;o.textContent=a.name+' — '+(a.type==='funded'?'ممول':'شخصي')+' — '+a.currency;account.append(o)}const preferred=items.some(x=>x.id===previous)?previous:acc?.selected();if(items.some(x=>x.id===preferred))account.value=preferred||''}
 function monitorEndpoint(path,contract,interval){return publicFeed.endpoint(path,contract,interval)}
@@ -240,8 +218,6 @@ function selectionChanged(){
  stop();
  clearScan();
  if(streamPanel){streamPanel.hidden=true;streamEvents.replaceChildren()}
- quotePanel.hidden=true;
- quoteContent.replaceChildren();
  run.disabled=publicView()||busy;
  monitor.disabled=publicView();
  setState(publicView()?publicStatus:'اختر الأصل واضغط فحص السوق.');
@@ -249,7 +225,6 @@ function selectionChanged(){
 market.addEventListener('change',marketsChanged);
 for(const field of [frame,symbol,roll,account])field.addEventListener('change',selectionChanged);
 risk.addEventListener('input',selectionChanged);
-$('dc-public-quote').addEventListener('click',showPublicQuote);
 run.addEventListener('click',()=>scan(false));
 monitor.addEventListener('click',()=>{if(publicView())return;if(active){stop();return}active=true;monitor.textContent='إيقاف المراقبة';monitor.setAttribute('aria-pressed','true');scan(false);timer=setInterval(()=>scan(true),60000)});
 document.addEventListener('visibilitychange',()=>{if(document.hidden)stop()});
