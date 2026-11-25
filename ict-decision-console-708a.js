@@ -171,7 +171,15 @@ root.addEventListener('ict:background-scanned',e=>{
   message:'انتهت حداثة الشموع المعروضة؛ بانتظار تقرير جديد.'
  }})),Math.max(0,expires-Date.now()));
 });
-function show(res){clear(output);const info=block('حالة الفحص ومصادره');info.classList.add('dc-wide');node('p','الأصل: '+res.symbol+' | المصدر: '+res.source+' | إطار الدخول '+res.frame+' دقائق | الشموع المستخدمة: '+res.sourceBars,info);node('p','وقت الفحص: '+dual(res.checkedAt)+' | آخر إغلاق لإطار الفرصة: '+(res.lastCompleteAt?dual(res.lastCompleteAt):'غير متاح'),info);
+function show(res){
+ clear(output);
+ if(!res.opportunities.length){
+  const empty=block('لا توجد نتائج مطابقة');empty.classList.add('dc-wide');
+  node('p',modelPhase.value?'لم يُرصد نموذج حديث بالحالة المختارة: '+phases[modelPhase.value]+'.':'لم يُرصد نموذج حديث ضمن الشموع التي فُحصت.',empty);
+  for(const message of res.blocks)node('p',message,empty);
+  return;
+ }
+ const info=block('حالة الفحص ومصادره');info.classList.add('dc-wide');node('p','الأصل: '+res.symbol+' | المصدر: '+res.source+' | إطار الدخول '+res.frame+' دقائق | الشموع المستخدمة: '+res.sourceBars,info);node('p','وقت الفحص: '+dual(res.checkedAt)+' | آخر إغلاق لإطار الفرصة: '+(res.lastCompleteAt?dual(res.lastCompleteAt):'غير متاح'),info);
  const quote=node('p','Bid/Ask حديث غير متاح لهذه القراءة. مستويات الفرصة مرجعية.',info);
  if(res.book&&res.book.at<=res.checkedAt&&res.checkedAt-res.book.at<=15000){
   quote.textContent='دفتر Bybit العام · Bid '+money(res.book.bid)+' | Ask '+money(res.book.ask)+' | '+dual(res.book.at);
@@ -180,7 +188,6 @@ function show(res){clear(output);const info=block('حالة الفحص ومصا�
 node('p','آخر إغلاق ساعة مرجعي: '+(res.price==null?'غير متاح':money(res.price))+' | '+(res.priceAt?dual(res.priceAt+3600000):'بيانات الساعة متأخرة'),info);
  const ctx=block('السياق بنيويورك');const day=res.context.previousDay;node('p','PDH: '+money(day.high)+' | PDL: '+money(day.low),ctx);node('p',res.context.priorWeek?'PWH: '+money(res.context.priorWeek.high)+' | PWL: '+money(res.context.priorWeek.low):'الأسبوع السابق غير مكتمل',ctx);node('p','نظام اليوم: '+res.context.sourceDay,ctx);
  const safety=block('بوابات جودة البيانات والأخبار');const checks=[...res.blocks,...res.warnings];node('p',checks.length?'ملاحظات توقف اعتماد الخطة أو تحد من الوثوق:':'الفحوص العامة متاحة؛ كل نموذج يخضع أيضًا لشروطه الخاصة.',safety);if(checks.length){const ul=document.createElement('ul');safety.append(ul);checks.forEach(x=>node('li',x,ul))}if(res.nearbyNews.length){const ul=document.createElement('ul');safety.append(ul);res.nearbyNews.forEach(x=>node('li',x.title+' · '+dual(x.when),ul))}
- if(!res.opportunities.length){const empty=block('لا توجد نتائج مطابقة');empty.classList.add('dc-wide');node('p',modelPhase.value?'لا يوجد نموذج حديث بالحالة المختارة: '+phases[modelPhase.value]+'.':'لا يوجد نموذج حديث مكتمل في فترة الشموع الحالية.',empty)}
  for(const o of res.opportunities.slice(0,8))card(output,{
   ...o,frame:res.frame,source:res.source,marketType:'PERPETUAL',
   detectedAt:res.checkedAt,lastCompleteAt:res.lastCompleteAt
@@ -232,7 +239,7 @@ async function scanBatch(){
  clear(output);
  const results=block('نتائج الفحص الجماعي',output);
  node('p','حالة النموذج: '+(phases[modelPhase.value]||'جميع الحالات')+' · اختر عقدًا منفردًا لمتابعة سعر الدخول.',results);
- let checked=0,failed=0,models=0,halted=false;
+ let checked=0,failed=0,matched=0,models=0,halted=false;
  try{
   setState('جارٍ تحميل الأجندة للفحص الجماعي…');
   const news=await loadNews(signal);
@@ -244,25 +251,26 @@ async function scanBatch(){
     if(signal.aborted)break;
     const res=inspectContract(contract,tf,data,news,true);
     checked++;
-    models+=res.opportunities.length;
-    const group=node('details','',results);
-    node('summary',contract+' · '+res.opportunities.length+' نموذج · '+dual(res.checkedAt),group);
-    if(modelPhase.value&&!res.opportunities.length)node('p','لا يوجد نموذج حديث بالحالة المختارة.',group);
-    for(const message of [...res.blocks,...res.warnings])node('p',message,group);
-    for(const opportunity of res.opportunities)card(group,{
-     ...opportunity,frame:tf,source:res.source,marketType:'PERPETUAL',detectedAt:res.checkedAt,lastCompleteAt:res.lastCompleteAt
-    },'فحص جماعي');
+    if(res.opportunities.length){
+     matched++;
+     models+=res.opportunities.length;
+     for(const opportunity of res.opportunities)card(results,{
+      ...opportunity,frame:tf,source:res.source,marketType:'PERPETUAL',detectedAt:res.checkedAt,lastCompleteAt:res.lastCompleteAt
+     },'فحص جماعي');
+    }
    }catch(error){
     if(signal.aborted)break;
     failed++;
-    node('p',contract+' · تعذّر الفحص: '+error.message,results);
     if(/^BYBIT_(?:HTTP_(?:403|429|451)|CODE_(?:10006|429))$/.test(error.message)){halted=true;break}
    }
    if(checked+failed<contracts.length)await new Promise(resolve=>setTimeout(resolve,200));
   }
-  if(id===generation)setState((halted?'توقف الفحص بسبب رفض Bybit أو حدود الطلبات. ':signal.aborted?'أُوقف الفحص. ':'انتهى الفحص. ')+
-   'تم فحص '+checked+' من '+contracts.length+' · تعذّر '+failed+' · لم تُفحص '+(contracts.length-checked-failed)+' · نماذج '+models,
-   halted||failed>0);
+  if(id===generation){
+   if(!models)node('p',checked?'لم يُرصد نموذج مطابق في العقود التي اكتمل فحصها.':'لم يكتمل فحص أي عقد.',results);
+   setState((halted?'توقف الفحص بسبب رفض Bybit أو حدود الطلبات. ':signal.aborted?'أُوقف الفحص. ':'انتهى الفحص. ')+
+    'تم فحص '+checked+' من '+contracts.length+' · عقود مطابقة '+matched+' · نماذج '+models+
+    ' · تعذّر '+failed+' · لم تُفحص '+(contracts.length-checked-failed),halted||failed>0);
+  }
  }finally{
   batchController=null;
   busy=false;
@@ -287,7 +295,7 @@ async function scan(auto=false){if(busy||symbol.value==='all'||auto&&document.hi
    root.dispatchEvent(new CustomEvent('ict:decision-cleared'));
    setState('أصبحت شموع الدخول قديمة؛ النتائج أدناه تخص وقت الفحص. أعد الفحص للتحديث.',true);
   },res.entryFreshUntil-now);
-  root.dispatchEvent(new CustomEvent('ict:decision-scanned',{detail:{result:res,bars:entryBars}}));setState('اكتمل التحليل البحثي. '+res.opportunities.length+' نموذج؛ '+(res.blocks.length?'راجع أسباب تعليق الفرص.':'راجع شروط الفرص.'),res.blocks.length>0);
+  root.dispatchEvent(new CustomEvent('ict:decision-scanned',{detail:{result:res,bars:entryBars}}));setState(!res.opportunities.length?'اكتمل الفحص دون نماذج مطابقة.':'اكتمل التحليل البحثي. '+res.opportunities.length+' نموذج؛ '+(res.blocks.length?'راجع أسباب تعليق الفرص.':'راجع شروط الفرص.'),res.blocks.length>0);
  }catch(e){if(id!==generation)return;clearScan();setState('تعذر تكوين خطة موثوقة: '+(e?.message||e)+'. لم تُنشأ توصية.',true)}finally{busy=false;run.disabled=!symbol.value}
 }
 function stop(){closeStream('توقفت مراقبة الأسعار.');active=false;if(timer)clearInterval(timer);timer=null;monitor.textContent='تشغيل المراقبة أثناء فتح الصفحة';monitor.setAttribute('aria-pressed','false')}
