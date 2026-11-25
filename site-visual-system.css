@@ -1,0 +1,73 @@
+/* Shared homepage palette for internal pages. Local layouts and status accents stay in component styles. */
+html[data-ict-unified] {
+  --bg:var(--ict-bg); --surface:var(--ict-card); --surface2:var(--ict-card2);
+  --panel:var(--ict-card); --panel2:var(--ict-card2);
+  --ink:var(--ict-text); --text:var(--ict-text); --txt:var(--ict-text);
+  --muted:var(--ict-muted); --line:var(--ict-border); --border:var(--ict-border); --stroke:var(--ict-border);
+  --accent:var(--ict-accent); --accent-soft:var(--ict-hover);
+  --green:var(--ict-green); --up:var(--ict-green); --red:var(--ict-red); --down:var(--ict-red);
+  --amber:var(--ict-amber); --warn:var(--ict-amber); --shadow:var(--ict-shadow);
+  --unity-bg:var(--ict-bg); --unity-panel:var(--ict-card); --unity-panel-alt:var(--ict-card2);
+  --unity-border:var(--ict-border); --unity-text:var(--ict-text); --unity-muted:var(--ict-muted);
+  --ict-section-surface:linear-gradient(142deg,var(--ict-card),var(--ict-card2) 68%,var(--ict-bg2));
+}
+html[data-ict-unified][data-theme] body {
+  background:linear-gradient(155deg,var(--ict-bg2),var(--ict-bg) 54%,var(--ict-bg))!important;
+  color:var(--ict-text)!important;
+}
+html[data-ict-unified] main :is(.hero,.asset-hero,.ws-hero,.tools-hero) {
+  background:var(--ict-section-surface);
+  color:var(--ict-text);
+  border-color:var(--ict-border);
+  box-shadow:var(--ict-shadow);
+}
+html[data-ict-unified] main :is(.hero,.asset-hero,.ws-hero,.tools-hero)>p {
+  color:var(--ict-muted);
+}
+html[data-ict-unified] main :is(.asset-panel,.asset-tile,.panel,.ws-panel,.ws-card,.admin-card,.dc-panel) {
+  background:var(--ict-section-surface);
+  color:var(--ict-text);
+  border-color:var(--ict-border);
+  box-shadow:var(--ict-shadow);
+}
+html[data-ict-unified][data-theme] #ict-decision-8a .dc-panel {
+  background:var(--ict-section-surface);
+  color:var(--ict-text);
+  border-color:var(--ict-border);
+  box-shadow:var(--ict-shadow);
+}
+html[data-ict-unified] main .asset-tile:hover {
+  border-color:var(--ict-accent);
+  background:var(--ict-hover);
+}
+html[data-ict-unified] body > #ict-master-footer.ict-master-footer {
+  background:var(--ict-card);
+  color:var(--ict-text);
+  border-color:var(--ict-border);
+}
+html[data-ict-unified] main :is(a,button,summary,select,input):focus-visible {
+  outline:2px solid var(--ict-accent);
+  outline-offset:3px;
+}
+html[data-ict-unified] main [data-ict-icon] {
+  display:inline-flex;
+  align-items:center;
+  gap:8px;
+}
+html[data-ict-unified] main .uii-actionmark {
+  display:inline-flex;
+  flex:none;
+  width:20px;
+  height:20px;
+}
+html[data-ict-unified] body > #ict-one-header a.brand {
+  text-decoration:none!important;
+}
+html[data-ict-unified][data-theme] #ict-decision-8a :is(.dc-nav a,.dc-eyebrow) {
+  color:var(--ict-accent);
+}
+html[data-ict-unified] main .asset-actions .asset-btn:not(.ghost) {
+  background:var(--ict-accent);
+  color:var(--ict-accent-contrast);
+  border-color:var(--ict-accent);
+}

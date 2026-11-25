@@ -1,8 +1,7 @@
 /* ICT بالعربي 6.8.31 — unified header/navigation; theme delegated to ICTTheme. */
 (()=>{'use strict';
 const page=location.pathname.split('/').pop()||'index.html';
-/* All public pages currently live in the project root. */
-const base='./';
+const base=new URL('./',document.currentScript.src).href;
 const theme=window.ICTTheme;
 function syncTheme(){if(theme)theme.apply()}
 function icon(name,box=false){const inner=(window.ICTSharedIcons&&window.ICTSharedIcons.makeIcon(name))||document.createElement('span');if(box){const outer=document.createElement('span');outer.className='uii-iconbox';outer.append(inner);return outer}return inner;}

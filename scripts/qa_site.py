@@ -40,16 +40,18 @@ def is_local(url):
 def main():
     errors=[]; warnings=[]
     htmls=[p for p in ROOT.glob('*.html') if not p.name.startswith('_qa_') and p.name not in EXCLUDED]
+    htmls += sorted((ROOT/'assets').glob('*.html'))
     for path in htmls:
         parser=References(); parser.feed(path.read_text(encoding='utf-8'))
         for val,count in collections.Counter(parser.ids).items():
             if count>1:errors.append(f'{path.name}: duplicate ID {val!r} ({count})')
         for ref in set(parser.refs):
             if not is_local(ref):continue
-            target=unquote(urlsplit(ref).path).lstrip('/')
-            if target in {'', '.', './'}: continue
-            if not (ROOT/target).is_file():
-                errors.append(f'{path.name}: missing local resource {ref}')
+            local=unquote(urlsplit(ref).path)
+            if not local: continue
+            target=(ROOT/local.lstrip('/')) if local.startswith('/') else (path.parent/local)
+            if not (target.is_file() or (target/'index.html').is_file()):
+                errors.append(f'{path.relative_to(ROOT)}: missing local resource {ref}')
     for path in ROOT.glob('*.json'):
         try: json.loads(path.read_text(encoding='utf-8'))
         except Exception as exc:errors.append(f'{path.name}: invalid JSON ({exc})')

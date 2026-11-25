@@ -10,7 +10,11 @@
   const anchors=Array.from(header.querySelectorAll('.ict-desktop-more'));
   if(anchors.length>1)anchors.slice(1).forEach(a=>a.remove());
   const a=anchors[0]||document.createElement('a');
-  a.className='ict-desktop-more';a.href=(location.pathname.endsWith('/')||location.pathname.endsWith('/index.html'))?'#more':'./#more';
+  a.className='ict-desktop-more';
+  const home=header.querySelector('a.brand')?.href;
+  const isHomepage=location.pathname.endsWith('/')||location.pathname.endsWith('/index.html');
+  if(isHomepage)a.href='#more';
+  else if(home){const destination=new URL(home);destination.hash='more';a.href=destination.href;}
   a.setAttribute('aria-label','المزيد — جميع أقسام الموقع');a.title='المزيد';
   a.innerHTML=icon+'<span>'+label+'</span>';
   if(!a.isConnected)actions.prepend(a);
