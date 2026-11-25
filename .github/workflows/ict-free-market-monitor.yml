@@ -7,7 +7,7 @@ on:
       - '.github/workflows/ict-free-market-monitor.yml'
   schedule:
     # Offset avoids the most congested minute-0 schedule, cadence best effort.
-    - cron: '7,22,37,52 * * * *'
+    - cron: '7,17,27,37,47,57 * * * *'
   workflow_dispatch:
 permissions:
   contents: write
@@ -39,7 +39,6 @@ jobs:
           fi
       - name: One-shot research scan (fail closed)
         env:
-          MONITOR_TARGETS: crypto:BTCUSDT:15,crypto:ETHUSDT:15,metals:XAUUSD:15,forex:EURUSD:15
           ECONOMIC_FEED_URL: ${{ vars.ICT_ECONOMIC_FEED_URL }}
           QUOTE_FEED_URL: ${{ vars.ICT_QUOTE_FEED_URL }}
           STORE_FILE: ${{ github.workspace }}/monitor-service/monitor-data.json

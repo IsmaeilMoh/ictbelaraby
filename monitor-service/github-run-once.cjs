@@ -3,6 +3,8 @@
 const fs=require('node:fs/promises');
 const path=require('node:path');
 const runner=require('./server.js');
+const spot=require('./crypto-spot-backup.js');
+const phases=new Set(['observed','awaiting_confirmation','confirmed_research','invalidated','expired']);
 const OUT=path.resolve(process.env.PUBLIC_OUTPUT_DIR||path.join(__dirname,'..','_monitor_publish'));
 const OUTFILE=path.join(OUT,'monitor-status.json');
 function publicSnapshot(data,now=Date.now()){
@@ -13,8 +15,21 @@ function publicSnapshot(data,now=Date.now()){
  const targets={};
  for(const [id,val] of Object.entries(data.targets||{}).slice(0,12)){
   if(!/^[a-z]+:[A-Z0-9]+:(5|15)$/.test(id)||!val||typeof val!=='object')continue;
+  const [market,symbol,frame]=id.split(':');
+  if(val.market!==market||val.symbol!==symbol||String(val.frame)!==frame)continue;
+  const marketType=market==='spot'?'SPOT_RESEARCH':market==='crypto'?'PERPETUAL':'PROVIDER_NATIVE';
+  const source=market==='spot'?spot.SOURCE:market==='crypto'?'Bybit V5 USDT perpetual':'Biquote independent feed';
   const last=Date.parse(val.lastCompleteAt||'');
-  targets[id]={market:String(val.market||'').slice(0,30),symbol:String(val.symbol||'').slice(0,20),frame:String(val.frame||''),source:val.source==='Binance Spot (research backup; NOT Bybit perpetual)'?'Binance Spot (research backup; NOT Bybit perpetual)':(val.market==='crypto'?'Bybit V5 USDT':'Biquote independent feed'),marketType:val.marketType==='SPOT_RESEARCH_PROXY'?'SPOT_RESEARCH_PROXY':'PERPETUAL_OR_PROVIDER_NATIVE',status:val.status==='research_data_valid'?'research_data_valid':'blocked',stale:!Number.isFinite(last)||last>now||now-last>3*Number(val.frame||15)*60000,lastCompleteAt:Number.isFinite(last)?new Date(last).toISOString():null,consecutiveFailures:Math.max(0,Math.min(999999,Number(val.consecutiveFailures)||0)),modelCount:Math.max(0,Math.min(100,Number(val.modelCount)||0)),lastRecoveredAt:val.lastRecoveredAt||null,error:val.error?String(val.error).slice(0,120):null,newsGate:val.newsGate||null,executionQuoteGate:val.executionQuoteGate||null,accountRiskGate:'not_verified'};
+  const legacyProxy=market!=='spot'&&(/SPOT/.test(val.marketType||'')||/Binance/i.test(val.source||''));
+  const status=val.status==='research_data_valid'&&!legacyProxy?'research_data_valid':'blocked';
+  const patternCounts=Object.fromEntries(['sweep','mss','fvg','composite','recent','valid'].map(k=>[k,Math.min(1000,Math.max(0,Number(val.patternCounts?.[k])||0))]));
+  targets[id]={market,symbol,frame,source,marketType,status,patternCounts,
+   stale:val.stale===true||!Number.isFinite(last)||last>now||now-last>3*Number(frame)*60000,
+   lastCompleteAt:Number.isFinite(last)?new Date(last).toISOString():null,
+   consecutiveFailures:Math.max(0,Math.min(999999,Number(val.consecutiveFailures)||0)),
+   modelCount:status==='research_data_valid'?patternCounts.valid:0,lastRecoveredAt:val.lastRecoveredAt||null,
+   error:legacyProxy?'LEGACY_SPOT_PROXY':val.error?String(val.error).slice(0,120):null,
+   newsGate:val.newsGate||null,executionQuoteGate:'not_verified',accountRiskGate:'not_verified'};
  }
  // Only expose recent, observed research setups with internally consistent levels.
  // Never copy arbitrary backend objects or personal account fields to a public branch.
@@ -24,26 +39,35 @@ function publicSnapshot(data,now=Date.now()){
   const key=[obs.market,obs.symbol,String(obs.frame)].join(':');
   const target=targets[key];
   if(!target||target.status!=='research_data_valid'||target.stale)continue;
-  const formed=Number(obs.formedAt), detected=Date.parse(obs.detectedAt||'');
-  if(!Number.isFinite(formed)||!Number.isFinite(detected)||detected<formed||detected>now||now-detected>45*60000||now-formed>120*60000)continue;
+  const formed=obs.formedAt, detected=Date.parse(obs.detectedAt||''), checked=Date.parse(obs.checkedAt||'');
+  const close=Date.parse(target.lastCompleteAt),ms=Number(target.frame)*60000;
+  const {phase,at}=obs.research||{};
+  const {sweepAt,mssAt,fvgAt}=obs.evidence||{};
+  if(![formed,detected,checked,at,sweepAt,mssAt,fvgAt].every(Number.isSafeInteger))continue;
+  if(sweepAt>=Math.min(mssAt,fvgAt)||formed!==Math.max(mssAt,fvgAt)+ms)continue;
+  if(!phases.has(phase)||at<formed||at>close||detected<formed||detected>checked||checked>now||
+   close>checked||close-formed>12*ms)continue;
   const {entry,stop,target:targetPrice}=obs;
   if(![entry,stop,targetPrice].every(v=>Number.isFinite(v)&&v>0))continue;
   if(obs.side==='BUY'&&!(stop<entry&&entry<targetPrice))continue;
   if(obs.side==='SELL'&&!(targetPrice<entry&&entry<stop))continue;
   if(typeof obs.id!=='string'||!obs.id.startsWith(key+':'))continue;
   observations.push({id:String(obs.id).slice(0,130),market:target.market,symbol:target.symbol,frame:target.frame,
-   detectedAt:new Date(detected).toISOString(),formedAt:new Date(formed).toISOString(),side:obs.side,
+   detectedAt:new Date(detected).toISOString(),checkedAt:new Date(checked).toISOString(),lastCompleteAt:target.lastCompleteAt,
+   marketType:target.marketType,research:{phase,at:new Date(at).toISOString()},formedAt:new Date(formed).toISOString(),side:obs.side,
    entry,stop,target:targetPrice,rr:Math.round(Math.abs((targetPrice-entry)/(entry-stop))*100)/100,
-   evidence:Object.fromEntries(['sweepAt','mssAt','fvgAt'].filter(k=>Number.isSafeInteger(obs.evidence?.[k])&&obs.evidence[k]>0&&obs.evidence[k]<=formed).map(k=>[k,new Date(obs.evidence[k]).toISOString()])),
+   evidence:{sweepAt:new Date(sweepAt).toISOString(),mssAt:new Date(mssAt).toISOString(),fvgAt:new Date(fvgAt).toISOString()},
+   zone:obs.zone&&[obs.zone.low,obs.zone.high].every(Number.isFinite)&&obs.zone.low<entry&&entry<obs.zone.high?
+    {low:obs.zone.low,high:obs.zone.high}:null,
    source:target.source,model:'Sweep → MSS → FVG',status:'research_only_blocked',
    newsGate:typeof obs.newsGate==='string'?obs.newsGate.slice(0,40):String(obs.newsGate?.status||'not_verified').slice(0,40),
    accountRiskGate:'not_verified',executionQuoteGate:'not_verified',executionApproved:false});
-  if(observations.length>=16)break;
+  if(observations.length>=24)break;
  }
  const values=Object.values(targets);
  const valid=values.filter(t=>t.status==='research_data_valid'&&!t.stale).length;
  const news=data.safety?.economic||{};
- return {schema:'ict-research-monitor/1',transport:'github-actions-static',generatedAt:new Date(now).toISOString(),lastCycleAt:Number.isFinite(stamp)?new Date(stamp).toISOString():null,serverTime:new Date(now).toISOString(),active:fresh,marketDataReady:fresh&&valid>0,allMarketDataReady:fresh&&values.length>0&&values.every(t=>t.status==='research_data_valid'&&!t.stale),marketCount:values.length,cycleCount:Number(data.cycleCount)||0,pollIntervalMs:15*60000,cycleError:data.cycleError?String(data.cycleError).slice(0,120):null,marketSummary:{configured:values.length,valid,blocked:values.length-valid,stale:values.filter(t=>t.stale).length,unchecked:values.filter(t=>t.status==='not_checked').length},targets,safety:{economic:{ok:news.ok===true,reason:news.ok?null:(news.reason||'NOT_CONFIGURED'),eventCount:Number(news.eventCount)||0},bidAsk:{connected:false,reason:'NOT_CONNECTED_IN_FREE_RUNNER'},accountRisk:'not_verified',executionApproved:false},readyForExecution:false,observations};
+ return {schema:'ict-research-monitor/1',transport:'github-actions-static',generatedAt:new Date(now).toISOString(),lastCycleAt:Number.isFinite(stamp)?new Date(stamp).toISOString():null,serverTime:new Date(now).toISOString(),active:fresh,marketDataReady:fresh&&valid>0,allMarketDataReady:fresh&&values.length>0&&values.every(t=>t.status==='research_data_valid'&&!t.stale),marketCount:values.length,cycleCount:Number(data.cycleCount)||0,pollIntervalMs:10*60000,cycleError:data.cycleError?String(data.cycleError).slice(0,120):null,marketSummary:{configured:values.length,valid,blocked:values.length-valid,stale:values.filter(t=>t.stale).length,unchecked:values.filter(t=>t.status==='not_checked').length},targets,safety:{economic:{ok:news.ok===true,reason:news.ok?null:(news.reason||'NOT_CONFIGURED'),eventCount:Number(news.eventCount)||0},bidAsk:{connected:false,reason:'NOT_CONNECTED_IN_FREE_RUNNER'},accountRisk:'not_verified',executionApproved:false},readyForExecution:false,observations};
 }
 async function main(){
  await fs.mkdir(OUT,{recursive:true});
@@ -52,6 +76,8 @@ async function main(){
  try{await runner.restore();await runner.cycle();const payload=publicSnapshot(runner.snapshot());
   await fs.writeFile(OUTFILE,JSON.stringify(payload,null,2)+'\n','utf8');
   process.stdout.write('One-shot market scan: '+payload.marketSummary.valid+'/'+payload.marketCount+' fresh sources; approval=false\n');
+  for(const [id,t] of Object.entries(payload.targets))process.stdout.write(id+' '+(t.error||t.source)+' '+JSON.stringify(t.patternCounts)+'\n');
+  process.stdout.write('Public research observations: '+payload.observations.length+'\n');
   if(!payload.marketDataReady)process.stdout.write('WARNING: no verified current market data; status remains blocked\n');
  }finally{await monitor.stop()}
 }

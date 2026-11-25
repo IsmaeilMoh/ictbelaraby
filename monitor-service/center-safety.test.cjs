@@ -120,12 +120,12 @@ async function testOpportunities() {
 async function testMonitor(bars) {
   const temp = await fs.mkdtemp(path.join(os.tmpdir(), 'ict-center-test-'));
   process.env.STORE_FILE = path.join(temp, 'state.json');
-  process.env.MONITOR_TARGETS = 'crypto:BTCUSDT:15';
+  process.env.MONITOR_TARGETS = 'crypto:BTCUSDT:15,spot:BTCUSDT:15';
   process.env.QUOTE_FEED_URL = 'https://quotes.example/quotes';
   const monitor = require('./server');
   const realNow = Date.now;
   const realFetch = global.fetch;
-  const id = process.env.MONITOR_TARGETS;
+  const id = 'crypto:BTCUSDT:15';
   let time = now;
   let scenario = 'healthy';
   Date.now = () => time;
@@ -133,6 +133,10 @@ async function testMonitor(bars) {
     if (String(url).includes('quotes.example')) {
       return { ok: true, text: async () => JSON.stringify([{ id, bid: 200, ask: 200.1, timestamp: iso(now), source: 'test' }]) };
     }
+    if (String(url).includes('binance.vision') && scenario === 'spot-only') {
+      return {ok:true,json:async()=>bars.map(b=>[b.start,b.open,b.high,b.low,b.close,1])};
+    }
+    if (String(url).includes('bybit.com') && scenario === 'spot-only') return {ok:false,status:451};
     if (!String(url).includes('bybit.com') || scenario === 'outage') return { ok: false, status: 503 };
     const rows = bars.map(b => [b.start - (scenario === 'stale' ? 6 * interval : 0),
       b.open, b.high, b.low, b.close, 1, 1]);
@@ -143,7 +147,14 @@ async function testMonitor(bars) {
     const fresh = monitor.snapshot();
     assert.equal(fresh.marketDataReady, true);
     assert.equal(fresh.targets[id].executionQuoteGate, 'verified_research_quote');
-    assert.equal(fresh.observations.length, 1);
+    assert.ok(fresh.observations.some(o=>o.research.phase==='observed'));
+    const first = fresh.observations[0];
+    assert.equal(fresh.targets[id].patternCounts.valid, fresh.observations.length);
+    time += minute;
+    await monitor.cycle();
+    const rescanned = monitor.snapshot().observations.find(o=>o.id===first.id);
+    assert.equal(rescanned.detectedAt,first.detectedAt);
+    assert.notEqual(rescanned.checkedAt,first.checkedAt);
     assert.equal(fresh.observations[0].newsGate.status, 'blocked');
     assert.equal(fresh.readyForExecution, false);
     time += minute;
@@ -154,6 +165,14 @@ async function testMonitor(bars) {
       assert.equal(monitor.snapshot().observations.length, 0);
       assert.match(monitor.snapshot().targets[id].error, scenario === 'outage' ? /503/ : /STALE_CANDLES/);
     }
+    scenario = 'spot-only';
+    await monitor.cycle();
+    const separate = monitor.snapshot();
+    assert.equal(separate.targets[id].status,'blocked');
+    assert.match(separate.targets[id].error,/451/);
+    assert.equal(separate.targets['spot:BTCUSDT:15'].marketType,'SPOT_RESEARCH');
+    assert.equal(separate.targets['spot:BTCUSDT:15'].status,'research_data_valid');
+    assert.ok(separate.observations.length>0 && separate.observations.every(o=>o.market==='spot'));
   } finally {
     Date.now = realNow;
     global.fetch = realFetch;

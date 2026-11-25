@@ -55,7 +55,7 @@ function analyze(candles,frame,opts={}){
  const firstLatest=latest[0]?.start??Infinity,hi=[...pivots].reverse().find(p=>p.type==='swing-high'&&p.start>=firstLatest),lo=[...pivots].reverse().find(p=>p.type==='swing-low'&&p.start>=firstLatest);
  const range=hi&&lo&&hi.level>lo.level?{high:hi.level,low:lo.level,equilibrium:(hi.level+lo.level)/2,premium:[(hi.level+lo.level)/2,hi.level],discount:[lo.level,(hi.level+lo.level)/2],from:[hi.start,lo.start]}:null;
  const qualified=latest.length>=minBars;
- return {sourceBars:input.rows.length,usableBars:latest.length,eligible:qualified,frame,gaps:input.gaps,rejected:input.rejected,unconfirmed:input.unconfirmed,duplicates:input.duplicates,pivot,events:events.filter(e=>e.at>=firstLatest).slice(-100),zones:zones.filter(z=>z.at>=firstLatest).slice(-100),pivots:pivots.filter(p=>p.start>=firstLatest).slice(-40),range,first:latest[0]?.start??null,last:latest.at(-1)?.start??null,segments:input.segments.length,minimum:minBars,disclaimer:'اكتشافات وصفية لقواعد حسابية مبسطة؛ ليست توصية أو نموذج ICT معتمدًا للتنفيذ.'};
+ return {sourceBars:input.rows.length,usableBars:latest.length,eligible:qualified,frame,gaps:input.gaps,rejected:input.rejected,unconfirmed:input.unconfirmed,duplicates:input.duplicates,pivot,events:events.filter(e=>e.at>=firstLatest).slice(opts.fullEvidence?-Infinity:-100),zones:zones.filter(z=>z.at>=firstLatest).slice(opts.fullEvidence?-Infinity:-100),pivots:pivots.filter(p=>p.start>=firstLatest).slice(-40),range,first:latest[0]?.start??null,last:latest.at(-1)?.start??null,segments:input.segments.length,minimum:minBars,disclaimer:'اكتشافات وصفية لقواعد حسابية مبسطة؛ ليست توصية أو نموذج ICT معتمدًا للتنفيذ.'};
 }
 return Object.freeze({FRAME_MS,normalize,analyze});
 });

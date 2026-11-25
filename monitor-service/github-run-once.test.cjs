@@ -8,7 +8,7 @@ s=publicSnapshot({...fixture,targets:{'crypto:BTCUSDT:15':{...fixture.targets['c
 assert.throws(()=>publicSnapshot({...fixture,readyForExecution:true},now),/UNSAFE/);
 console.log('GitHub static payload safety tests: PASS');
 
-const good={id:'crypto:BTCUSDT:15:setup-01',market:'crypto',symbol:'BTCUSDT',frame:'15',formedAt:now-240000,detectedAt:new Date(now-60000).toISOString(),status:'research_only_blocked',side:'BUY',entry:100,stop:99,target:102,accountRiskGate:'not_verified'};
+const good={id:'crypto:BTCUSDT:15:setup-01',market:'crypto',symbol:'BTCUSDT',frame:'15',formedAt:now-60000,checkedAt:new Date(now).toISOString(),research:{phase:'observed',at:now-60000},evidence:{sweepAt:now-1860000,mssAt:now-960000,fvgAt:now-960000},detectedAt:new Date(now-60000).toISOString(),status:'research_only_blocked',side:'BUY',entry:100,stop:99,target:102,accountRiskGate:'not_verified'};
 let o=publicSnapshot({...fixture,observations:[good]},now);
 assert.equal(o.observations.length,1);
 assert.equal(o.observations[0].entry,100);
@@ -25,9 +25,14 @@ assert.equal(publicSnapshot({...fixture,observations:[{...good,entry:'100'}]},no
 console.log('Public research observation sanitization: PASS');
 
 const proxy=publicSnapshot({...fixture,targets:{'crypto:BTCUSDT:15':{...fixture.targets['crypto:BTCUSDT:15'],source:'Binance Spot (research backup; NOT Bybit perpetual)',marketType:'SPOT_RESEARCH_PROXY'}}},now);
-assert.equal(proxy.targets['crypto:BTCUSDT:15'].marketType,'SPOT_RESEARCH_PROXY');
-assert.match(proxy.targets['crypto:BTCUSDT:15'].source,/NOT Bybit perpetual/);
-console.log('Spot backup provenance retained: PASS');
+assert.equal(proxy.targets['crypto:BTCUSDT:15'].status,'blocked');
+const spot=publicSnapshot({...fixture,targets:{'spot:BTCUSDT:15':{...fixture.targets['crypto:BTCUSDT:15'],market:'spot'}},
+ observations:[{...good,market:'spot',id:'spot:BTCUSDT:15:setup-01'}]},now);
+assert.equal(spot.targets['spot:BTCUSDT:15'].marketType,'SPOT_RESEARCH');
+assert.match(spot.observations[0].source,/Binance Spot/);
+assert.equal(spot.observations[0].executionApproved,false);
+assert.equal(publicSnapshot({...fixture,observations:[{...good,research:{...good.research,at:now+60000}}]},now).observations.length,0);
+console.log('Spot and perpetual identities remain disjoint: PASS');
 const future=publicSnapshot({...fixture,targets:{'crypto:BTCUSDT:15':{...fixture.targets['crypto:BTCUSDT:15'],lastCompleteAt:new Date(now+5*60000).toISOString()}},observations:[good]},now);
 assert.equal(future.targets['crypto:BTCUSDT:15'].stale,true);
 assert.equal(future.marketDataReady,false);

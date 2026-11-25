@@ -22,17 +22,54 @@ function strip(res){return {market:res.market,symbol:res.symbol,frame:res.frame,
 function saved(){try{const x=JSON.parse(localStorage.getItem(STORAGE)||'[]');return Array.isArray(x)?x.slice(0,30):[]}catch{return []}}
 function record(res){try{let arr=saved();arr=arr.filter(x=>!(x.symbol===res.symbol&&x.market===res.market&&x.frame===res.frame&&x.checkedAt===res.checkedAt));arr.unshift(strip(res));localStorage.setItem(STORAGE,JSON.stringify(arr.slice(0,30)))}catch{}showArchive()}
 function showArchive(){clear(archive);const arr=saved().slice(0,8);if(!arr.length){node('p','لا يوجد سجل فحوص محلي بعد.',archive);return}for(const x of arr){const b=node('div','',archive,'dc-archive-row');node('strong',x.symbol+' · '+x.opportunities.length+' نموذج/فرصة',b);node('small',dual(x.checkedAt)+' · فحص تاريخي محفوظ وليس عرضًا حيًا',b)}}
-function block(title){const c=document.createElement('section');c.className='dc-card';node('h3',title,c);output.append(c);return c}
+function block(title,parent=output){const c=document.createElement('section');c.className='dc-card';node('h3',title,c);parent.append(c);return c}
+const phases={observed:'مرصودة',awaiting_confirmation:'بانتظار التأكيد',confirmed_research:'مؤكدة بحثيًا',invalidated:'ملغاة',expired:'منتهية الصلاحية'};
+const types={SPOT_RESEARCH:'Spot · سوق فوري',SPOT_RESEARCH_PROXY:'Spot · سوق فوري',PERPETUAL:'عقد دائم',PROVIDER_NATIVE:'أداة المزود'};
+function card(parent,o,origin){
+ const c=block([o.symbol,o.frame+' د',o.side,phases[o.research?.phase]||'رصد بحثي'].join(' · '),parent);
+ c.classList.add('dc-wide');
+ node('p',[origin,types[o.marketType],o.source].filter(Boolean).join(' · '),c);
+ node('p','الرصد: '+dual(o.detectedAt)+(o.lastCompleteAt?' | آخر إغلاق: '+dual(o.lastCompleteAt):''),c);
+ if(o.research)node('p','وقت الحالة: '+dual(o.research.at)+' | تكوّن: '+dual(o.formedAt),c);
+ if(o.research?.phase==='confirmed_research')node('p','عاد السعر إلى FVG بعد تكوّن النموذج، وأكّد إغلاق لاحق الاتجاه البحثي. التنفيذ يتطلب تحققًا مستقلًا.',c);
+ const levels=node('div','',c,'dc-levels');
+ for(const [name,value] of [['منطقة FVG',o.zone?money(o.zone.low)+' — '+money(o.zone.high):'غير متاحة'],['دخول مرجعي',money(o.entry)],['إبطال/وقف افتراضي',money(o.stop)],['هدف 2R افتراضي',money(o.target)]]){
+  const el=node('div','',levels);node('small',name,el);node('strong',value,el);
+ }
+ const evidence=(o.modelEvidence||[]).map((at,i)=>Number.isFinite(at)?['سحب السيولة','MSS','FVG'][i]+' · '+dual(at):null).filter(Boolean);
+ if(evidence.length)node('p',evidence.join(' | '),c);
+ if(o.evidence?.length){node('h4','أدلة السياق الأعلى',c);const ul=document.createElement('ul');c.append(ul);o.evidence.forEach(s=>node('li',s,ul))}
+ const list=document.createElement('ul');
+ c.append(list);
+ for(const text of [...(o.blocks||[]),...(o.waiting||[])])node('li',text,list);
+}
+const backgroundOutput=$('dc-background-output');
+let backgroundTimer;
+root.addEventListener('ict:background-scanned',e=>{
+ clearTimeout(backgroundTimer);
+ clear(backgroundOutput);
+ const {entries,message}=e.detail;
+ if(!entries.length){
+  const empty=block('المراقبة المجدولة',backgroundOutput);empty.classList.add('dc-wide');
+  node('p',message,empty);
+  return;
+ }
+ for(const o of entries)card(backgroundOutput,o,'مراقبة مجدولة · GitHub Actions');
+ const expires=Math.min(...entries.map(o=>o.lastCompleteAt+3*Number(o.frame)*60000));
+ backgroundTimer=setTimeout(()=>root.dispatchEvent(new CustomEvent('ict:background-scanned',{detail:{
+  entries:entries.filter(o=>Date.now()<o.lastCompleteAt+3*Number(o.frame)*60000),
+  message:'انتهت حداثة الشموع المعروضة؛ بانتظار تقرير جديد.'
+ }})),Math.max(0,expires-Date.now()));
+});
 function show(res){clear(output);const info=block('حالة الفحص ومصادره');info.classList.add('dc-wide');node('p','الأصل: '+res.symbol+' | المصدر: '+res.source+' | إطار الدخول '+res.frame+' دقائق | الشموع المستخدمة: '+res.sourceBars,info);node('p','وقت الفحص: '+dual(res.checkedAt),info);node('p','آخر إغلاق ساعة مرجعي: '+(res.price==null?'غير متاح':money(res.price))+' | '+(res.priceAt?dual(res.priceAt+3600000):'بيانات الساعة متأخرة'),info);
  const ctx=block('السياق بنيويورك');const day=res.context.previousDay;node('p','PDH: '+money(day.high)+' | PDL: '+money(day.low),ctx);node('p',res.context.priorWeek?'PWH: '+money(res.context.priorWeek.high)+' | PWL: '+money(res.context.priorWeek.low):'الأسبوع السابق غير مكتمل',ctx);node('p','نظام اليوم: '+res.context.sourceDay,ctx);
  const safety=block('بوابات الجودة والأخبار والمخاطرة');const checks=[...res.blocks,...res.warnings];node('p',checks.length?'ملاحظات توقف اعتماد الخطة أو تحد من الوثوق:':'الفحوص العامة متاحة؛ كل نموذج يخضع أيضًا لشروطه الخاصة.',safety);if(checks.length){const ul=document.createElement('ul');safety.append(ul);checks.forEach(x=>node('li',x,ul))}node('p',res.accountName?'الحساب: '+res.accountName+' | '+(res.risk?.message||'المخاطرة غير متحققة'):'لم يُختر حساب — لا يمكن اعتماد المخاطرة',safety);if(res.nearbyNews.length){const ul=document.createElement('ul');safety.append(ul);res.nearbyNews.forEach(x=>node('li',x.title+' · '+dual(x.when),ul))}
  if(!res.opportunities.length){const empty=block('لم تتكوّن فرصة مستوفية');empty.classList.add('dc-wide');node('p','لا يوجد نموذج حديث مكتمل في فترة الشموع الحالية. لا نولّد BUY أو SELL لمجرد طلب الفحص.',empty)}
- for(const o of res.opportunities.slice(0,8)){const c=block(res.symbol+' · '+o.side+' · '+o.status);c.classList.add('dc-wide');node('p','النموذج: '+o.model,c);node('p','تكوّن: '+dual(o.formedAt)+' | العمر: '+o.ageBars+' شموع',c);const levels=node('div','',c,'dc-levels');for(const [name,value] of [['منطقة FVG',money(o.zone.low)+' — '+money(o.zone.high)],['دخول مرجعي',money(o.entry)],['إبطال/وقف افتراضي',money(o.stop)],['هدف 2R افتراضي',money(o.target)]]){const el=node('div','',levels);node('small',name,el);node('strong',value,el)}
-  node('p',o.modelEvidence.map((at,i)=>['سحب السيولة','MSS','FVG'][i]+' · '+dual(at)).join(' | '),c);
-  if(o.evidence.length){node('h4','أدلة السياق الأعلى',c);const ul=document.createElement('ul');c.append(ul);o.evidence.forEach(s=>node('li',s,ul))}
-  node('h4','لماذا ليست أمر تنفيذ فوريًا؟',c);const ul=document.createElement('ul');c.append(ul);[...o.blocks,...o.waiting].forEach(s=>node('li',s,ul));
- }
- const note=block('حدود هذا الإصدار');note.classList.add('dc-wide');node('p',res.disclaimer,note);node('p','لا يتم تداول آلي ولا حفظ توصية كصفقة منفذة. خدمة المراقبة تعمل أثناء فتح الصفحة فقط. سعر المرجع آخر إغلاق شمعة، وليس Bid/Ask مباشرًا.',note);
+ for(const o of res.opportunities.slice(0,8))card(output,{
+  ...o,frame:res.frame,source:res.source,marketType:res.market==='crypto'?'PERPETUAL':'PROVIDER_NATIVE',
+  detectedAt:res.checkedAt,lastCompleteAt:res.lastCompleteAt
+ },'فحص يدوي');
+ const note=block('حدود هذا الإصدار');note.classList.add('dc-wide');node('p',res.disclaimer,note);node('p','لا يتم تداول آلي ولا حفظ توصية كصفقة منفذة. المراقبة اليدوية المتكررة تعمل أثناء فتح الصفحة. سعر المرجع آخر إغلاق شمعة، وليس Bid/Ask مباشرًا.',note);
 }
 async function scan(auto=false){if(busy||auto&&document.hidden)return;if(!api||!live||!publicFeed||!acc||!structure||!signal||!context||!scenario||!econ){setState('بعض محركات المراحل السابقة غير محمّلة. تأكد من رفع ملفات 2A–7A.',true);return}if(!symbol.value){setState('اختر أصلًا متاحًا.',true);return}
  const id=++generation,selection=[market.value,symbol.value,frame.value,roll.value,account.value,risk.value].join('|');busy=true;run.disabled=true;clearScan();setState('جارٍ جلب شموع 15/5 دقيقة والساعة، وفحص الأجندة، ثم ربط الأدلة…');
