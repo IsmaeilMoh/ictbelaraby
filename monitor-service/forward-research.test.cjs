@@ -32,6 +32,17 @@ assert.equal(journal.advance(first[0],[bar(now+ms,93,98,97)],now+2*ms).state,'in
 assert.equal(journal.advance(first[0],[bar(now+2*ms,98,103)],now+3*ms).state,'gap');
 assert.equal(journal.advance(first[0],[bar(now+ms,98,103)],now+ms).state,'waiting');
 assert.equal(journal.advance({...first[0],maxBars:1},[bar(now+ms,101,103,102)],now+2*ms).state,'expired');
+const trigger=journal.createLiveEntry({...candidate,evidence:[],blocks:[]},now+1200,
+ {at:now+1000,bid:99.8,ask:99.9},'Kraken Futures');
+assert.equal(trigger.modelId,candidate.id);
+assert.notEqual(trigger.key,first[0].key);
+assert.equal(trigger.state,'active');
+assert.equal(trigger.liveQuote.price,99.9);
+assert.equal(journal.advance(trigger,[bar(now,94,102)],now+ms).state,'ambiguous');
+assert.equal(journal.advance(trigger,[bar(now,98,102),bar(now+ms,101,111,103)],now+2*ms).state,'won');
+assert.equal(journal.advance(trigger,[bar(now+ms,101,111,103)],now+2*ms).state,'gap');
+assert.equal(journal.advance(trigger,[bar(now,98,102)],now+ms).barsExamined,0);
+assert.throws(()=>journal.createLiveEntry({...candidate,blocks:[]},now+7000,{at:now+1000,bid:99.8,ask:99.9}),/غير صالحة/);
 const payload=publicSnapshot({schema:'ict-research-monitor/1',readyForExecution:false,active:true,
  lastCycleAt:new Date(now+2*ms).toISOString(),targets:{[target.id]:{...target,frame:'5',status:'blocked'}},
  forward:{[target.id]:[{...activated,accountName:'private',unexpected:'private'}]}},now+2*ms);

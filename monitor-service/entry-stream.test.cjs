@@ -52,6 +52,11 @@ const link=stream.connect('kraken','PF_XBTUSD',{quote(){received++},failed(reaso
  {Socket,clock:()=>now});
 Socket.instance.dispatchEvent(new Event('open'));
 assert.deepEqual(Socket.instance.sent.params.symbol,['PF_XBTUSD']);
+Socket.instance.dispatchEvent(new MessageEvent('message',{data:JSON.stringify({...ticker,data:[
+ {...ticker.data[0],timestamp:new Date(now-6000).toISOString()}
+]})}));
+assert.equal(received,0);
+assert.equal(failed,undefined);
 Socket.instance.dispatchEvent(new MessageEvent('message',{data:JSON.stringify(ticker)}));
 assert.equal(received,1);
 Socket.instance.dispatchEvent(new Event('close'));

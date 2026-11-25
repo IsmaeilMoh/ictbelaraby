@@ -94,6 +94,7 @@
    if(!quote)return;
    const now=clock(),status=quoteStatus(quote,now);
    if(latest&&quote.at<=latest)return;
+   if(!latest&&status==='invalid')return; // A cached opening snapshot cannot establish a baseline.
    if(status!=='ready')return fail(status);
    if(latest&&quote.at-latest>MAX_AGE)return fail('stale');
    latest=quote.at;
