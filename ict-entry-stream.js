@@ -7,13 +7,15 @@
  'use strict';
  const MAX_AGE=5000, MAX_SPREAD_BPS=40;
 
- function subscription(market,symbol){
+ function subscription(market,symbol,bybitContract){
   if(market==='kraken'&&['PF_XBTUSD','PF_ETHUSD'].includes(symbol))return {
    url:'wss://uws.kraken.com/v2/public',
    request:{method:'subscribe',params:{channel:'ticker',asset_class:'derivatives',symbol:[symbol],snapshot:true}}
   };
-  if(market==='crypto'&&['BTCUSDT','ETHUSDT','SOLUSDT','XRPUSDT'].includes(symbol))return {
-   url:'wss://stream.bybit.com/v5/public/linear',request:{op:'subscribe',args:['orderbook.1.'+symbol]}
+  const category=bybitContract?.symbol===symbol?bybitContract.category:
+   ['BTCUSDT','ETHUSDT','SOLUSDT','XRPUSDT'].includes(symbol)?'linear':null;
+  if(market==='crypto'&&/^[A-Z0-9]{3,35}$/.test(symbol)&&['linear','inverse'].includes(category))return {
+   url:'wss://stream.bybit.com/v5/public/'+category,request:{op:'subscribe',args:['orderbook.1.'+symbol]}
   };
   return null;
  }
@@ -68,8 +70,8 @@
    }
   };
  }
- function connect(market,symbol,callbacks,{Socket=globalThis.WebSocket,clock=Date.now}={}){
-  const config=subscription(market,symbol);
+ function connect(market,symbol,callbacks,{Socket=globalThis.WebSocket,clock=Date.now,bybitContract}={}){
+  const config=subscription(market,symbol,bybitContract);
   if(!config||typeof Socket!=='function')return null;
   const socket=new Socket(config.url);
   let stopped=false, deadline, latest;

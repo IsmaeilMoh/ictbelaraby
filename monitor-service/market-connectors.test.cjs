@@ -22,3 +22,35 @@ const b=bybit.parseHistory({retCode:0,result:{symbol:'BTCUSDT',list:[
 assert.equal(b.length,2);assert.equal(b[0].confirmed,true);
 assert.equal(source.resolve('metals','XAUUSD').quote,'USD');
 console.log('Traditional and Bybit candle connector fixtures: PASS');
+
+(async()=>{
+ const live=require('../ict-live-feed-702a.js');
+ const stream=require('../ict-entry-stream.js');
+ const sample=(symbol,contractType,settleCoin,extra={})=>({symbol,contractType,settleCoin,status:'Trading',...extra});
+ const requests=[];
+ const items=await live.fetchPerpetuals(async request=>{
+  const url=new URL(request);
+  const category=url.searchParams.get('category'),cursor=url.searchParams.get('cursor');
+  requests.push([category,cursor]);
+  const list=category==='inverse'?[sample('BTCUSD','InversePerpetual','BTC',{baseCoin:'BTC',quoteCoin:'USD'})]:
+   cursor?[sample('BTCPERP','LinearPerpetual','USDC')]:
+   [sample('NEWUSDT','LinearPerpetual','USDT'),sample('AAPLUSDT','LinearPerpetual','USDT',{symbolType:'stock'}),
+    sample('DATEDUSDT','LinearFutures','USDT'),sample('PREUSDT','LinearPerpetual','USDT',{isPreListing:true})];
+  return {ok:true,json:async()=>({retCode:0,result:{category,list,nextPageCursor:category==='linear'&&!cursor?'next':''}})};
+ });
+ assert.deepEqual(items.map(x=>x.symbol),['BTCPERP','BTCUSD','NEWUSDT']);
+ assert.ok(requests.some(([category,cursor])=>category==='linear'&&cursor==='next'));
+ const info=live.contract('BTCUSD');
+ assert.equal(info.category,'inverse');
+ assert.equal(stream.subscription('crypto','BTCUSD',info).url,'wss://stream.bybit.com/v5/public/inverse');
+ assert.equal(stream.subscription('crypto','BTCUSD'),null);
+ await live.fetchHistory({symbol:'BTCUSD',interval:'15',now,fetch:async request=>{
+  assert.equal(new URL(request).searchParams.get('category'),'inverse');
+  return {ok:true,json:async()=>({retCode:0,time:now,result:{category:'inverse',symbol:'BTCUSD',list:[[start,'100','103','99','102','25','20']]}})};
+ }});
+ assert.throws(()=>live.parseHistory({retCode:0,result:{category:'linear',symbol:'BTCUSD',list:[]}},'BTCUSD','15',now),/IDENTITY|MISMATCH/);
+ assert.equal(live.contract('AAPLUSDT'),null);
+ await assert.rejects(live.fetchPerpetuals(async()=>({ok:false,status:403})),/403/);
+ assert.equal(live.contract('BTCUSD').category,'inverse');
+ console.log('Bybit perpetual catalog pagination, product filtering and inverse routing: PASS');
+})().catch(error=>{console.error(error);process.exitCode=1});

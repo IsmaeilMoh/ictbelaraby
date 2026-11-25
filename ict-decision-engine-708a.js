@@ -6,7 +6,7 @@ const knownMarkets=new Set(['crypto','kraken','oanda','forex','metals','indices'
 function oandaGroup(symbol){return Object.entries(traditional?.MARKETS||{}).find(([,rows])=>rows.some(row=>row[1]===symbol))?.[0]}
 function nearNews(events,market,symbol,now){const relevant=market==='oanda'?oandaGroup(symbol)==='forex'?symbol.split('_'):['USD']:market==='forex'?[symbol.slice(0,3),symbol.slice(3,6)]:market==='crypto'?['USD']:['USD'];return (events||[]).filter(e=>e&&Number.isFinite(e.when)&&relevant.includes(e.currency)&&Math.abs(e.when-now)<=30*MIN).sort((a,b)=>Math.abs(a.when-now)-Math.abs(b.when-now)).slice(0,8)}
 function inspect(input){
- const {market,symbol,frame='15',candles15=[],candles60=[],account=null,riskAmount=NaN,events=[],eventFeedsLoaded=0,newsChecked=false,newsCovered=false,now=Date.now(),rollHour=0,structureEngine,signalEngine,contextEngine,scenarioEngine,accountEngine}=input;
+ const {market,symbol,bybitContract,frame='15',candles15=[],candles60=[],account=null,riskAmount=NaN,events=[],eventFeedsLoaded=0,newsChecked=false,newsCovered=false,now=Date.now(),rollHour=0,structureEngine,signalEngine,contextEngine,scenarioEngine,accountEngine}=input;
  if(!knownMarkets.has(market)||!symbol||!['5','15'].includes(String(frame)))throw Error('السوق أو الإطار المختار غير مدعوم');
  if(!structureEngine||!signalEngine||!contextEngine||!scenarioEngine)throw Error('محرك تحليلي أساسي مفقود');
  const warnings=[],blocks=[];
@@ -24,6 +24,7 @@ function inspect(input){
  if(!account||!accountEngine)blocks.push('لم يُحدد حساب تداول للتحقق من المخاطرة');
  let risk=null;
  if(account&&accountEngine){const amount=Number(riskAmount);risk=accountEngine.evaluate(account,amount);if(!Number.isFinite(amount)||amount<=0)blocks.push('أدخل مخاطرة مالية موجبة للمراجعة');if(!risk.ok)blocks.push('حد مخاطرة الحساب غير مستوفى: '+risk.message);if(account.currency!=='USD')blocks.push('عملة الحساب ليست USD؛ يلزم تحويل معتمد قبل اعتماد مبلغ المخاطرة');}
+ if(market==='crypto'&&bybitContract?.category==='inverse')blocks.push('مخاطرة العقد العكسي تحتاج حسابًا بعملة التسوية؛ المتابعة بحثية.');
  const models=evaluation.models||[];
  const recent=models.filter(m=>m&&m.ageBars<=12&&m.research&&(m.direction==='bull'||m.direction==='bear')&&[m.entry,m.stop,m.target,m.zone?.low,m.zone?.high].every(v=>Number.isFinite(v)&&v>0)&&(m.direction==='bull'?m.stop<m.entry&&m.entry<m.target:m.target<m.entry&&m.entry<m.stop));
  const opportunities=recent.map(m=>{
@@ -39,7 +40,7 @@ function inspect(input){
   return {id:m.id,symbol,market,direction:m.direction,side,formedAt:m.formedAt,research:m.research,status,entry,stop:m.stop,target:m.target,rr:m.rr,zone:m.zone,model:m.confirmation,blocks:localBlocks,waiting:['عودة السعر إلى منطقة FVG دون إبطال','التحقق من سعر Bid/Ask والسبريد عند التنفيذ','تأكيد عدم تغيّر الهيكل بعد آخر شمعة'],evidence:matched?.evidence||[],modelEvidence:[m.sweepAt,m.mssAt,m.fvgAt],contextScore:matched?.score||0,ageBars:m.ageBars,referenceClose:price};
  }).sort((a,b)=>b.formedAt-a.formedAt);
  if(!opportunities.length)warnings.push('لم يرصد المحرك نموذج Sweep → MSS → FVG حديثًا ومؤهلًا ضمن الشموع المتاحة');
- return {symbol,market,frame,checkedAt:now,source:market==='crypto'?'Bybit V5 USDT perpetual':market==='kraken'?'Kraken Futures · USD perpetual':'OANDA Practice · شموع المنتصف',sourceBars:evaluation.analysis.sourceBars,lastCompleteAt:Number.isFinite(latest)?latest+ms:null,entryFreshUntil:Number.isFinite(latest)?latest+2*ms:null,context,scenarios,opportunities,warnings,blocks,nearbyNews:nearby,newsChecked,newsCovered,eventFeedsLoaded,accountName:account?.name||null,risk,priceAt:context.priceAt,price:context.price,disclaimer:'هذه فرص بحثية مشروطة مستخرجة من إغلاقات شموع، وليست أسعار Bid/Ask لحظية أو أوامر تنفيذ. لا تعتمد الربحية ولا الملاءمة المالية ولا تتضمن سبريدًا أو انزلاقًا أو حجم عقد. تتوقف المراقبة بإغلاق الصفحة.'};
+ return {symbol,market,frame,checkedAt:now,source:market==='crypto'?('Bybit V5 · '+(bybitContract?.category==='inverse'?'عقد دائم عكسي':'عقد دائم خطّي')+' · '+(bybitContract?.settleCoin||'USDT')):market==='kraken'?'Kraken Futures · USD perpetual':'OANDA Practice · شموع المنتصف',sourceBars:evaluation.analysis.sourceBars,lastCompleteAt:Number.isFinite(latest)?latest+ms:null,entryFreshUntil:Number.isFinite(latest)?latest+2*ms:null,context,scenarios,opportunities,warnings,blocks,nearbyNews:nearby,newsChecked,newsCovered,eventFeedsLoaded,accountName:account?.name||null,risk,priceAt:context.priceAt,price:context.price,disclaimer:'هذه فرص بحثية مشروطة مستخرجة من إغلاقات شموع، وليست أسعار Bid/Ask لحظية أو أوامر تنفيذ. لا تعتمد الربحية ولا الملاءمة المالية ولا تتضمن سبريدًا أو انزلاقًا أو حجم عقد. تتوقف المراقبة بإغلاق الصفحة.'};
 }
 return Object.freeze({inspect,nearNews});
 });
