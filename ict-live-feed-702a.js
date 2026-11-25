@@ -94,7 +94,7 @@
  async function fetchHistory(options){options=options||{};const p=checkPair(options.symbol,options.interval),limit=Math.min(Math.max(Number(options.limit)||160,1),1000);
   const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),Math.min(Math.max(options.timeout||9500,1000),20000));
   try{const u=new URL(REST);u.searchParams.set('category',p.category);u.searchParams.set('symbol',p.symbol);u.searchParams.set('interval',p.interval);u.searchParams.set('limit',String(limit));
-   const res=await (options.fetch||fetch)(u.toString(),{method:'GET',cache:'no-store',headers:{Accept:'application/json'},signal:controller.signal});
+   const res=await (options.fetch||fetch)(u.toString(),{method:'GET',cache:'no-store',headers:{Accept:'application/json'},signal:options.signal?AbortSignal.any([options.signal,controller.signal]):controller.signal});
    if(!res.ok)throw Error('BYBIT_HTTP_'+res.status);const data=await res.json();
    if(data.retCode!==0)throw Error('BYBIT_CODE_'+String(data.retCode));return parseHistory(data,p.symbol,p.interval,options.now||Date.now());
   }finally{clearTimeout(timer)}

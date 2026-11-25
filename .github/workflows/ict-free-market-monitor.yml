@@ -16,7 +16,8 @@ concurrency:
   cancel-in-progress: false
 jobs:
   market-research:
-    runs-on: ubuntu-latest
+    # Keep the existing runner unless an approved runner with Bybit V5 access is configured.
+    runs-on: ${{ vars.ICT_BYBIT_RUNNER || 'ubuntu-latest' }}
     timeout-minutes: 12
     steps:
       - uses: actions/checkout@v4

@@ -1,6 +1,6 @@
 /* ICT بالعربي 8C — deterministic operational-readiness checks; no profitability claims. */
 (function(root,factory){'use strict';const api=factory();if(typeof module==='object'&&module.exports)module.exports=api;if(root)root.ICTReadiness708C=api})(typeof globalThis!=='undefined'?globalThis:null,function(){'use strict';
-const FRAME={5:300000,15:900000,60:3600000};
+const FRAME={5:300000,15:900000,60:3600000,240:14400000};
 function sample(raw,frame,now=Date.now()){
  const ms=FRAME[Number(frame)];if(!ms)return {ok:false,code:'frame',message:'إطار غير مدعوم'};
  if(!Array.isArray(raw)||!raw.length)return {ok:false,code:'empty',message:'لم تصل شموع من المصدر',count:0};

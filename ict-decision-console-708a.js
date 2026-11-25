@@ -2,6 +2,8 @@
 (function(){'use strict';const root=document.getElementById('ict-decision-8a');if(!root)return;
 const $=id=>document.getElementById(id),market='crypto',symbol=$('dc-symbol'),frame=$('dc-frame'),roll=$('dc-roll'),account=$('dc-account'),risk=$('dc-risk'),run=$('dc-run'),monitor=$('dc-monitor'),status=$('dc-status'),output=$('dc-output'),archive=$('dc-archive');
 const api=window.ICTDecisionEngine708A,live=window.ICTLiveFeed,acc=window.ICTAccounts7A,structure=window.ICTStructureEngine,signal=window.ICTSignalEngine,context=window.ICTContextEngine,scenario=window.ICTScenarioEngine,econ=window.ICTEconomicLink706A;
+const cancelBatch=$('dc-cancel-batch');
+let batchController=null;
 const bybitSearch=$('dc-bybit-search'),bybitStatus=$('dc-bybit-status');
 let crypto=[...live.SYMBOLS],catalogLoaded=false,catalogLoading=false;
 const STORAGE='ict-8a-observation-archive-v1';let active=false,busy=false,timer=null,expiry=null,quoteExpiry=null,generation=0;
@@ -89,7 +91,7 @@ function clearScan(){
  root.dispatchEvent(new CustomEvent('ict:decision-cleared'));
 }
 function setState(v,bad=false){status.textContent=v;status.dataset.bad=bad?'1':'0'}
-function selectOptions(select,items,choose){clear(select);for(const item of items){const opt=document.createElement('option');opt.value=item;opt.textContent=item;select.append(opt)}if(choose&&items.includes(choose))select.value=choose}
+function selectOptions(select,items,choose){clear(select);for(const item of items){const opt=document.createElement('option');opt.value=item;opt.textContent=item==='all'?'جميع عقود Bybit USDT':item;select.append(opt)}if(choose&&items.includes(choose))select.value=choose}
 function initCatalog(preselected){
  selectOptions(symbol,crypto,preselected);
  roll.value='0';
@@ -99,10 +101,12 @@ function initCatalog(preselected){
 function displayBybitSymbols(preselected){
  const query=bybitSearch.value.trim().toUpperCase();
  const items=crypto.filter(item=>item.includes(query));
- selectOptions(symbol,items,preselected);
+ const selection=preselected==='all'&&catalogLoaded||items.includes(preselected)?preselected:items[0];
+ selectOptions(symbol,catalogLoaded?['all',...items]:items,selection);
+ if(!selection)symbol.value='';
  if(preselected!==symbol.value)selectionChanged();
  bybitStatus.textContent=catalogLoaded?items.length+' عقدًا من '+crypto.length+' في قائمة Bybit لـ USDT':
-  catalogLoading?'جارٍ جلب قائمة العقود الدائمة من Bybit…':'تعذر جلب القائمة الكاملة. تظهر قائمة محدودة. أعد اختيار Bybit للمحاولة.';
+  catalogLoading?'جارٍ جلب قائمة العقود الدائمة من Bybit…':'تعذّر جلب القائمة الكاملة. تظهر قائمة محدودة. أعد تحميل الصفحة للمحاولة.';
 }
 async function loadBybitCatalog(preselected){
  if(catalogLoaded||catalogLoading){displayBybitSymbols(symbol.value);return}
@@ -184,33 +188,98 @@ node('p','آخر إغلاق ساعة مرجعي: '+(res.price==null?'غير مت
  },'فحص يدوي');
  const note=block('حدود هذا الإصدار');note.classList.add('dc-wide');node('p',res.disclaimer,note);node('p','لا يتم تداول آلي ولا حفظ توصية كصفقة منفذة. المراقبة اليدوية المتكررة تعمل أثناء فتح الصفحة. سعر المرجع آخر إغلاق شمعة، وليس Bid/Ask مباشرًا.',note);
 }
-async function scan(auto=false){if(busy||auto&&document.hidden)return;if(!api||!live||!acc||!structure||!signal||!context||!scenario||!econ){setState('بعض محركات المراحل السابقة غير محمّلة. تأكد من رفع ملفات 2A–7A.',true);return}if(!symbol.value){setState('اختر أصلًا متاحًا.',true);return}
- const id=++generation,selection=[symbol.value,frame.value,roll.value,account.value,risk.value].join('|');busy=true;run.disabled=true;clearScan();setState('جارٍ جلب شموع 15/5 دقيقة والساعة، وفحص الأجندة، ثم ربط الأدلة…');
+async function loadNews(signal){
  try{
-  // News availability must never be confused with market availability: show the
-  // price/ICT research with a HARD BLOCK if the news feed fails or times out.
-  const boundedFetch=(url,options={})=>{
-    const controller=new AbortController();const timeout=setTimeout(()=>controller.abort(),12000);
-    return fetch(url,{...options,signal:controller.signal}).then(async response=>{
-      if(!response.ok)return response;
-      const data=await response.json();
-      return {ok:true,json:()=>data};
-    }).finally(()=>clearTimeout(timeout));
-  };
+  const timeout=AbortSignal.timeout(12000);
+  const fetchSignal=signal?AbortSignal.any([signal,timeout]):timeout;
+  const news=await econ.loadEvents((url,options={})=>fetch(url,{...options,signal:fetchSignal}));
+  if(!Array.isArray(news?.events))throw Error('استجابة غير صالحة');
+  return news;
+ }catch(error){
+  return {events:[],feedsLoaded:0,failures:['تعذّر التحقق من الأخبار: '+error.message]};
+ }
+}
+async function getCandles(contract,tf,signal){
+ const higher=api.contextFrame(tf);
+ const history=(interval,limit)=>live.fetchHistory({symbol:contract,interval,limit,signal});
+ const hourlyRequest=history('60',1000);
+ const [hourly,entryBars,higherCandles]=await Promise.all([
+  hourlyRequest,tf==='60'?hourlyRequest:history(tf,250),
+  higher==='60'?hourlyRequest:history(higher,120)
+ ]);
+ return {hourly,entryBars,higherCandles};
+}
+function inspectContract(contract,tf,{entryBars,hourly,higherCandles},news,batch=false){
+ const now=Date.now();
+ const accountInfo=(acc.list()||[]).find(item=>item.id===account.value)||null;
+ const res=api.inspect({market,symbol:contract,frame:tf,candles15:entryBars,candles60:hourly,higherCandles,
+  rollHour:Number(roll.value),account:accountInfo,accountEngine:acc,riskAmount:risk.value,newsChecked:news.feedsLoaded>0,
+  newsCovered:econ.scheduleCovers(news.parts||[],now),eventFeedsLoaded:news.feedsLoaded,events:news.events,now,
+  structureEngine:structure,signalEngine:signal,contextEngine:context,scenarioEngine:scenario});
+ if(news.failures?.length)res.warnings.push('تعذر تحميل بعض الأجندات: '+news.failures.join('؛ '));
+ if(batch)for(const plan of res.opportunities)plan.blocks.push('الفحص الجماعي بحثي؛ افحص العقد منفردًا للتحقق من Bid/Ask والمراقبة اللحظية.');
+ return res;
+}
+function cancelGroupedScan(){batchController?.abort()}
+async function scanBatch(){
+ if(busy||!catalogLoaded)return;
+ const contracts=[...crypto],tf=frame.value,id=++generation;
+ const controller=new AbortController(),{signal}=controller;
+ batchController=controller;
+ busy=true;
+ run.disabled=true;
+ cancelBatch.hidden=false;
+ clearScan();
+ clear(output);
+ const results=block('نتائج الفحص الجماعي',output);
+ node('p','نتائج بحثية لكل عقد وقت فحصه. اختر عقدًا منفردًا لمتابعة سعر الدخول.',results);
+ let checked=0,failed=0,models=0,halted=false;
+ try{
+  setState('جارٍ تحميل الأجندة للفحص الجماعي…');
+  const news=await loadNews(signal);
+  for(const contract of contracts){
+   if(signal.aborted)break;
+   setState('جارٍ فحص '+contract+' · '+(checked+failed+1)+' من '+contracts.length);
+   try{
+    const data=await getCandles(contract,tf,signal);
+    if(signal.aborted)break;
+    const res=inspectContract(contract,tf,data,news,true);
+    checked++;
+    models+=res.opportunities.length;
+    const group=node('details','',results);
+    node('summary',contract+' · '+res.opportunities.length+' نموذج · '+dual(res.checkedAt),group);
+    for(const message of [...res.blocks,...res.warnings])node('p',message,group);
+    for(const opportunity of res.opportunities)card(group,{
+     ...opportunity,frame:tf,source:res.source,marketType:'PERPETUAL',detectedAt:res.checkedAt,lastCompleteAt:res.lastCompleteAt
+    },'فحص جماعي');
+   }catch(error){
+    if(signal.aborted)break;
+    failed++;
+    node('p',contract+' · تعذّر الفحص: '+error.message,results);
+    if(/^BYBIT_(?:HTTP_(?:403|429|451)|CODE_(?:10006|429))$/.test(error.message)){halted=true;break}
+   }
+   if(checked+failed<contracts.length)await new Promise(resolve=>setTimeout(resolve,200));
+  }
+  if(id===generation)setState((halted?'توقف الفحص بسبب رفض Bybit أو حدود الطلبات. ':signal.aborted?'أُوقف الفحص. ':'انتهى الفحص. ')+
+   'تم فحص '+checked+' من '+contracts.length+' · تعذّر '+failed+' · لم تُفحص '+(contracts.length-checked-failed)+' · نماذج '+models,
+   halted||failed>0);
+ }finally{
+  batchController=null;
+  busy=false;
+  cancelBatch.hidden=true;
+  run.disabled=!symbol.value;
+ }
+}
+async function scan(auto=false){if(busy||symbol.value==='all'||auto&&document.hidden)return;if(!api||!live||!acc||!structure||!signal||!context||!scenario||!econ){setState('بعض محركات المراحل السابقة غير محمّلة. تأكد من رفع ملفات 2A–7A.',true);return}if(!symbol.value){setState('اختر أصلًا متاحًا.',true);return}
+ const id=++generation,selection=[symbol.value,frame.value,roll.value,account.value,risk.value].join('|');busy=true;run.disabled=true;clearScan();setState('جارٍ جلب شموع إطار التداول والسياق، وفحص الأجندة، ثم ربط الأدلة…');
+ try{
   const contract=symbol.value;
-  const marketData=Promise.all([live.fetchHistory({symbol:contract,interval:frame.value,limit:250}),live.fetchHistory({symbol:contract,interval:'60',limit:1000})]);
-  const [[entryBars,hourly],newsState,book]=await Promise.all([
-    marketData,
-    Promise.resolve().then(()=>econ.loadEvents(boundedFetch)).then(value=>({ok:true,value}),error=>({ok:false,error})),
-    live.fetchBook(contract).catch(()=>null)
+  const [data,news,book]=await Promise.all([
+   getCandles(contract,frame.value),loadNews(),live.fetchBook(contract).catch(()=>null)
   ]);
   if(id!==generation||selection!==[symbol.value,frame.value,roll.value,account.value,risk.value].join('|'))return;
-  const news=newsState.ok&&newsState.value&&Array.isArray(newsState.value.events)
-    ? newsState.value
-    : {events:[],feedsLoaded:0,failures:['تعذر التحقق من الأخبار: '+String(newsState.error?.message||newsState.error||'استجابة غير صالحة')]};
-  const now=Date.now(),newsCovered=econ.scheduleCovers(news.parts||[],now);
-  const a=(acc.list()||[]).find(x=>x.id===account.value)||null;const res=api.inspect({market,symbol:symbol.value,frame:frame.value,candles15:entryBars,candles60:hourly,rollHour:Number(roll.value),account:a,accountEngine:acc,riskAmount:risk.value,newsChecked:news.feedsLoaded>0,newsCovered,eventFeedsLoaded:news.feedsLoaded,events:news.events,now,structureEngine:structure,signalEngine:signal,contextEngine:context,scenarioEngine:scenario});
-  if(news.failures.length)res.warnings.push('تعذر تحميل بعض الأجندات: '+news.failures.join('؛ '));
+  const res=inspectContract(contract,frame.value,data,news);
+  const {entryBars}=data,now=res.checkedAt;
   res.book=book;
   show(res);record(res);showEntryStream(res,news);
   if(res.entryFreshUntil>now)expiry=setTimeout(()=>{
@@ -224,19 +293,21 @@ async function scan(auto=false){if(busy||auto&&document.hidden)return;if(!api||!
 function stop(){closeStream('توقفت مراقبة الأسعار.');active=false;if(timer)clearInterval(timer);timer=null;monitor.textContent='تشغيل المراقبة أثناء فتح الصفحة';monitor.setAttribute('aria-pressed','false')}
 function selectionChanged(){
  generation++;
+ cancelGroupedScan();
  stop();
  clearScan();
  if(streamPanel){streamPanel.hidden=true;streamEvents.replaceChildren()}
  run.disabled=!symbol.value||busy;
- monitor.disabled=!symbol.value;
- setState('اختر الأصل واضغط فحص السوق.');
+ monitor.disabled=!symbol.value||symbol.value==='all';
+ setState(symbol.value==='all'?'الفحص الجماعي يشمل جميع العقود المتاحة، حتى عند استخدام البحث.':'اختر الأصل واضغط فحص السوق.');
 }
 for(const field of [frame,symbol,roll,account])field.addEventListener('change',selectionChanged);
 risk.addEventListener('input',selectionChanged);
-run.addEventListener('click',()=>scan(false));
+run.addEventListener('click',()=>symbol.value==='all'?scanBatch():scan(false));
+cancelBatch.addEventListener('click',cancelGroupedScan);
 monitor.addEventListener('click',()=>{if(active){stop();return}active=true;monitor.textContent='إيقاف المراقبة';monitor.setAttribute('aria-pressed','true');scan(false);timer=setInterval(()=>scan(true),60000)});
-document.addEventListener('visibilitychange',()=>{if(document.hidden)stop()});
-window.addEventListener('pagehide',stop);
+document.addEventListener('visibilitychange',()=>{if(document.hidden){stop();cancelGroupedScan()}});
+window.addEventListener('pagehide',()=>{stop();cancelGroupedScan()});
 window.addEventListener('ict:accounts-changed',()=>{accountsChanged();selectionChanged()});
 if(window.ICTSharedIcons){
  for(const link of root.querySelectorAll('[data-dc-icon]')){
@@ -268,7 +339,7 @@ async function loadAdvanced(){
  advancedStatus.textContent='جارٍ تحميل أدوات الفحص المتقدمة…';
  try{
   await Promise.all([
-   loadAdvancedScript('ict-readiness-core-708c.js?v=7.0.8c').then(()=>loadAdvancedScript('ict-readiness-console-708c.js?v=7.0.8c1')),
+   loadAdvancedScript('ict-readiness-core-708c.js?v=7.0.22').then(()=>loadAdvancedScript('ict-readiness-console-708c.js?v=7.0.22')),
    loadAdvancedScript('ict-execution-safety-708c5.js?v=7.0.8c5')
   ]);
   advancedReady=true;

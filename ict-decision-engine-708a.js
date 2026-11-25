@@ -5,18 +5,20 @@ const MIN=60000;
 const knownMarkets=new Set(['crypto','kraken','oanda','forex','metals','indices','stocks','energy']);
 function oandaGroup(symbol){return Object.entries(traditional?.MARKETS||{}).find(([,rows])=>rows.some(row=>row[1]===symbol))?.[0]}
 function nearNews(events,market,symbol,now){const relevant=market==='oanda'?oandaGroup(symbol)==='forex'?symbol.split('_'):['USD']:market==='forex'?[symbol.slice(0,3),symbol.slice(3,6)]:market==='crypto'?['USD']:['USD'];return (events||[]).filter(e=>e&&Number.isFinite(e.when)&&relevant.includes(e.currency)&&Math.abs(e.when-now)<=30*MIN).sort((a,b)=>Math.abs(a.when-now)-Math.abs(b.when-now)).slice(0,8)}
+const contextFrame=frame=>({'60':'240','240':'D'}[String(frame)]||'60');
 function inspect(input){
- const {market,symbol,frame='15',candles15=[],candles60=[],account=null,riskAmount=NaN,events=[],eventFeedsLoaded=0,newsChecked=false,newsCovered=false,now=Date.now(),rollHour=0,structureEngine,signalEngine,contextEngine,scenarioEngine,accountEngine}=input;
- if(!knownMarkets.has(market)||!symbol||!['5','15'].includes(String(frame)))throw Error('السوق أو الإطار المختار غير مدعوم');
+ const {market,symbol,frame='15',candles15=[],candles60=[],higherCandles,account=null,riskAmount=NaN,events=[],eventFeedsLoaded=0,newsChecked=false,newsCovered=false,now=Date.now(),rollHour=0,structureEngine,signalEngine,contextEngine,scenarioEngine,accountEngine}=input;
+ if(!knownMarkets.has(market)||!symbol||!['5','15',...(market==='crypto'?['60','240']:[])].includes(String(frame)))throw Error('السوق أو الإطار المختار غير مدعوم');
  if(!structureEngine||!signalEngine||!contextEngine||!scenarioEngine)throw Error('محرك تحليلي أساسي مفقود');
  const warnings=[],blocks=[];
  const context=contextEngine.build([],candles60,{market:market==='kraken'?'crypto':market==='oanda'?(oandaGroup(symbol)||'forex'):market,rollHour,now,sources:market==='crypto'?'Bybit V5':market==='kraken'?'Kraken Futures':'OANDA Practice'});
- const structure60=structureEngine.analyze(candles60,'60',{now,pivot:2});
- const scenarios=scenarioEngine.build(context,structure60,{now});
+ const higher=contextFrame(frame);
+ const higherStructure=structureEngine.analyze(higher==='60'?candles60:(higherCandles||[]),higher,{now,pivot:2});
+ const scenarios=scenarioEngine.build(context,higherStructure,{now,frame:higher});
  const evaluation=signalEngine.evaluate(candles15,String(frame),{now,market,symbol});
  const latest=evaluation.analysis.last,ms=structureEngine.FRAME_MS[String(frame)],age=latest==null?Infinity:now-(latest+ms);
  if(!Number.isFinite(age)||age<0||latest+ms!==Math.floor(now/ms)*ms)blocks.push('شموع إطار الدخول قديمة أو مفقودة');
- if(!scenarios.qualified)blocks.push('السياق الساعي غير مكتمل أو غير حديث');
+ if(!scenarios.qualified)blocks.push('سياق الإطار الأعلى أو شموع الساعة غير مكتملة أو غير حديثة');
  if(context.priorWeek==null)warnings.push('الأسبوع المرجعي السابق غير مكتمل؛ لا توجد مستويات PWH/PWL موثوقة');
  if(!newsChecked||!newsCovered)blocks.push('الأجندة المجدولة قديمة أو ناقصة في نافذة الفحص؛ يُمنع اعتماد الخطة');
  const nearby=nearNews(events,market,symbol,now);
@@ -41,5 +43,5 @@ function inspect(input){
  if(!opportunities.length)warnings.push('لم يرصد المحرك نموذج Sweep → MSS → FVG حديثًا ومؤهلًا ضمن الشموع المتاحة');
  return {symbol,market,frame,checkedAt:now,source:market==='crypto'?'Bybit V5 · عقد دائم · USDT':market==='kraken'?'Kraken Futures · USD perpetual':'OANDA Practice · شموع المنتصف',sourceBars:evaluation.analysis.sourceBars,lastCompleteAt:Number.isFinite(latest)?latest+ms:null,entryFreshUntil:Number.isFinite(latest)?latest+2*ms:null,context,scenarios,opportunities,warnings,blocks,nearbyNews:nearby,newsChecked,newsCovered,eventFeedsLoaded,accountName:account?.name||null,risk,priceAt:context.priceAt,price:context.price,disclaimer:'هذه فرص بحثية مشروطة مستخرجة من إغلاقات شموع، وليست أسعار Bid/Ask لحظية أو أوامر تنفيذ. لا تعتمد الربحية ولا الملاءمة المالية ولا تتضمن سبريدًا أو انزلاقًا أو حجم عقد. تتوقف المراقبة بإغلاق الصفحة.'};
 }
-return Object.freeze({inspect,nearNews});
+return Object.freeze({inspect,nearNews,contextFrame});
 });

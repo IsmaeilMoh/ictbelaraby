@@ -5,17 +5,19 @@ function finite(x){return typeof x==='number'&&Number.isFinite(x)&&x>0}
 function build(context,structure,opts={}){
  const now=Number.isFinite(opts.now)?opts.now:Date.now();
  if(!context||!context.previousDay||!structure)throw Error('بيانات السياق أو الهيكل ناقصة');
+ const structureMs=opts.frame==='D'?24*HOUR:opts.frame==='240'?4*HOUR:HOUR;
+ const frameLabel=opts.frame==='D'?'اليوم':opts.frame==='240'?'أربع ساعات':'الساعة';
  const day=context.previousDay;
  if(!finite(day.high)||!finite(day.low)||day.high<=day.low)throw Error('حدود اليوم السابق غير صالحة');
  const price=context.price;
  const fresh=finite(price)&&Number.isFinite(context.priceAt)&&now-(context.priceAt+HOUR)<=3*HOUR&&now>=context.priceAt+HOUR;
- const eligible=structure.eligible===true&&structure.usableBars>=structure.minimum&&Number.isFinite(structure.last)&&structure.last+HOUR<=now&&now-(structure.last+HOUR)<=3*HOUR;
+ const eligible=structure.eligible===true&&structure.usableBars>=structure.minimum&&Number.isFinite(structure.last)&&structure.last+structureMs<=now&&now-(structure.last+structureMs)<=(structureMs===HOUR?3*HOUR:structureMs-1);
  const dataOK=fresh&&eligible;
  const lastAt=structure.last||0;
- // An event counts as recent only if its candle is within 24 completed hourly bars of the latest candle.
+ // An event counts as recent only if its candle is within 24 completed structure bars of the latest candle.
  const firstAt=Number.isFinite(structure.first)?structure.first:lastAt-(structure.usableBars-1)*HOUR;
- const events=(Array.isArray(structure.events)?structure.events:[]).filter(e=>e&&e.type&&['BOS','MSS','SWEEP'].includes(e.type)&&['bull','bear'].includes(e.direction)&&Number.isFinite(e.at)&&e.at>=firstAt&&e.at<=lastAt&&lastAt-e.at<=24*HOUR);
- const zones=(Array.isArray(structure.zones)?structure.zones:[]).filter(z=>z&&z.type==='FVG'&&['bull','bear'].includes(z.direction)&&finite(z.low)&&finite(z.high)&&z.low<z.high&&z.mitigated!==true&&Number.isFinite(z.at)&&z.at>=firstAt&&z.at<=lastAt&&lastAt-z.at<=24*HOUR);
+ const events=(Array.isArray(structure.events)?structure.events:[]).filter(e=>e&&e.type&&['BOS','MSS','SWEEP'].includes(e.type)&&['bull','bear'].includes(e.direction)&&Number.isFinite(e.at)&&e.at>=firstAt&&e.at<=lastAt&&lastAt-e.at<=24*structureMs);
+ const zones=(Array.isArray(structure.zones)?structure.zones:[]).filter(z=>z&&z.type==='FVG'&&['bull','bear'].includes(z.direction)&&finite(z.low)&&finite(z.high)&&z.low<z.high&&z.mitigated!==true&&Number.isFinite(z.at)&&z.at>=firstAt&&z.at<=lastAt&&lastAt-z.at<=24*structureMs);
  const upper=context.priorWeek&&finite(context.priorWeek.high)?context.priorWeek.high:null;
  const lower=context.priorWeek&&finite(context.priorWeek.low)?context.priorWeek.low:null;
  function make(dir){const bull=dir==='bull',reference=bull?day.high:day.low,opposite=bull?day.low:day.high;
@@ -23,8 +25,8 @@ function build(context,structure,opts={}){
   const sweep=events.filter(e=>e.type==='SWEEP'&&e.direction===dir).at(-1)||null;
   const zone=zones.filter(z=>z.direction===dir).at(-1)||null;
   const evidence=[];const awaiting=[];
-  if(pivot)evidence.push(`${pivot.type} ${bull?'صعودي':'هبوطي'} مؤكد على إطار الساعة`);
-  else awaiting.push(`ظهور BOS أو MSS ${bull?'صعودي':'هبوطي'} مؤكد على الساعة`);
+  if(pivot)evidence.push(`${pivot.type} ${bull?'صعودي':'هبوطي'} مؤكد على إطار ${frameLabel}`);
+  else awaiting.push(`ظهور BOS أو MSS ${bull?'صعودي':'هبوطي'} مؤكد على إطار ${frameLabel}`);
   if(sweep)evidence.push(`رُصد سحب سيولة ${bull?'أسفل قاع':'أعلى قمة'} في التاريخ الحديث`);
   else awaiting.push(`سحب سيولة ${bull?'سفلي':'علوي'} مؤكد (ليس شرطًا لعرض السيناريو، لكنه دليل إضافي)`);
   if(zone)evidence.push(`FVG ${bull?'صعودية':'هبوطية'} غير ملامسة وفق كشف 2D`);
@@ -42,9 +44,9 @@ function build(context,structure,opts={}){
  }
  const warnings=[];
  if(!fresh)warnings.push('تسعيرة الساعة غير حديثة/غير متاحة');
- if(!eligible)warnings.push('هيكل الساعة غير متصل أو غير كافٍ أو متأخر');
+ if(!eligible)warnings.push('هيكل إطار '+frameLabel+' غير متصل أو غير كافٍ أو متأخر');
  if(!context.priorWeek)warnings.push('مستويات الأسبوع السابق غير مكتملة؛ نستخدم اليوم السابق فقط');
- if(Array.isArray(structure.gaps)&&structure.gaps.length)warnings.push('وُجدت فجوات زمنية في بيانات الساعة؛ يُستخدم أحدث مقطع فقط');
+ if(Array.isArray(structure.gaps)&&structure.gaps.length)warnings.push('وُجدت فجوات زمنية في بيانات إطار '+frameLabel+'؛ يُستخدم أحدث مقطع فقط');
  return {scenarios:[make('bull'),make('bear')],warnings,qualified:dataOK,price:fresh?price:null,sourceDay:context.sourceDay,source:context.sources,lastStructureAt:structure.last??null,checkedAt:now,disclaimer:'قراءة بحثية مشروطة، وليست توصية تداول أو توقع اتجاه. لا توجد احتمالات نجاح أو نقاط دخول تنفيذية. مستويات PDH/PDL وPWH/PWL مبنية على يوم نيويورك 00:00 من شموع الساعة المكتملة؛ وقد تختلف عن جلسة وسيط TradingView أو مصدر سعر مختلف.'};
 }
 return Object.freeze({build});

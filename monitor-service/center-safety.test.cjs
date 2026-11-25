@@ -105,6 +105,29 @@ async function testOpportunities() {
   };
   assert.equal(decision.inspect(inputs).opportunities[0].blocks.length, 0);
   assert.equal(decision.inspect(inputs).entryFreshUntil, now + interval);
+  for (const [frame, higher] of [['60', '240'], ['240', 'D']]) {
+    const tfMs = structure.FRAME_MS[frame], higherMs = structure.FRAME_MS[higher];
+    const rescale = ms => {
+      const close = Math.floor(now / ms) * ms;
+      return bars.map((bar, i) => ({ ...bar, start: close - (bars.length - i) * ms }));
+    };
+    let scenarioFrame;
+    const higherInput = {
+      ...inputs, frame, candles15: rescale(tfMs), higherCandles: rescale(higherMs),
+      scenarioEngine: { build(ctx, data, opts) {
+        assert.equal(data.frame, higher);
+        scenarioFrame = opts.frame;
+        return inputs.scenarioEngine.build(ctx, data, opts);
+      } }
+    };
+    const result = decision.inspect(higherInput);
+    assert.equal(scenarioFrame, higher);
+    assert.ok(result.opportunities.some(plan => plan.side === "SELL" && plan.blocks.length === 0));
+    assert.equal(result.blocks.length, 0);
+    assert.equal(result.entryFreshUntil, Math.floor(now / tfMs) * tfMs + tfMs);
+    const stale = decision.inspect({ ...higherInput, candles15: higherInput.candles15.slice(0, -1) });
+    assert.ok(stale.blocks.includes('شموع إطار الدخول قديمة أو مفقودة'));
+  }
   const highImpact = [{ when: now + minute, currency: 'USD', title: 'Scheduled release' }];
   for (const override of [{ newsCovered: false }, { account: null }, { riskAmount: 0 }, { events: highImpact },
     { now: now + 3 * interval }]) {
