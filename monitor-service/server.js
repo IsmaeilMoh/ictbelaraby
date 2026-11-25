@@ -4,6 +4,7 @@ const http=require('node:http');
 const fs=require('node:fs/promises');
 const path=require('node:path');
 const live=require('./ict-live-feed-702a.js');
+const oanda=require('./oanda-practice.js');
 const kraken=require('./kraken-perpetual.js');
 const cryptoSpotBackup=require('./crypto-spot-backup.js');
 const traditional=require('./ict-public-markets-702c2.js');
@@ -260,10 +261,55 @@ async function directKraken(symbol,frame){
  directScans.set(key,scan);
  return scan.task;
 }
+let oandaStreams=0;
+async function oandaResearch(req,res,url){
+ const settings=oanda.config(),symbol=url.searchParams.get('symbol'),frame=url.searchParams.get('frame');
+ const end=(code,value)=>{res.writeHead(code);res.end(JSON.stringify(value))};
+ if(!settings||!oanda.authorized(req.headers.authorization,settings.key))return end(401,{error:'OANDA_ACCESS_REQUIRED'});
+ if(!oanda.SYMBOLS.includes(symbol)||!['5','15'].includes(frame))return end(400,{error:'INVALID_RESEARCH_TARGET'});
+ if(url.pathname==='/oanda-research'){
+  try{
+   const now=Date.now();
+   const [entry,hourly]=await Promise.all([oanda.fetchCandles(symbol,frame,settings,{now}),oanda.fetchCandles(symbol,'60',settings,{now})]);
+   return end(200,{schema:'ict-oanda-practice/1',symbol,frame,entry,hourly,readyForExecution:false});
+  }catch{return end(503,{error:'OANDA_DATA_UNAVAILABLE'})}
+ }
+ if(oandaStreams>=4)return end(429,{error:'OANDA_STREAM_LIMIT'});
+ const controller=new AbortController();
+ res.on('close',()=>controller.abort());
+ oandaStreams++;
+ const decoder=new TextDecoder();
+ let buffer='';
+ try{
+  const body=await oanda.pricing(symbol,settings,AbortSignal.any([controller.signal,AbortSignal.timeout(65000)]));
+  res.setHeader('Content-Type','application/x-ndjson; charset=utf-8');
+  res.writeHead(200);
+  res.flushHeaders();
+  for await(const chunk of body){
+   buffer+=decoder.decode(chunk,{stream:true});
+   if(buffer.length>65536)break;
+   let newline;
+   while((newline=buffer.indexOf('\n'))>=0){
+    const line=buffer.slice(0,newline);
+    buffer=buffer.slice(newline+1);
+    if(!line.trim())continue;
+    const tick=oanda.quote(JSON.parse(line),symbol);
+    if(tick&&!res.write(JSON.stringify(tick)+'\n'))return;
+   }
+  }
+ }catch{if(!res.headersSent&&!res.destroyed)end(503,{error:'OANDA_STREAM_UNAVAILABLE'})}
+ finally{controller.abort();oandaStreams--;if(!res.writableEnded&&!res.destroyed)res.end()}
+}
 async function api(req,res){const url=new URL(req.url,'http://127.0.0.1');
- if(req.method!=='GET'||!['/health','/snapshot','/market-research'].includes(url.pathname)){res.writeHead(404);res.end('Not found');return}
+ const practice=['/oanda-research','/oanda-quotes'].includes(url.pathname);
+ if(practice&&req.method==='OPTIONS'&&origin&&req.headers.origin===origin){
+  res.writeHead(204,{'Access-Control-Allow-Origin':origin,'Access-Control-Allow-Methods':'GET','Access-Control-Allow-Headers':'Authorization',Vary:'Origin'});
+  res.end();return;
+ }
+ if(req.method!=='GET'||!['/health','/snapshot','/market-research','/oanda-research','/oanda-quotes'].includes(url.pathname)){res.writeHead(404);res.end('Not found');return}
  if(origin&&req.headers.origin===origin){res.setHeader('Access-Control-Allow-Origin',origin);res.setHeader('Vary','Origin')}
  res.setHeader('Cache-Control','no-store');res.setHeader('Content-Type','application/json; charset=utf-8');res.setHeader('X-Content-Type-Options','nosniff');
+ if(practice){await oandaResearch(req,res,url);return}
  if(url.pathname==='/market-research'){
   const symbol=url.searchParams.get('symbol'),frame=url.searchParams.get('frame');
   if(!kraken.SYMBOLS.includes(symbol)||!['5','15'].includes(frame)){
