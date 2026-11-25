@@ -7,3 +7,8 @@
 html[data-theme="light"] #ict-decision-8a .dc-panel,body[data-theme="light"] #ict-decision-8a .dc-panel{background:#edf6f3;color:#16312d;border-color:#bfd7d2}html[data-theme="light"] #ict-decision-8a .dc-card,body[data-theme="light"] #ict-decision-8a .dc-card{background:#fff;color:#173630}html[data-theme="light"] #ict-decision-8a :is(select,input),body[data-theme="light"] #ict-decision-8a :is(select,input){background:white;color:#19362f}
 
 #dc-background-output:not(:empty){margin-top:13px}
+
+#ict-decision-8a :is(#dc-results,#dc-lifecycle,#dc-advanced,#dc-readiness-8c,#dc-execution-safety-8c5,#dc-background-8c2){scroll-margin-block-start:6rem}
+#ict-decision-8a .dc-advanced>summary{cursor:pointer;font-size:1.1rem;font-weight:700;padding-block:8px}
+#ict-decision-8a .dc-advanced>.dc-panel{margin-block:12px 0}
+#ict-decision-8a :is(a,button,summary):focus-visible{outline:2px solid currentColor;outline-offset:4px}
