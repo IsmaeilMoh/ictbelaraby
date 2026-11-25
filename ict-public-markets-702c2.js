@@ -50,7 +50,7 @@
  async function get(instrument,frame,opts={}){
   if(!Object.hasOwn(FRAMES,frame))throw Error('إطار غير مدعوم');
   const key=sessionKey();
-  if(!key)throw Error('أدخل مفتاح خدمة OANDA في مركز الفرص في علامة التبويب الحالية');
+  if(!key)throw Error('أدخل مفتاح خدمة OANDA في إعداد خدمة الشموع الخاصة في صفحة موثوقية البيانات');
   const url=endpoint('/oanda-candles',instrument.providerSymbol,FRAMES[frame]);
   const response=await (opts.fetch||root.fetch)(url,{headers:{Authorization:'Bearer '+key},cache:'no-store',signal:AbortSignal.timeout(10000)});
   if(!response.ok)throw Error(response.status===401?'مفتاح خدمة OANDA غير صالح':'بيانات OANDA Practice غير متاحة للأداة المختارة');

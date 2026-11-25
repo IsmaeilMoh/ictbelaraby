@@ -21,6 +21,13 @@ assert.match(status,/d\.readyForExecution!==false/,'dashboard rejects unsafe mon
 assert.match(status,/now-checked<=45\*60000/,'dashboard rejects stale observations');
 assert.match(html,/ict-execution-safety-708c5\.js/,'risk gate remains active');
 assert.doesNotMatch(script,/\b(placeOrder|executeTrade|submitOrder|createOrder)\s*\(/i,'status refresher must not issue orders');
+const decision=read('ict-decision-console-708a.js');
+assert.doesNotMatch(html,/id="dc-oanda-key"/,'public visitors never enter a dealer or service key');
+for(const group of ['metals','forex','indices','stocks','energy']){
+ assert.ok(html.includes('value="'+group+'"'),'public market category: '+group);
+}
+assert.match(decision,/embed-widget-symbol-info\.js/,'display uses the official public widget');
+assert.match(decision,/if\(publicView\(\)\|\|busy/,'reference display never runs the ICT price scanner');
 let now=1_000_000,clicks=0,tick,unload,visible;
 const button={disabled:false,click(){clicks++}};
 const doc={hidden:false,readyState:'complete',getElementById(id){return id==='dc-bg-free-check'?button:id==='dc-background-8c2'?{}:null;},addEventListener(event,fn){if(event==='visibilitychange')visible=fn}};

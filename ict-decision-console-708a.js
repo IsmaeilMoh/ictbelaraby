@@ -2,8 +2,16 @@
 (function(){'use strict';const root=document.getElementById('ict-decision-8a');if(!root)return;
 const $=id=>document.getElementById(id),market=$('dc-market'),symbol=$('dc-symbol'),frame=$('dc-frame'),roll=$('dc-roll'),account=$('dc-account'),risk=$('dc-risk'),run=$('dc-run'),monitor=$('dc-monitor'),status=$('dc-status'),output=$('dc-output'),archive=$('dc-archive');
 const crypto=['BTCUSDT','ETHUSDT','SOLUSDT','XRPUSDT'],api=window.ICTDecisionEngine708A,live=window.ICTLiveFeed,publicFeed=window.ICTPublicMarkets,acc=window.ICTAccounts7A,structure=window.ICTStructureEngine,signal=window.ICTSignalEngine,context=window.ICTContextEngine,scenario=window.ICTScenarioEngine,econ=window.ICTEconomicLink706A;
-const oandaKey=$('dc-oanda-key'),oandaAccess=$('dc-oanda-access');
-oandaKey.value=publicFeed.sessionKey();
+const scanActions=$('dc-scan-actions'),quoteActions=$('dc-public-quote-actions'),quotePanel=$('dc-public-quote-panel'),quoteContent=$('dc-public-quote-content');
+const quotes={
+ metals:{XAUUSD:'OANDA:XAUUSD',XAGUSD:'OANDA:XAGUSD'},
+ forex:Object.fromEntries(['EURUSD','GBPUSD','USDJPY','AUDUSD','NZDUSD','USDCHF','USDCAD'].map(pair=>[pair,'FX:'+pair])),
+ indices:{NAS100:'FOREXCOM:NSXUSD',US500:'FOREXCOM:SPXUSD',US30:'FOREXCOM:DJI'},
+ stocks:{AAPL:'NASDAQ:AAPL',TSLA:'NASDAQ:TSLA',NVDA:'NASDAQ:NVDA',MSFT:'NASDAQ:MSFT',NFLX:'NASDAQ:NFLX'},
+ energy:{USOIL:'TVC:USOIL',UKOIL:'TVC:UKOIL'}
+};
+const publicView=()=>Object.hasOwn(quotes,market.value);
+const publicStatus='عرض السعر متاح. فحص ICT وتنبيهات الدخول معلّقة لهذا السوق حتى تتوفر تغذية يستخدمها المحرك.';
 const krakenSymbols=['PF_XBTUSD','PF_ETHUSD'];
 const STORAGE='ict-8a-observation-archive-v1';let active=false,busy=false,timer=null,expiry=null,quoteExpiry=null,generation=0;
 const streamEngine=window.ICTEntryStream,streamPanel=$('dc-live-entry'),streamPrice=$('dc-live-entry-price'),
@@ -17,7 +25,7 @@ function closeStream(message){
  if(message&&streamStatus)streamStatus.textContent=message;
 }
 function showEntryStream(res,news){
- if(!streamPanel||!streamEngine||(res.market!=='oanda'&&!streamEngine.subscription(res.market,res.symbol))||document.hidden){
+ if(!streamPanel||!streamEngine||!streamEngine.subscription(res.market,res.symbol)||document.hidden){
   if(streamPanel)streamPanel.hidden=true;
   return;
  }
@@ -33,7 +41,7 @@ function showEntryStream(res,news){
  });
  let lastPaint=0;
  const ready=plans.length?plans.length+' خطة تستوفي شروط المراقبة اللحظية.':'لا توجد خطة مستوفية لتنبيه الدخول في هذا الفحص.';
- const feedLabel=res.market==='oanda'?'OANDA Practice':'الأسعار العام';
+ const feedLabel='الأسعار العام';
  streamStatus.textContent='جارٍ الاتصال بتدفق '+feedLabel+'. '+ready;
  try{
   const callbacks={
@@ -60,7 +68,7 @@ function showEntryStream(res,news){
      if(reported.size>500)reported.delete(reported.values().next().value);
      if(event.kind==='entry')root.dispatchEvent(new CustomEvent('ict:live-entry',{detail:{
       plan:{...event.plan,market:res.market,symbol:res.symbol,frame:res.frame},
-      observedAt:now,quote:event.quote,source:res.market==='oanda'?'OANDA Practice · Bid/Ask':res.source
+      observedAt:now,quote:event.quote,source:res.source
      }}));
      const label=event.kind==='entry'?'تنبيه بحثي: تحقق شرط سعر الدخول':
       event.kind==='invalidated'?'أُلغي النموذج عند رصد تجاوز الوقف':'لم يمكن تأكيد عبور الدخول؛ أعد الفحص';
@@ -73,8 +81,7 @@ function showEntryStream(res,news){
     }
    }
   };
-  stream=res.market==='oanda'?streamEngine.connectPractice(monitorEndpoint('/oanda-quotes',res.symbol,res.frame),publicFeed.sessionKey(),callbacks):
-   streamEngine.connect(res.market,res.symbol,callbacks);
+  stream=streamEngine.connect(res.market,res.symbol,callbacks);
   if(!stream)closeStream('التدفق اللحظي غير متاح في هذا المتصفح.');
  }catch{closeStream('تعذّر بدء تدفق الأسعار؛ أعد الفحص لاحقًا.')}
 }
@@ -91,9 +98,33 @@ function clearScan(){
 }
 function setState(v,bad=false){status.textContent=v;status.dataset.bad=bad?'1':'0'}
 function selectOptions(select,items,choose){clear(select);for(const item of items){const opt=document.createElement('option');opt.value=item;opt.textContent=item;select.append(opt)}if(choose&&items.includes(choose))select.value=choose}
-function marketsChanged(){if(oandaAccess)oandaAccess.hidden=market.value!=='oanda';
-const items=market.value==='oanda'?['metals','forex','indices','energy'].flatMap(group=>publicFeed.MARKETS[group].map(row=>row[1])):market.value==='crypto'?crypto:market.value==='kraken'?krakenSymbols:publicFeed?.MARKETS?.[market.value]?.map(x=>x[0])||[];selectOptions(symbol,items);setRoll()}
-function setRoll(){roll.value=market.value==='oanda'&&['forex','metals','energy'].some(group=>publicFeed.MARKETS[group].some(row=>row[1]===symbol.value))?'17':'0'}
+function marketsChanged(){
+ const items=publicView()?Object.keys(quotes[market.value]):market.value==='crypto'?crypto:krakenSymbols;
+ selectOptions(symbol,items);
+ roll.value=['forex','metals','energy'].includes(market.value)?'17':'0';
+ scanActions.hidden=publicView();
+ quoteActions.hidden=!publicView();
+ selectionChanged();
+}
+function showPublicQuote(){
+ if(!publicView())return;
+ const ticker=quotes[market.value][symbol.value];
+ if(!ticker)return;
+ const container=node('div','',quoteContent,'tradingview-widget-container');
+ const widget=node('div','',container,'tradingview-widget-container__widget');
+ const credit=node('div','',container,'tradingview-widget-copyright');
+ const link=node('a',ticker+' · TradingView',credit);
+ link.href='https://www.tradingview.com/symbols/'+ticker.replace(':','-')+'/';
+ link.target='_blank';link.rel='noopener noreferrer nofollow';
+ const embed=document.createElement('script');
+ embed.async=true;
+ embed.src='https://s3.tradingview.com/external-embedding/embed-widget-symbol-info.js';
+ embed.textContent=JSON.stringify({symbol:ticker,colorTheme:'dark',isTransparent:false,locale:'ar',width:'100%'});
+ embed.onerror=()=>{widget.textContent='تعذّر تحميل عرض السعر داخل الصفحة.'};
+ container.append(embed);
+ quoteContent.replaceChildren(container);
+ quotePanel.hidden=false;
+}
 function accountsChanged(){const previous=account.value,items=acc?.list()||[];clear(account);const neutral=document.createElement('option');neutral.value='';neutral.textContent='بدون حساب — فحص بحثي فقط';account.append(neutral);for(const a of items){const o=document.createElement('option');o.value=a.id;o.textContent=a.name+' — '+(a.type==='funded'?'ممول':'شخصي')+' — '+a.currency;account.append(o)}const preferred=items.some(x=>x.id===previous)?previous:acc?.selected();if(items.some(x=>x.id===preferred))account.value=preferred||''}
 function monitorEndpoint(path,contract,interval){return publicFeed.endpoint(path,contract,interval)}
 async function getKraken(contract,interval){
@@ -106,17 +137,6 @@ async function getKraken(contract,interval){
  const trade=data.lastTrade;
  const lastTrade=Number.isFinite(trade?.price)&&trade.price>0&&Number.isSafeInteger(trade.at)?trade:null;
  return {entryBars:data.entry,hourly:data.hourly,lastTrade};
-}
-async function getOanda(contract,interval){
- const key=publicFeed.sessionKey();
- if(!key)throw Error('احفظ عنوان الخدمة أولًا ثم أدخل مفتاح OANDA للقراءة');
- const endpoint=monitorEndpoint('/oanda-research',contract,interval);
- const response=await fetch(endpoint,{headers:{Authorization:'Bearer '+key},cache:'no-store',signal:AbortSignal.timeout(10000)});
- if(!response.ok)throw Error(response.status===401?'مفتاح خدمة OANDA مفقود أو غير صالح.':'بيانات OANDA Practice غير متاحة للأداة المختارة.');
- const data=await response.json();
- if(data?.schema!=='ict-oanda-practice/1'||data.symbol!==contract||data.frame!==interval||data.readyForExecution!==false||
-    !Array.isArray(data.entry)||!Array.isArray(data.hourly))throw Error('استجابة OANDA لا تطابق الأداة أو الإطار');
- return {entryBars:data.entry,hourly:data.hourly,lastTrade:null};
 }
 function strip(res){return {market:res.market,symbol:res.symbol,frame:res.frame,checkedAt:res.checkedAt,source:res.source,opportunities:res.opportunities.map(o=>({id:o.id,side:o.side,formedAt:o.formedAt,status:o.status,entry:o.entry,stop:o.stop,target:o.target,blocks:o.blocks})),warnings:res.warnings,blocks:res.blocks}}
 function saved(){try{const x=JSON.parse(localStorage.getItem(STORAGE)||'[]');return Array.isArray(x)?x.filter(row=>['oanda','kraken','crypto'].includes(row?.market)).slice(0,30):[]}catch{return []}}
@@ -181,7 +201,7 @@ node('p','آخر إغلاق ساعة مرجعي: '+(res.price==null?'غير مت
  },'فحص يدوي');
  const note=block('حدود هذا الإصدار');note.classList.add('dc-wide');node('p',res.disclaimer,note);node('p','لا يتم تداول آلي ولا حفظ توصية كصفقة منفذة. المراقبة اليدوية المتكررة تعمل أثناء فتح الصفحة. سعر المرجع آخر إغلاق شمعة، وليس Bid/Ask مباشرًا.',note);
 }
-async function scan(auto=false){if(busy||auto&&document.hidden)return;if(!api||!live||!publicFeed||!acc||!structure||!signal||!context||!scenario||!econ){setState('بعض محركات المراحل السابقة غير محمّلة. تأكد من رفع ملفات 2A–7A.',true);return}if(!symbol.value){setState('اختر أصلًا متاحًا.',true);return}
+async function scan(auto=false){if(publicView()||busy||auto&&document.hidden)return;if(!api||!live||!publicFeed||!acc||!structure||!signal||!context||!scenario||!econ){setState('بعض محركات المراحل السابقة غير محمّلة. تأكد من رفع ملفات 2A–7A.',true);return}if(!symbol.value){setState('اختر أصلًا متاحًا.',true);return}
  const id=++generation,selection=[market.value,symbol.value,frame.value,roll.value,account.value,risk.value].join('|');busy=true;run.disabled=true;clearScan();setState('جارٍ جلب شموع 15/5 دقيقة والساعة، وفحص الأجندة، ثم ربط الأدلة…');
  try{
   // News availability must never be confused with market availability: show the
@@ -195,7 +215,7 @@ async function scan(auto=false){if(busy||auto&&document.hidden)return;if(!api||!
     }).finally(()=>clearTimeout(timeout));
   };
   const contract=symbol.value;
-  const marketData=market.value==='oanda'?getOanda(contract,frame.value):market.value==='kraken'?getKraken(contract,frame.value):
+  const marketData=market.value==='kraken'?getKraken(contract,frame.value):
    Promise.all([live.fetchHistory({symbol:contract,interval:frame.value,limit:250}),live.fetchHistory({symbol:contract,interval:'60',limit:1000})])
     .then(([entryBars,hourly])=>({entryBars,hourly,lastTrade:null}));
   const [{entryBars,hourly,lastTrade},newsState,book]=await Promise.all([
@@ -218,9 +238,28 @@ async function scan(auto=false){if(busy||auto&&document.hidden)return;if(!api||!
    setState('أصبحت شموع الدخول قديمة؛ النتائج أدناه تخص وقت الفحص. أعد الفحص للتحديث.',true);
   },res.entryFreshUntil-now);
   root.dispatchEvent(new CustomEvent('ict:decision-scanned',{detail:{result:res,bars:entryBars}}));setState('اكتمل التحليل البحثي. '+res.opportunities.length+' نموذج؛ '+(res.blocks.length?'راجع أسباب تعليق الفرص.':'راجع شروط الفرص.'),res.blocks.length>0);
- }catch(e){if(id!==generation)return;clearScan();setState('تعذر تكوين خطة موثوقة: '+(e?.message||e)+'. لم تُنشأ توصية.',true)}finally{busy=false;run.disabled=false}
+ }catch(e){if(id!==generation)return;clearScan();setState('تعذر تكوين خطة موثوقة: '+(e?.message||e)+'. لم تُنشأ توصية.',true)}finally{busy=false;run.disabled=publicView()}
 }
 function stop(){closeStream('توقفت مراقبة الأسعار.');active=false;if(timer)clearInterval(timer);timer=null;monitor.textContent='تشغيل المراقبة أثناء فتح الصفحة';monitor.setAttribute('aria-pressed','false')}
-function selectionChanged(){generation++;stop();clearScan();if(streamPanel){streamPanel.hidden=true;streamEvents.replaceChildren();}setState('أعد الفحص لتحديث نتائج الاختيار الحالي.')}
-market.addEventListener('change',()=>{selectionChanged();marketsChanged()});symbol.addEventListener('change',setRoll);for(const field of [frame,symbol,roll,account])field.addEventListener('change',selectionChanged);risk.addEventListener('input',selectionChanged);oandaKey.addEventListener('input',()=>{publicFeed.saveKey(oandaKey.value);selectionChanged()});run.addEventListener('click',()=>scan(false));monitor.addEventListener('click',()=>{if(active){stop();return}active=true;monitor.textContent='إيقاف المراقبة';monitor.setAttribute('aria-pressed','true');scan(false);timer=setInterval(()=>scan(true),60000)});document.addEventListener('visibilitychange',()=>{if(document.hidden)stop()});window.addEventListener('pagehide',stop);window.addEventListener('ict:accounts-changed',()=>{accountsChanged();selectionChanged()});accountsChanged();marketsChanged();showArchive();
+function selectionChanged(){
+ generation++;
+ stop();
+ clearScan();
+ if(streamPanel){streamPanel.hidden=true;streamEvents.replaceChildren()}
+ quotePanel.hidden=true;
+ quoteContent.replaceChildren();
+ run.disabled=publicView()||busy;
+ monitor.disabled=publicView();
+ setState(publicView()?publicStatus:'اختر الأصل واضغط فحص السوق.');
+}
+market.addEventListener('change',marketsChanged);
+for(const field of [frame,symbol,roll,account])field.addEventListener('change',selectionChanged);
+risk.addEventListener('input',selectionChanged);
+$('dc-public-quote').addEventListener('click',showPublicQuote);
+run.addEventListener('click',()=>scan(false));
+monitor.addEventListener('click',()=>{if(publicView())return;if(active){stop();return}active=true;monitor.textContent='إيقاف المراقبة';monitor.setAttribute('aria-pressed','true');scan(false);timer=setInterval(()=>scan(true),60000)});
+document.addEventListener('visibilitychange',()=>{if(document.hidden)stop()});
+window.addEventListener('pagehide',stop);
+window.addEventListener('ict:accounts-changed',()=>{accountsChanged();selectionChanged()});
+accountsChanged();marketsChanged();showArchive();
 })();
