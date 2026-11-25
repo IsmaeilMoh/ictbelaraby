@@ -1,5 +1,5 @@
 {
-  "updated_at": "2026-11-25T21:35:48Z",
+  "updated_at": "2026-11-25T22:34:02Z",
   "mode": "rss-attributed",
   "items": [
     {
@@ -388,6 +388,6 @@
       "image": "https://cnnbusinessarabic.com/businesscnn/uploads/images/2026/11/21/1712486.webp"
     }
   ],
-  "source_count": 1,
-  "fetch_errors": 10
+  "source_count": 3,
+  "fetch_errors": 8
 }
