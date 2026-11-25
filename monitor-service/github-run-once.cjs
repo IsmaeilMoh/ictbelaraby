@@ -3,6 +3,7 @@
 const fs=require('node:fs/promises');
 const path=require('node:path');
 const runner=require('./server.js');
+const kraken=require('./kraken-perpetual.js');
 const spot=require('./crypto-spot-backup.js');
 const phases=new Set(['observed','awaiting_confirmation','confirmed_research','invalidated','expired']);
 const OUT=path.resolve(process.env.PUBLIC_OUTPUT_DIR||path.join(__dirname,'..','_monitor_publish'));
@@ -13,12 +14,13 @@ function publicSnapshot(data,now=Date.now()){
  const age=now-stamp;
  const fresh=Number.isFinite(stamp)&&age>=-120000&&age<=45*60000&&data.cycleError==null&&data.active!==false;
  const targets={};
- for(const [id,val] of Object.entries(data.targets||{}).slice(0,12)){
-  if(!/^[a-z]+:[A-Z0-9]+:(5|15)$/.test(id)||!val||typeof val!=='object')continue;
+ for(const [id,val] of Object.entries(data.targets||{}).slice(0,16)){
+  if(!/^[a-z]+:[A-Z0-9_]+:(5|15)$/.test(id)||!val||typeof val!=='object')continue;
   const [market,symbol,frame]=id.split(':');
+  if(market==='kraken'&&!kraken.SYMBOLS.includes(symbol))continue;
   if(val.market!==market||val.symbol!==symbol||String(val.frame)!==frame)continue;
-  const marketType=market==='spot'?'SPOT_RESEARCH':market==='crypto'?'PERPETUAL':'PROVIDER_NATIVE';
-  const source=market==='spot'?spot.SOURCE:market==='crypto'?'Bybit V5 USDT perpetual':'Biquote independent feed';
+  const marketType=market==='spot'?'SPOT_RESEARCH':['crypto','kraken'].includes(market)?'PERPETUAL':'PROVIDER_NATIVE';
+  const source=market==='spot'?spot.SOURCE:market==='crypto'?'Bybit V5 USDT perpetual':market==='kraken'?kraken.SOURCE:'Biquote independent feed';
   const last=Date.parse(val.lastCompleteAt||'');
   const legacyProxy=market!=='spot'&&(/SPOT/.test(val.marketType||'')||/Binance/i.test(val.source||''));
   const status=val.status==='research_data_valid'&&!legacyProxy?'research_data_valid':'blocked';
