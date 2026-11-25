@@ -12,7 +12,8 @@ async function audit(){if(busy||!core)return;busy=true;run.disabled=true;exp.dis
  checks.push(create('storage','التخزين المحلي',localHealth(),'الحفظ في هذا المتصفح؛ امتلاء المساحة أو حذف بيانات الموقع قد يزيل السجلات'));
  checks.push(create('online','اتصال الشبكة',navigator.onLine,'يشير إلى اتصال الجهاز، لا يثبت وصول كل مصدر'));
  const market=$('dc-market').value,symbol=$('dc-symbol').value,frame=Number($('dc-frame').value);
- if(!symbol){checks.push(create('symbol','الأصل المختار',false,'لم يتم اختيار أصل'));}
+ if(symbol==='all'){checks.push(create('symbol','الأصل المختار',false,'اختر عقدًا واحدًا لتدقيق جودة بياناته.'));}
+ else if(!symbol){checks.push(create('symbol','الأصل المختار',false,'لم يتم اختيار أصل'));}
  else if(window.ICTLiveFeed&&window.ICTPublicMarkets){
   try{let bars,hour;
    if(market==='crypto'){[bars,hour]=await Promise.all([window.ICTLiveFeed.fetchHistory({symbol,interval:String(frame),limit:100,timeout:11000}),window.ICTLiveFeed.fetchHistory({symbol,interval:'60',limit:170,timeout:11000})]);}
