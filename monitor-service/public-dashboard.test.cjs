@@ -15,14 +15,17 @@ async function run(active,stale=false){
  elements['dc-bg-results'].replaceChildren();
 
  class FixedDate extends Date {constructor(...a){super(...(a.length?a:[current]))}static now(){return current}}
- const ctx={document:{getElementById:id=>elements[id]||null,createElement:tag=>element(tag)},window:{ICTMarketTimes:{format:t=>new Date(t).toISOString()}},URL,Date:FixedDate,AbortController,setTimeout:(f)=>1,clearTimeout(){},localStorage:{getItem:()=>null,setItem(){}},fetch:async()=>({ok:true,json:async()=>makeSnapshot(active,stale)})};
+ const delivered=[];
+ elements['ict-decision-8a']={dispatchEvent:e=>delivered.push(e)};
+ const ctx={document:{getElementById:id=>elements[id]||null,createElement:tag=>element(tag)},window:{ICTMarketTimes:{format:t=>new Date(t).toISOString()}},URL,Date:FixedDate,AbortController,
+  CustomEvent:class {constructor(type,options){this.type=type;this.detail=options.detail}},
+  setTimeout:()=>1,clearTimeout(){},localStorage:{getItem:()=>null,setItem(){}},fetch:async()=>({ok:true,json:async()=>makeSnapshot(active,stale)})};
  vm.runInNewContext(code,ctx);
  await elements['dc-bg-free-check'].events.click();
- const parent=elements['dc-bg-results'];
- const headings=parent.children.flatMap(e=>e.children||[]).filter(e=>e.id==='h4');
  const eligible=active&&!stale;
- assert.equal(headings.length,eligible?1:0);
- assert.equal(headings[0]?.textContent,eligible?'BTCUSDT · BUY · رصد بحثي فقط':undefined);
+ assert.equal(delivered[0]?.type,'ict:background-scanned');
+ assert.equal(delivered[0].detail.entries.length,eligible?1:0);
+ assert.equal(delivered[0].detail.entries[0]?.symbol,eligible?'BTCUSDT':undefined);
  assert.match(elements['dc-bg-status'].textContent,eligible?/بحثية/:stale?/لا توجد/:/قديم/);
 }
 (async()=>{await run(true);await run(false);await run(true,true);console.log('Public research dashboard fresh/stale rendering: PASS')})().catch(e=>{console.error(e);process.exitCode=1});

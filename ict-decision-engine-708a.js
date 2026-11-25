@@ -24,20 +24,21 @@ function inspect(input){
  let risk=null;
  if(account&&accountEngine){const amount=Number(riskAmount);risk=accountEngine.evaluate(account,amount);if(!Number.isFinite(amount)||amount<=0)blocks.push('أدخل مخاطرة مالية موجبة للمراجعة');if(!risk.ok)blocks.push('حد مخاطرة الحساب غير مستوفى: '+risk.message);if(account.currency!=='USD')blocks.push('عملة الحساب ليست USD؛ يلزم تحويل معتمد قبل اعتماد مبلغ المخاطرة');}
  const models=evaluation.models||[];
- const recent=models.filter(m=>m&&m.ageBars<=6&&['watching','retested'].includes(m.status)&&(m.direction==='bull'||m.direction==='bear')&&[m.entry,m.stop,m.target,m.zone?.low,m.zone?.high].every(v=>Number.isFinite(v)&&v>0)&&(m.direction==='bull'?m.stop<m.entry&&m.entry<m.target:m.target<m.entry&&m.entry<m.stop));
+ const recent=models.filter(m=>m&&m.ageBars<=12&&m.research&&(m.direction==='bull'||m.direction==='bear')&&[m.entry,m.stop,m.target,m.zone?.low,m.zone?.high].every(v=>Number.isFinite(v)&&v>0)&&(m.direction==='bull'?m.stop<m.entry&&m.entry<m.target:m.target<m.entry&&m.entry<m.stop));
  const opportunities=recent.map(m=>{
   const matched=scenarios.scenarios.find(s=>s.direction===m.direction),alignment=Boolean(matched&&matched.score>=2&&matched.evidence.some(v=>/MSS|BOS/.test(v)));
   const localBlocks=[...blocks];if(!alignment)localBlocks.push('سيناريو الإطار الأعلى غير مؤكد في اتجاه النموذج');
   if(m.status==='retested')localBlocks.push('عادت الأسعار إلى المنطقة بالفعل؛ لا نفترض تفعيلًا أو سعر تنفيذ');
+  if(['invalidated','expired'].includes(m.research.phase))localBlocks.push('النموذج انتهى أو لامس مستوى الإبطال');
   if(m.status!=='watching')localBlocks.push('النموذج ليس في وضع انتظار دخول جديد');
   const price=context.price;const entry=m.entry;
   const side=m.direction==='bull'?'BUY':'SELL';
   // Never conflate a last-hour close with a live bid/ask or an executable quote.
   const status=localBlocks.length?'مراقبة فقط':'خطة مشروطة — تنتظر إعادة اختبار السعر والتحقق من التنفيذ';
-  return {id:m.id,symbol,market,direction:m.direction,side,formedAt:m.formedAt,status,entry,stop:m.stop,target:m.target,rr:m.rr,zone:m.zone,model:m.confirmation,blocks:localBlocks,waiting:['عودة السعر إلى منطقة FVG دون إبطال','التحقق من سعر Bid/Ask والسبريد عند التنفيذ','تأكيد عدم تغيّر الهيكل بعد آخر شمعة'],evidence:matched?.evidence||[],modelEvidence:[m.sweepAt,m.mssAt,m.fvgAt],contextScore:matched?.score||0,ageBars:m.ageBars,referenceClose:price};
+  return {id:m.id,symbol,market,direction:m.direction,side,formedAt:m.formedAt,research:m.research,status,entry,stop:m.stop,target:m.target,rr:m.rr,zone:m.zone,model:m.confirmation,blocks:localBlocks,waiting:['عودة السعر إلى منطقة FVG دون إبطال','التحقق من سعر Bid/Ask والسبريد عند التنفيذ','تأكيد عدم تغيّر الهيكل بعد آخر شمعة'],evidence:matched?.evidence||[],modelEvidence:[m.sweepAt,m.mssAt,m.fvgAt],contextScore:matched?.score||0,ageBars:m.ageBars,referenceClose:price};
  }).sort((a,b)=>b.formedAt-a.formedAt);
  if(!opportunities.length)warnings.push('لم يرصد المحرك نموذج Sweep → MSS → FVG حديثًا ومؤهلًا ضمن الشموع المتاحة');
- return {symbol,market,frame,checkedAt:now,source:market==='crypto'?'Bybit V5 USDT perpetual':'Biquote — أسعار أسواق تقليدية من مصدر مستقل',sourceBars:evaluation.analysis.sourceBars,entryFreshUntil:Number.isFinite(latest)?latest+3*ms+2*MIN:null,context,scenarios,opportunities,warnings,blocks,nearbyNews:nearby,newsChecked,newsCovered,eventFeedsLoaded,accountName:account?.name||null,risk,priceAt:context.priceAt,price:context.price,disclaimer:'هذه فرص بحثية مشروطة مستخرجة من إغلاقات شموع، وليست أسعار Bid/Ask لحظية أو أوامر تنفيذ. لا تعتمد الربحية ولا الملاءمة المالية ولا تتضمن سبريدًا أو انزلاقًا أو حجم عقد. تتوقف المراقبة بإغلاق الصفحة.'};
+ return {symbol,market,frame,checkedAt:now,source:market==='crypto'?'Bybit V5 USDT perpetual':'Biquote — أسعار أسواق تقليدية من مصدر مستقل',sourceBars:evaluation.analysis.sourceBars,lastCompleteAt:Number.isFinite(latest)?latest+ms:null,entryFreshUntil:Number.isFinite(latest)?latest+3*ms+2*MIN:null,context,scenarios,opportunities,warnings,blocks,nearbyNews:nearby,newsChecked,newsCovered,eventFeedsLoaded,accountName:account?.name||null,risk,priceAt:context.priceAt,price:context.price,disclaimer:'هذه فرص بحثية مشروطة مستخرجة من إغلاقات شموع، وليست أسعار Bid/Ask لحظية أو أوامر تنفيذ. لا تعتمد الربحية ولا الملاءمة المالية ولا تتضمن سبريدًا أو انزلاقًا أو حجم عقد. تتوقف المراقبة بإغلاق الصفحة.'};
 }
 return Object.freeze({inspect,nearNews});
 });

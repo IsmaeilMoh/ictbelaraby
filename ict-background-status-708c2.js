@@ -31,6 +31,9 @@
 
  // GitHub Actions free mode: a static research snapshot, not a live server.
  const freeCheck=document.getElementById('dc-bg-free-check');
+ function showIntegrated(entries,message){
+  document.getElementById('ict-decision-8a')?.dispatchEvent(new CustomEvent('ict:background-scanned',{detail:{entries,message}}));
+ }
  if(freeCheck)freeCheck.addEventListener('click',async()=>{
   const snapshotUrl='https://raw.githubusercontent.com/ismaeilmoh/ictbelaraby/ict-monitor-feed/monitor-status.json';
   status.textContent='جارٍ قراءة آخر تقرير بحثي منشور على GitHub...';status.dataset.bad='1';results.replaceChildren();freeCheck.disabled=true;
@@ -58,25 +61,29 @@
    line('الأخبار: '+(d.safety?.economic?.ok?'تغذية متاحة':'غير مكتملة / معلقة')+' · Bid/Ask: غير متصل · المخاطرة: محلية فقط · الموافقة التنفيذية: غير متاحة');
    const entries=(valid&&Array.isArray(d.observations)?d.observations:[]).filter(x=>{
     if(!x||x.status!=='research_only_blocked'||x.executionApproved!==false||!['BUY','SELL'].includes(x.side))return false;
-    if(!isCurrent(d.targets?.[[x.market,x.symbol,x.frame].join(':')],x.frame))return false;
-    const age=now-Date.parse(x.detectedAt);
-    return age>=0&&age<=45*60000&&[x.entry,x.stop,x.target,x.rr].every(v=>Number.isFinite(v)&&v>0)&&
+    const item=d.targets?.[[x.market,x.symbol,x.frame].join(':')];
+    if(!isCurrent(item,x.frame)||item.marketType==='SPOT_RESEARCH_PROXY')return false;
+    const checked=Date.parse(x.checkedAt||x.detectedAt),detected=Date.parse(x.detectedAt);
+    return detected<=checked&&checked<=now&&now-checked<=45*60000&&[x.entry,x.stop,x.target,x.rr].every(v=>Number.isFinite(v)&&v>0)&&
      (x.side==='BUY'?x.stop<x.entry&&x.entry<x.target:x.target<x.entry&&x.entry<x.stop);
-   }).slice(0,16);
-   const heading=document.createElement('h3');heading.textContent='النماذج المرصودة في آخر فحوص مجانية';results.append(heading);
+   }).slice(0,24);
    if(!entries.length)line(!fresh?'لا نعرض نماذج من تقرير قديم.':'لا توجد نماذج بحثية حديثة مستوفية لشروط النشر في هذه اللقطة.');
-   for(const x of entries){
-    const box=document.createElement('article');box.className='dc-research-observation';results.append(box);
-    const h=document.createElement('h4');h.textContent=String(x.symbol||'')+' · '+x.side+' · رصد بحثي فقط';box.append(h);
-    const p=document.createElement('p');p.textContent='الدخول المرجعي: '+x.entry+' | الوقف الافتراضي: '+x.stop+' | الهدف الافتراضي: '+x.target+' | R:R '+x.rr;box.append(p);
-    const t=document.createElement('p');t.textContent='رُصد: '+window.ICTMarketTimes.format(x.detectedAt)+' · '+String(x.source||x.model||'ICT');box.append(t);
-    for(const [key,label] of [['sweepAt','سحب السيولة'],['mssAt','MSS'],['fvgAt','FVG']]){
-     const at=Date.parse(x.evidence?.[key]);
-     if(Number.isFinite(at)){const proof=document.createElement('p');proof.textContent=label+' · '+window.ICTMarketTimes.format(at);box.append(proof)}
-    }
-    const warning=document.createElement('p');warning.className='dc-warning';warning.textContent='معلّق: مخاطرة الحساب والسعر التنفيذي غير متحقق منهما. لا توجد موافقة تنفيذ.';box.append(warning);
+   for(const [key,item] of targets){
+    const counts=item.patternCounts;
+    if(isCurrent(item,key.split(':')[2])&&counts)line(key+' · Sweep '+counts.sweep+' · MSS '+counts.mss+' · FVG '+counts.fvg+' · نماذج مركّبة '+counts.composite+' · ضمن نافذة المتابعة '+counts.recent+' · خطط سليمة '+counts.valid);
    }
+   showIntegrated(entries.map(x=>{
+    const item=d.targets[[x.market,x.symbol,x.frame].join(':')];
+    const at=Date.parse(x.research?.at);
+    return {...x,source:item.source,marketType:item.marketType,
+     detectedAt:Date.parse(x.detectedAt),formedAt:Date.parse(x.formedAt),lastCompleteAt:Date.parse(item.lastCompleteAt),
+     research:Number.isFinite(at)?{phase:x.research.phase,at}:null,
+     modelEvidence:['sweepAt','mssAt','fvgAt'].map(key=>Date.parse(x.evidence?.[key])),
+     blocks:[x.newsGate==='clear_research_only'?'فحص الأخبار البحثي متاح':'تغطية الأخبار غير مؤكدة أو يوجد مانع',
+      'سياق الساعة غير متحقق في المسار المجدول',
+      'مخاطرة الحساب غير متحققة','أسعار Bid/Ask غير متحققة']};
+   }),fresh?'لا توجد فرص للعرض في التقرير المجدول الحالي.':'التقرير المجدول قديم أو غير مكتمل.');
    line('GitHub Actions تشغيل مجدول بأفضل جهد، وليس مراقبة مستمرة أو إشعارات هاتف.');
-  }catch(e){describeError(e)}finally{clearTimeout(timeout);freeCheck.disabled=false}
+  }catch(e){describeError(e);showIntegrated([],'تعذر تحديث نتائج المراقبة المجدولة.')}finally{clearTimeout(timeout);freeCheck.disabled=false}
  });
 })();
