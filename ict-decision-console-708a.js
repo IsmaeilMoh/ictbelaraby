@@ -1,7 +1,9 @@
 /* ICT بالعربي 8A — user-invoked multi-market decision research center */
 (function(){'use strict';const root=document.getElementById('ict-decision-8a');if(!root)return;
 const $=id=>document.getElementById(id),market=$('dc-market'),symbol=$('dc-symbol'),frame=$('dc-frame'),roll=$('dc-roll'),account=$('dc-account'),risk=$('dc-risk'),run=$('dc-run'),monitor=$('dc-monitor'),status=$('dc-status'),output=$('dc-output'),archive=$('dc-archive');
-const crypto=['BTCUSDT','ETHUSDT','SOLUSDT','XRPUSDT'],api=window.ICTDecisionEngine708A,live=window.ICTLiveFeed,publicFeed=window.ICTPublicMarkets,acc=window.ICTAccounts7A,structure=window.ICTStructureEngine,signal=window.ICTSignalEngine,context=window.ICTContextEngine,scenario=window.ICTScenarioEngine,econ=window.ICTEconomicLink706A;
+const api=window.ICTDecisionEngine708A,live=window.ICTLiveFeed,publicFeed=window.ICTPublicMarkets,acc=window.ICTAccounts7A,structure=window.ICTStructureEngine,signal=window.ICTSignalEngine,context=window.ICTContextEngine,scenario=window.ICTScenarioEngine,econ=window.ICTEconomicLink706A;
+const bybitCatalog=$('dc-bybit-catalog'),bybitSearch=$('dc-bybit-search'),bybitStatus=$('dc-bybit-status');
+let crypto=[...live.SYMBOLS],catalogLoaded=false,catalogLoading=false;
 const quotes=publicFeed.PUBLIC_QUOTES;
 const publicView=()=>Object.hasOwn(quotes,market.value);
 const publicStatus='فحص السوق والمراقبة معلّقان لهذا الأصل حتى يتوفر مصدر مجاني لشموع مكتملة وأسعار Bid/Ask حديثة.';
@@ -18,7 +20,7 @@ function closeStream(message){
  if(message&&streamStatus)streamStatus.textContent=message;
 }
 function showEntryStream(res,news){
- if(!streamPanel||!streamEngine||!streamEngine.subscription(res.market,res.symbol)||document.hidden){
+ if(!streamPanel||!streamEngine||!streamEngine.subscription(res.market,res.symbol,live.contract(res.symbol))||document.hidden){
   if(streamPanel)streamPanel.hidden=true;
   return;
  }
@@ -74,7 +76,7 @@ function showEntryStream(res,news){
     }
    }
   };
-  stream=streamEngine.connect(res.market,res.symbol,callbacks);
+  stream=streamEngine.connect(res.market,res.symbol,callbacks,{bybitContract:live.contract(res.symbol)});
   if(!stream)closeStream('التدفق اللحظي غير متاح في هذا المتصفح.');
  }catch{closeStream('تعذّر بدء تدفق الأسعار؛ أعد الفحص لاحقًا.')}
 }
@@ -93,11 +95,40 @@ function clearScan(){
 function setState(v,bad=false){status.textContent=v;status.dataset.bad=bad?'1':'0'}
 function selectOptions(select,items,choose){clear(select);for(const item of items){const opt=document.createElement('option');opt.value=item;opt.textContent=item;select.append(opt)}if(choose&&items.includes(choose))select.value=choose}
 function marketsChanged(preselected){
+ bybitCatalog.hidden=market.value!=='crypto';
+ bybitSearch.value='';
  const items=publicView()?Object.keys(quotes[market.value]):market.value==='crypto'?crypto:krakenSymbols;
  selectOptions(symbol,items,preselected);
  roll.value=['forex','metals','energy'].includes(market.value)?'17':'0';
  selectionChanged();
+ if(market.value==='crypto')loadBybitCatalog(preselected);
 }
+function displayBybitSymbols(preselected){
+ const query=bybitSearch.value.trim().toUpperCase();
+ const items=crypto.filter(item=>item.includes(query));
+ selectOptions(symbol,items,preselected);
+ if(preselected!==symbol.value)selectionChanged();
+ bybitStatus.textContent=catalogLoaded?items.length+' عقدًا من '+crypto.length+' في قائمة Bybit الحالية':
+  catalogLoading?'جارٍ جلب قائمة العقود الدائمة من Bybit…':'تعذر جلب القائمة الكاملة. تظهر قائمة محدودة. أعد اختيار Bybit للمحاولة.';
+}
+async function loadBybitCatalog(preselected){
+ if(catalogLoaded||catalogLoading){displayBybitSymbols(symbol.value);return}
+ catalogLoading=true;
+ displayBybitSymbols(symbol.value);
+ const initial=symbol.value;
+ try{
+  const contracts=await live.fetchPerpetuals();
+  const preferred=symbol.value===initial?preselected||symbol.value:symbol.value;
+  crypto=contracts.map(item=>item.symbol);
+  catalogLoaded=true;
+  if(market.value==='crypto')displayBybitSymbols(preferred);
+ }catch{
+  catalogLoading=false;
+  if(market.value==='crypto')displayBybitSymbols(symbol.value);
+ }finally{catalogLoading=false}
+}
+bybitSearch.addEventListener('input',()=>displayBybitSymbols(symbol.value));
+
 function accountsChanged(){const previous=account.value,items=acc?.list()||[];clear(account);const neutral=document.createElement('option');neutral.value='';neutral.textContent='بدون حساب — فحص بحثي فقط';account.append(neutral);for(const a of items){const o=document.createElement('option');o.value=a.id;o.textContent=a.name+' — '+(a.type==='funded'?'ممول':'شخصي')+' — '+a.currency;account.append(o)}const preferred=items.some(x=>x.id===previous)?previous:acc?.selected();if(items.some(x=>x.id===preferred))account.value=preferred||''}
 function monitorEndpoint(path,contract,interval){return publicFeed.endpoint(path,contract,interval)}
 async function getKraken(contract,interval){
@@ -201,7 +232,7 @@ async function scan(auto=false){if(publicView()||busy||auto&&document.hidden)ret
     ? newsState.value
     : {events:[],feedsLoaded:0,failures:['تعذر التحقق من الأخبار: '+String(newsState.error?.message||newsState.error||'استجابة غير صالحة')]};
   const now=Date.now(),newsCovered=econ.scheduleCovers(news.parts||[],now);
-  const a=(acc.list()||[]).find(x=>x.id===account.value)||null;const res=api.inspect({market:market.value,symbol:symbol.value,frame:frame.value,candles15:entryBars,candles60:hourly,rollHour:Number(roll.value),account:a,accountEngine:acc,riskAmount:risk.value,newsChecked:news.feedsLoaded>0,newsCovered,eventFeedsLoaded:news.feedsLoaded,events:news.events,now,structureEngine:structure,signalEngine:signal,contextEngine:context,scenarioEngine:scenario});
+  const a=(acc.list()||[]).find(x=>x.id===account.value)||null;const res=api.inspect({market:market.value,symbol:symbol.value,bybitContract:live.contract(symbol.value),frame:frame.value,candles15:entryBars,candles60:hourly,rollHour:Number(roll.value),account:a,accountEngine:acc,riskAmount:risk.value,newsChecked:news.feedsLoaded>0,newsCovered,eventFeedsLoaded:news.feedsLoaded,events:news.events,now,structureEngine:structure,signalEngine:signal,contextEngine:context,scenarioEngine:scenario});
   if(news.failures.length)res.warnings.push('تعذر تحميل بعض الأجندات: '+news.failures.join('؛ '));
   res.book=book;res.lastTrade=lastTrade;
   show(res);record(res);showEntryStream(res,news);
@@ -211,7 +242,7 @@ async function scan(auto=false){if(publicView()||busy||auto&&document.hidden)ret
    setState('أصبحت شموع الدخول قديمة؛ النتائج أدناه تخص وقت الفحص. أعد الفحص للتحديث.',true);
   },res.entryFreshUntil-now);
   root.dispatchEvent(new CustomEvent('ict:decision-scanned',{detail:{result:res,bars:entryBars}}));setState('اكتمل التحليل البحثي. '+res.opportunities.length+' نموذج؛ '+(res.blocks.length?'راجع أسباب تعليق الفرص.':'راجع شروط الفرص.'),res.blocks.length>0);
- }catch(e){if(id!==generation)return;clearScan();setState('تعذر تكوين خطة موثوقة: '+(e?.message||e)+'. لم تُنشأ توصية.',true)}finally{busy=false;run.disabled=publicView()}
+ }catch(e){if(id!==generation)return;clearScan();setState('تعذر تكوين خطة موثوقة: '+(e?.message||e)+'. لم تُنشأ توصية.',true)}finally{busy=false;run.disabled=publicView()||!symbol.value}
 }
 function stop(){closeStream('توقفت مراقبة الأسعار.');active=false;if(timer)clearInterval(timer);timer=null;monitor.textContent='تشغيل المراقبة أثناء فتح الصفحة';monitor.setAttribute('aria-pressed','false')}
 function selectionChanged(){
@@ -219,8 +250,8 @@ function selectionChanged(){
  stop();
  clearScan();
  if(streamPanel){streamPanel.hidden=true;streamEvents.replaceChildren()}
- run.disabled=publicView()||busy;
- monitor.disabled=publicView();
+ run.disabled=publicView()||!symbol.value||busy;
+ monitor.disabled=publicView()||!symbol.value;
  setState(publicView()?publicStatus:'اختر الأصل واضغط فحص السوق.');
 }
 market.addEventListener('change',()=>marketsChanged());
@@ -291,7 +322,7 @@ const requestedMarket=params.get('market');
 const requestedSymbol=params.get('symbol');
 const marketSymbols=Object.hasOwn(quotes,requestedMarket)?Object.keys(quotes[requestedMarket]):
  requestedMarket==='crypto'?crypto:requestedMarket==='kraken'?krakenSymbols:[];
-const validSelection=marketSymbols.includes(requestedSymbol);
+const validSelection=marketSymbols.includes(requestedSymbol)||requestedMarket==='crypto'&&/^[A-Z0-9]{3,35}$/.test(requestedSymbol??'');
 if(validSelection)market.value=requestedMarket;
 accountsChanged();
 marketsChanged(validSelection?requestedSymbol:undefined);
