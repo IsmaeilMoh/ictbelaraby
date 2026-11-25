@@ -5,7 +5,7 @@ ENV NODE_ENV=production
 WORKDIR /app/monitor-service
 COPY ict-opportunity-lifecycle-708b.js ict-context-engine-703a.js ict-scenario-engine-703b.js /app/
 COPY monitor-service/package.json ./
-COPY monitor-service/server.js monitor-service/ict-live-feed-702a.js monitor-service/ict-public-markets-702c2.js monitor-service/safety-gates.js monitor-service/execution-quotes.js monitor-service/crypto-spot-backup.js monitor-service/kraken-perpetual.js monitor-service/hourly-context.js ./
+COPY monitor-service/server.js monitor-service/oanda-practice.js monitor-service/ict-live-feed-702a.js monitor-service/ict-public-markets-702c2.js monitor-service/safety-gates.js monitor-service/execution-quotes.js monitor-service/crypto-spot-backup.js monitor-service/kraken-perpetual.js monitor-service/hourly-context.js ./
 COPY monitor-service/ict_phase2d ./ict_phase2d
 COPY monitor-service/ict_phase2e ./ict_phase2e
 # Verify runtime dependencies during image build, before a server can be deployed.

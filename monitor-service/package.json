@@ -13,7 +13,7 @@
     "check:stability": "node stability-check.cjs",
     "check:deploy": "node deployment-preflight.cjs",
     "run:once": "node github-run-once.cjs",
-    "test:actions": "node github-run-once.test.cjs && node public-dashboard.test.cjs && node market-connectors.test.cjs && node kraken-perpetual.test.cjs && node center-integration.test.cjs && node center-safety.test.cjs && node historical-ict.test.cjs && node hourly-context.test.cjs && node forward-research.test.cjs && node entry-stream.test.cjs"
+    "test:actions": "node github-run-once.test.cjs && node public-dashboard.test.cjs && node market-connectors.test.cjs && node kraken-perpetual.test.cjs && node center-integration.test.cjs && node center-safety.test.cjs && node historical-ict.test.cjs && node hourly-context.test.cjs && node forward-research.test.cjs && node entry-stream.test.cjs && node oanda-practice.test.cjs"
   },
   "description": "Background market-data research monitor (no live execution recommendations or trades)",
   "license": "UNLICENSED"
