@@ -19,7 +19,9 @@ assert.match(sw,/ict-monitor-auto-refresh-709\.js/,'PWA installs the refresh ass
 assert.match(status,/ict-monitor-feed\/monitor-status\.json/,'dashboard reads published monitor feed');
 assert.match(status,/d\.readyForExecution!==false/,'dashboard rejects unsafe monitor payloads');
 assert.match(status,/now-checked<=45\*60000/,'dashboard rejects stale observations');
-assert.match(html,/ict-execution-safety-708c5\.js/,'risk gate remains active');
+assert.doesNotMatch(html,/<script[^>]+(?:ict-execution-safety|ict-readiness-console)/,'advanced controls do not block initial rendering');
+assert.match(read('ict-decision-console-708a.js'),/loadAdvancedScript\('ict-execution-safety-708c5\.js/,'risk verification remains available on demand');
+assert.match(sw,/ict-execution-safety-708c5\.js/,'installed PWA retains advanced checks');
 assert.doesNotMatch(script,/\b(placeOrder|executeTrade|submitOrder|createOrder)\s*\(/i,'status refresher must not issue orders');
 const sections=['dc-scan-actions','dc-results','dc-lifecycle','dc-advanced','dc-readiness-8c'];
 for(let i=1;i<sections.length;i++) {

@@ -127,6 +127,13 @@ async function main(){
  }catch(error){
   console.log('GitHub Pages scan form: not verified ('+(error.cause?.code||error.name)+')');
  }
+ try{
+  const response=await fetch(origin+'/ictbelaraby/',{cache:'no-store',signal:AbortSignal.timeout(8000)});
+  const html=response.ok?await response.text():'';
+  console.log('GitHub Pages homepage startup: '+(html.includes('app.js?v=7.0.14-startup')?'deployed #23 marker verified':'not verified (HTTP '+response.status+')'));
+ }catch(error){
+  console.log('GitHub Pages homepage startup: not verified ('+(error.cause?.code||error.name)+')');
+ }
 }
 
 if(require.main===module)main().catch(error=>{console.error(error.message);process.exitCode=1});
