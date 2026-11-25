@@ -1,5 +1,5 @@
 {
-  "updatedAt": "2026-11-25T13:42:16.728985Z",
+  "updatedAt": "2026-11-25T16:28:45.781724Z",
   "weekStart": "2026-11-23",
   "source": "Forex Factory",
   "sourceUrl": "https://www.forexfactory.com/calendar",
@@ -473,6 +473,16 @@
       "impact": "Low",
       "forecast": "201K",
       "previous": "203K",
+      "actual": "—"
+    },
+    {
+      "id": "2026-11-25T14:15:00+00:00-GBP-Monetary Policy Report Hearings",
+      "title": "Monetary Policy Report Hearings",
+      "date": "2026-11-25T14:15:00Z",
+      "country": "GBP",
+      "impact": "Medium",
+      "forecast": "—",
+      "previous": "—",
       "actual": "—"
     },
     {
