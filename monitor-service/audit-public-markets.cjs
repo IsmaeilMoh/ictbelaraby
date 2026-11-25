@@ -125,6 +125,25 @@ async function auditGold(){
  console.log('');
 }
 
+async function auditMatchedGold(){
+ const checks=[
+  ['OANDA Practice XAU_USD','M15 bid/ask candles','https://api-fxpractice.oanda.com/v3/instruments/XAU_USD/candles?granularity=M15&count=2&price=BA'],
+  ['xauapi JustMarkets XAUUSD','Bid/Ask quote','https://api.xauapi.com/v1/quote?feed=justmarkets'],
+  ['xauapi JustMarkets XAUUSD','M15 candles','https://api.xauapi.com/v1/candles?feed=justmarkets&interval=M15']
+ ];
+ const replies=await Promise.all(checks.map(([, ,url])=>get(url)));
+ console.log('### XAU/USD same-instrument candidates');
+ console.log('| Feed | Documented endpoint | Access without credentials |');
+ console.log('| --- | --- | --- |');
+ for(const [index,[label,kind]] of checks.entries()){
+  console.log('| '+label+' | '+kind+' | '+(replies[index].failure??'HTTP success; payload and entitlements unverified')+' |');
+ }
+ console.log('[OANDA](https://help.oanda.com/us/en/faqs/api-user-guide.htm) requires a practice account and token; public display and alert usage rights are unverified.');
+ console.log('[xauapi](https://xauapi.com/) requires a paid plan. [TickFeed](https://tickfeed.pro/terms) bills quotes and candles after trial credits. Neither qualifies for ongoing free monitoring.');
+ console.log('No new provider enabled. Validation of matched candles and live Bid/Ask requires authorized access to both on the same feed.');
+ console.log('');
+}
+
 async function main(){
  const instruments=Object.entries(PUBLIC_QUOTES).flatMap(([group,items])=>Object.keys(items).map(symbol=>({group,symbol})));
  console.log('### Traditional market source audit');
@@ -148,6 +167,7 @@ async function main(){
  await auditEquities(instruments);
  await auditBrokerAccess();
  await auditGold();
+ await auditMatchedGold();
  console.log('### Other free plans (documented limits)');
  console.log('| Provider | Relevant coverage | Limitation for this public site |');
  console.log('| --- | --- | --- |');
@@ -176,6 +196,8 @@ async function main(){
   console.log('GitHub Pages visitor journey: '+(journey?'scan, results, tracking and advanced sections verified':'not verified'));
   const usdtCatalog=html.includes('Bybit · عقود العملات الرقمية الدائمة USDT')&&html.includes('ict-live-feed-702a.js?v=7.0.19-usdt');
   console.log('GitHub Pages Bybit USDT catalog release: '+(usdtCatalog?'deployed #28 markers verified':'not verified (HTTP '+result.status+')'));
+  const goldReference=html.includes('id="dc-gold-reference"')&&html.includes('ict-gold-reference.js?v=7.0.20-gold');
+  console.log('GitHub Pages gold reference: '+(goldReference?'deployed #31 markers verified':'not verified (HTTP '+result.status+')'));
  }catch(error){
   console.log('GitHub Pages scan form: not verified ('+(error.cause?.code||error.name)+')');
  }
