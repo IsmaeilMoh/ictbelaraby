@@ -72,6 +72,17 @@
     const counts=item.patternCounts;
     if(isCurrent(item,key.split(':')[2])&&counts)line(key+' · Sweep '+counts.sweep+' · MSS '+counts.mss+' · FVG '+counts.fvg+' · نماذج مركّبة '+counts.composite+' · ضمن نافذة المتابعة '+counts.recent+' · خطط سليمة '+counts.valid);
    }
+   function hourlyNote(item,side){
+    const context=item.hourlyContext;
+    const close=Date.parse(context?.lastCompleteAt);
+    if(context?.status==='stale'||(Number.isFinite(close)&&now-close>3*3600000))return 'سياق الساعة معلّق بسبب قدم الشموع';
+    if(context?.status==='insufficient')return 'شموع الساعة غير كافية لتحليل السياق';
+    if(context?.status!=='ready'||!Number.isFinite(close)||close>now)return 'سياق الساعة غير متاح';
+    if(!side)return 'سياق الساعة متاح · آخر إغلاق '+window.ICTMarketTimes.format(close);
+    const aligned=Array.isArray(context.aligned)&&context.aligned.includes(side==='BUY'?'bull':'bear');
+    return (aligned?'سياق الساعة يدعم الاتجاه بحثيًا':'سياق الساعة لا يدعم اتجاه النموذج')+' · آخر إغلاق '+window.ICTMarketTimes.format(close);
+   }
+   for(const [key,item] of targets)if(isCurrent(item,key.split(':')[2]))line(key+' · '+hourlyNote(item));
    showIntegrated(entries.map(x=>{
     const item=d.targets[[x.market,x.symbol,x.frame].join(':')];
     const at=Date.parse(x.research?.at);
@@ -80,7 +91,7 @@
      research:Number.isFinite(at)?{phase:x.research.phase,at}:null,
      modelEvidence:['sweepAt','mssAt','fvgAt'].map(key=>Date.parse(x.evidence?.[key])),
      blocks:[x.newsGate==='clear_research_only'?'فحص الأخبار البحثي متاح':'تغطية الأخبار غير مؤكدة أو يوجد مانع',
-      'سياق الساعة غير متحقق في المسار المجدول',
+      hourlyNote(item,x.side),
       'مخاطرة الحساب غير متحققة','أسعار Bid/Ask غير متحققة']};
    }),fresh?'لا توجد فرص للعرض في التقرير المجدول الحالي.':'التقرير المجدول قديم أو غير مكتمل.');
    line('GitHub Actions تشغيل مجدول بأفضل جهد، وليس مراقبة مستمرة أو إشعارات هاتف.');

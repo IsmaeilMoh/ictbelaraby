@@ -4,7 +4,7 @@
 const BASE = 'https://futures.kraken.com';
 const SOURCE = 'Kraken Futures · USD perpetual';
 const SYMBOLS = Object.freeze(['PF_XBTUSD', 'PF_ETHUSD']);
-const FRAME_MS = Object.freeze({ '5': 300000, '15': 900000 });
+const FRAME_MS = Object.freeze({ '5': 300000, '15': 900000, '60': 3600000 });
 
 async function read(url, fetchImpl) {
   const response = await fetchImpl(url, {
@@ -46,7 +46,7 @@ function parseCandles(data, symbol, frame, now) {
 async function fetchHistory(symbol, frame, { instruments, now = Date.now(), fetchImpl = globalThis.fetch } = {}) {
   const ms = FRAME_MS[frame];
   if (!SYMBOLS.includes(symbol) || !ms || !instruments?.has(symbol)) throw Error('KRAKEN_PERPETUAL_NOT_VERIFIED');
-  const url = new URL('/api/charts/v1/trade/' + symbol + '/' + frame + 'm', BASE);
+  const url = new URL('/api/charts/v1/trade/' + symbol + '/' + (frame === '60' ? '1h' : frame + 'm'), BASE);
   url.searchParams.set('from', String(Math.floor(now / ms) * ms / 1000 - 200 * ms / 1000));
   url.searchParams.set('to', String(Math.floor(now / 1000)));
   return parseCandles(await read(url.toString(), fetchImpl), symbol, frame, now);

@@ -1,7 +1,7 @@
 'use strict';
 /** Binance SPOT market data: independent research market. NOT perpetual execution pricing. */
 const ROOT='https://data-api.binance.vision/api/v3/klines';
-const MS=Object.freeze({'5':300000,'15':900000});
+const MS=Object.freeze({'5':300000,'15':900000,'60':3600000});
 const PAIRS=Object.freeze(['BTCUSDT','ETHUSDT']);
 const SOURCE='Binance Spot (research only; NOT Bybit perpetual)';
 function parse(rows,symbol,frame,now=Date.now()){
@@ -18,7 +18,7 @@ function parse(rows,symbol,frame,now=Date.now()){
 }
 async function fetchHistory(symbol,frame,{fetchImpl=globalThis.fetch,now=Date.now()}={}){
  if(!PAIRS.includes(symbol)||!MS[frame])throw Error('BACKUP_UNSUPPORTED_PAIR_OR_FRAME');
- const url=new URL(ROOT);url.searchParams.set('symbol',symbol);url.searchParams.set('interval',frame+'m');url.searchParams.set('limit','200');
+ const url=new URL(ROOT);url.searchParams.set('symbol',symbol);url.searchParams.set('interval',frame==='60'?'1h':frame+'m');url.searchParams.set('limit','200');
  const res=await fetchImpl(url.toString(),{method:'GET',headers:{Accept:'application/json'},cache:'no-store',signal:AbortSignal.timeout(9000)});
  if(!res.ok)throw Error('BINANCE_SPOT_HTTP_'+res.status);
  return parse(await res.json(),symbol,frame,now);

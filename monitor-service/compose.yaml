@@ -2,7 +2,9 @@
 # DNS A/AAAA record for MONITOR_DOMAIN must resolve to your VPS.
 services:
   monitor:
-    build: .
+    build:
+      context: ..
+      dockerfile: monitor-service/Dockerfile
     restart: unless-stopped
     init: true
     environment:
