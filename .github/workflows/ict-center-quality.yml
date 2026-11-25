@@ -103,3 +103,18 @@ jobs:
             console.log('Bybit USDT crypto perpetual catalog:', contracts.length);
           }).catch(error => console.log('Bybit public catalog could not be verified from the runner:', error.message));
           JS
+
+      - name: Check deployed opportunity center
+        if: github.event_name == 'pull_request'
+        run: |
+          node <<'JS'
+          const url = 'https://ismaeilmoh.github.io/ictbelaraby/decision-center.html';
+          (async () => {
+            const res = await fetch(url + '?probe=' + Date.now(), {signal: AbortSignal.timeout(12000)});
+            if (!res.ok) throw Error('HTTP ' + res.status);
+            const html = await res.text();
+            const found = html.includes('id="dc-cancel-batch"') && html.includes('value="240"') &&
+                          html.includes('ict-decision-console-708a.js?v=7.0.22-bybit-batch');
+            console.log('GitHub Pages #34 markers:', found ? 'verified' : 'not found');
+          })().catch(error => console.log('GitHub Pages #34 markers unverified:', error.message));
+          JS
