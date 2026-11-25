@@ -82,6 +82,15 @@ async function auditEquities(instruments){
  console.log('');
 }
 
+async function auditBrokerAccess(){
+ const endpoint='https://api-fxpractice.oanda.com/v3/instruments/EUR_USD/candles?granularity=M15&count=2&price=BA';
+ const result=await get(endpoint);
+ console.log('### OANDA Practice candle access without credentials');
+ console.log('EUR_USD · M15 · bid and ask candles: '+(result.failure??'HTTP success; feed not validated'));
+ console.log('A v20 practice account and token are documented requirements. This probe measures access only, not quote latency or public display rights.');
+ console.log('');
+}
+
 async function main(){
  const instruments=Object.entries(PUBLIC_QUOTES).flatMap(([group,items])=>Object.keys(items).map(symbol=>({group,symbol})));
  console.log('### Traditional market source audit');
@@ -103,6 +112,7 @@ async function main(){
  console.log('');
  await auditDiscovery(instruments);
  await auditEquities(instruments);
+ await auditBrokerAccess();
  console.log('### Other free plans (documented limits)');
  console.log('| Provider | Relevant coverage | Limitation for this public site |');
  console.log('| --- | --- | --- |');
@@ -113,6 +123,11 @@ async function main(){
  console.log('| [IEX Exchange](https://www.iex.io/resources/trading/fee-schedule) | US equities | Real-time access has a fee; the free delayed feed cannot trigger live alerts |');
  console.log('| [CME Group](https://www.cmegroup.com/market-data/market-data-api.html) | Metals, equity index and energy futures | Real-time feed requires a subscription; futures are a different product from spot or CFDs |');
  console.log('| [FOREX.com](https://www.forex.com/en-uk/help-and-support/accounts/) | FX and broker instruments | Demo API access is conditional on an open live account; public feed rights unverified |');
+ console.log('| [Bybit CFD](https://www.bybit.com/en/help-center/article/FAQ-CFD) | Forex, metals, indices, equities, energy CFDs | Separate MT5 account; [Bybit CFD demo](https://www.bybit.com/en/learn/bybit-tradfi/bybit-cfd-demo-trading) lacks API access. No verified public USD CFD feed; V5 perpetuals are a different product |');
+ console.log('| [Dukascopy](https://www.dukascopy.com/swiss/english/about/faq/) | Historical Bid/Ask and live broker feed via FIX | Historical export is free; FIX access requires an account and approval. Public live display rights and end-to-end latency unverified |');
+ console.log('| [Twelve Data](https://support.twelvedata.com/en/articles/5332349-commercial-and-personal-usage) | Real-time FX rates and historical candles | Basic access serves internal use; public display permissions and fresh Bid/Ask for all site instruments are unverified |');
+ console.log('| [TradingView widgets](https://www.tradingview.com/widget-docs/faq/data/) | Embeddable forex, metals, indices, equities, energy prices depending on source | Display only. [Terms](https://www.tradingview.com/policies/) restrict non-display usage; the widget cannot supply ICT calculations or entry alerts |');
+ console.log('| [OANDA Practice](https://help.oanda.com/us/en/faqs/api-user-guide.htm) | Broker candles and prices, with instrument coverage depending on account | Token and account required on the service. Public display permissions, full USD coverage and live freshness have not been established |');
  console.log('');
  try{
   const result=await fetch(page,{signal:AbortSignal.timeout(8000),cache:'no-store'});
@@ -124,6 +139,8 @@ async function main(){
   const sections=['dc-scan-actions','dc-results','dc-lifecycle','dc-advanced'].map(id=>html.indexOf('id="'+id+'"'));
   const journey=sections.every((at,index)=>at>=0&&(index===0||at>sections[index-1]));
   console.log('GitHub Pages visitor journey: '+(journey?'scan, results, tracking and advanced sections verified':'not verified'));
+  const usdtCatalog=html.includes('Bybit · عقود العملات الرقمية الدائمة USDT')&&html.includes('ict-live-feed-702a.js?v=7.0.19-usdt');
+  console.log('GitHub Pages Bybit USDT catalog release: '+(usdtCatalog?'deployed #28 markers verified':'not verified (HTTP '+result.status+')'));
  }catch(error){
   console.log('GitHub Pages scan form: not verified ('+(error.cause?.code||error.name)+')');
  }
