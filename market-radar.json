@@ -1,119 +1,53 @@
 {
-  "updatedAt": "2026-11-25T21:59:31.978253Z",
+  "updatedAt": "2026-11-25T22:58:35.083930Z",
   "source": "Yahoo Finance public chart feed (unofficial)",
   "intervalMinutes": 5,
   "windowBasis": "5-minute chart close comparisons",
   "isRealtime": false,
   "items": [
     {
-      "symbol": "EURUSD",
-      "label": "يورو / دولار",
-      "category": "forex",
-      "proxy": false,
-      "quotedAt": "2026-11-25T21:58:43Z",
-      "price": 1.09793591,
-      "5": 0.01098,
-      "15": 0.01098,
-      "60": 0.0
-    },
-    {
-      "symbol": "GBPUSD",
-      "label": "جنيه / دولار",
-      "category": "forex",
-      "proxy": false,
-      "quotedAt": "2026-11-25T21:58:43Z",
-      "price": 1.3117851,
-      "5": 0.00656,
-      "15": 0.00787,
-      "60": -0.01705
-    },
-    {
       "symbol": "USDJPY",
       "label": "دولار / ين",
       "category": "forex",
       "proxy": false,
-      "quotedAt": "2026-11-25T21:59:27Z",
-      "price": 159.16900635,
-      "5": -0.00439,
-      "15": -0.01005,
-      "60": -0.02952
+      "quotedAt": "2026-11-25T22:58:31Z",
+      "price": 159.13900757,
+      "5": 0.01949,
+      "15": 0.03773,
+      "60": -0.00188
     },
     {
       "symbol": "USDCHF",
       "label": "دولار / فرنك",
       "category": "forex",
       "proxy": false,
-      "quotedAt": "2026-11-25T21:59:30Z",
-      "price": 0.83085001,
-      "5": -0.0024,
-      "15": -0.01323,
-      "60": -0.00602
+      "quotedAt": "2026-11-25T22:58:33Z",
+      "price": 0.83034998,
+      "5": 0.00482,
+      "15": 0.00843,
+      "60": -0.07221
     },
     {
       "symbol": "USDCAD",
       "label": "دولار / كندي",
       "category": "forex",
       "proxy": false,
-      "quotedAt": "2026-11-25T21:59:30Z",
-      "price": 1.42137003,
-      "5": -0.00211,
-      "15": 0.00704,
-      "60": 0.02604
-    },
-    {
-      "symbol": "XAUUSD",
-      "label": "الذهب — عقود COMEX الآجلة",
-      "category": "metals",
-      "proxy": true,
-      "quotedAt": "2026-11-25T21:49:25Z",
-      "price": 3608.19995117,
-      "5": -0.02217,
-      "15": 0.14711,
-      "60": 0.16101
-    },
-    {
-      "symbol": "XAGUSD",
-      "label": "الفضة — عقود COMEX الآجلة",
-      "category": "metals",
-      "proxy": true,
-      "quotedAt": "2026-11-25T21:49:19Z",
-      "price": 41.50999832,
-      "5": 0.07232,
-      "15": 0.33841,
-      "60": 0.36266
-    },
-    {
-      "symbol": "WTI",
-      "label": "خام WTI — عقد آجل",
-      "category": "energy",
-      "proxy": true,
-      "quotedAt": "2026-11-25T21:49:19Z",
-      "price": 84.08999634,
-      "5": 0.0,
-      "15": -0.02378,
-      "60": 0.10714
-    },
-    {
-      "symbol": "BTCUSD",
-      "label": "Bitcoin",
-      "category": "crypto",
-      "proxy": false,
-      "quotedAt": "2026-11-25T21:59:29Z",
-      "price": 60180.94921875,
-      "5": -0.03847,
-      "15": -0.09977,
-      "60": -0.33402
+      "quotedAt": "2026-11-25T22:58:32Z",
+      "price": 1.42094004,
+      "5": -0.0007,
+      "15": -0.00985,
+      "60": -0.01126
     },
     {
       "symbol": "ETHUSD",
       "label": "Ethereum",
       "category": "crypto",
       "proxy": false,
-      "quotedAt": "2026-11-25T21:59:25Z",
-      "price": 1684.35998535,
-      "5": -0.05162,
-      "15": -0.14288,
-      "60": -0.33785
+      "quotedAt": "2026-11-25T22:58:30Z",
+      "price": 1685.18994141,
+      "5": 0.00059,
+      "15": -0.06583,
+      "60": 0.24687
     }
   ]
 }
