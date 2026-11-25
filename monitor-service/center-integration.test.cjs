@@ -37,10 +37,9 @@ assert.doesNotMatch(html,/dc-public-quote|tradingview-widget/,'charts stay outsi
 assert.match(html,/<div class="dc-actions" id="dc-scan-actions"><button id="dc-run"/,'scan controls appear in their original location');
 assert.match(html,/id="dc-monitor" type="button">تشغيل المراقبة أثناء فتح الصفحة/,'monitor retains its original label');
 assert.doesNotMatch(html,/id="dc-oanda-key"/,'public visitors never enter a dealer or service key');
-for(const group of ['metals','forex','indices','stocks','energy']){
- assert.ok(html.includes('value="'+group+'"'),'public market category: '+group);
-}
-assert.match(decision,/if\(publicView\(\)\|\|busy/,'unsupported instruments never run the ICT price scanner');
+assert.match(html,/<select id="dc-market"><option value="crypto">[^<]+USDT<\/option><\/select>/);
+assert.doesNotMatch(html,/dc-gold-reference|value="(?:kraken|metals|forex|indices|stocks|energy)"/);
+assert.doesNotMatch(decision,/getKraken|publicView|lastTrade/);
 const {inspect:inspectQuote,countCatalogMatches}=require('./audit-public-markets.cjs');
 const quote={symbol:'EURUSD',status:'LIVE',bid:'1.08',ask:'1.09',time:'2026-11-25T12:00:00Z'};
 const sampledAt=Date.parse(quote.time)+1000;

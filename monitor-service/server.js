@@ -21,10 +21,7 @@ const host=process.env.HOST||'127.0.0.1';
 const origin=process.env.ALLOWED_ORIGIN||'';
 const storage=path.resolve(process.env.STORE_FILE||path.join(__dirname,'monitor-data.json'));
 const publicMarket=market=>['crypto','spot','kraken'].includes(market);
-const DEFAULT=[
- 'crypto:BTCUSDT','crypto:ETHUSDT','spot:BTCUSDT','spot:ETHUSDT','kraken:PF_XBTUSD','kraken:PF_ETHUSD',
- ...(oanda.config()?['metals:XAUUSD','forex:EURUSD']:[])
-].flatMap(target=>['15','5'].map(frame=>target+':'+frame)).join(',');
+const DEFAULT=['BTCUSDT','ETHUSDT'].flatMap(symbol=>['15','5'].map(frame=>'crypto:'+symbol+':'+frame)).join(',');
 function parseTargets(str){const parsed=[];for(const raw of str.split(',')){
  const parts=raw.trim().split(':');if(parts.length!==3)throw Error('INVALID_TARGET '+raw);
  const [market,symbol,tf]=parts;if(!['5','15'].includes(tf))throw Error('UNSUPPORTED_FRAME '+tf);
@@ -191,9 +188,9 @@ async function restore(){
   if(st.size>2_000_000)throw Error('STORAGE_FILE_TOO_LARGE');
   const existing=JSON.parse(await fs.readFile(storage,'utf8'));
   if(existing?.schema!==state.schema||!Array.isArray(existing.observations)||!existing.targets||typeof existing.targets!=='object')return false;
-  const currentSource=(id,value)=>publicMarket(id.split(':')[0])||value?.source===traditional.SOURCE;
-  state.observations=existing.observations.filter(x=>x&&typeof x.id==='string'&&currentSource(x.id,existing.targets[[x.market,x.symbol,x.frame].join(':')])&&x.status==='research_only_blocked'&&x.research&&x.checkedAt).slice(0,100);
-  state.targets=Object.fromEntries(Object.entries(existing.targets).filter(([id,value])=>targets.some(t=>t.id===id)&&currentSource(id,value)&&value?.marketType!=='SPOT_RESEARCH_PROXY'));
+  const currentSource=(id,value)=>targets.some(target=>target.id===id)&&(publicMarket(id.split(':')[0])||value?.source===traditional.SOURCE);
+  state.observations=existing.observations.filter(x=>x&&typeof x.id==='string'&&currentSource([x.market,x.symbol,x.frame].join(':'),existing.targets[[x.market,x.symbol,x.frame].join(':')])&&x.status==='research_only_blocked'&&x.research&&x.checkedAt).slice(0,100);
+  state.targets=Object.fromEntries(Object.entries(existing.targets).filter(([id,value])=>currentSource(id,value)&&value?.marketType!=='SPOT_RESEARCH_PROXY'));
   state.forward=Object.fromEntries(targets.map(t=>[t.id,currentSource(t.id,existing.targets[t.id])&&Array.isArray(existing.forward?.[t.id])?
    existing.forward[t.id].filter(r=>lifecycle.valid(r)&&r.market===t.market&&r.symbol===t.symbol&&r.frame===t.tf&&Array.isArray(r.events)).slice(0,32):[]]));
   state.cycleCount=Number.isSafeInteger(existing.cycleCount)&&existing.cycleCount>=0?existing.cycleCount:0;

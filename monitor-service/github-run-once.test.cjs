@@ -26,11 +26,14 @@ console.log('Public research observation sanitization: PASS');
 
 const proxy=publicSnapshot({...fixture,targets:{'crypto:BTCUSDT:15':{...fixture.targets['crypto:BTCUSDT:15'],source:'Binance Spot (research backup; NOT Bybit perpetual)',marketType:'SPOT_RESEARCH_PROXY'}}},now);
 assert.equal(proxy.targets['crypto:BTCUSDT:15'].status,'blocked');
-const spot=publicSnapshot({...fixture,targets:{'spot:BTCUSDT:15':{...fixture.targets['crypto:BTCUSDT:15'],market:'spot'}},
- observations:[{...good,market:'spot',id:'spot:BTCUSDT:15:setup-01'}]},now);
-assert.equal(spot.targets['spot:BTCUSDT:15'].marketType,'SPOT_RESEARCH');
-assert.match(spot.observations[0].source,/Binance Spot/);
-assert.equal(spot.observations[0].executionApproved,false);
+const retired=publicSnapshot({...fixture,targets:{
+ 'spot:BTCUSDT:15':{...fixture.targets['crypto:BTCUSDT:15'],market:'spot'},
+ 'kraken:PF_XBTUSD:15':{market:'kraken',symbol:'PF_XBTUSD',frame:'15'},
+ 'crypto:BTCUSDC:15':{market:'crypto',symbol:'BTCUSDC',frame:'15'},
+ ...fixture.targets
+ },observations:[{...good,market:'spot',id:'spot:BTCUSDT:15:setup-01'},good]},now);
+assert.deepEqual(Object.keys(retired.targets),['crypto:BTCUSDT:15']);
+assert.deepEqual(retired.observations.map(row=>row.market),['crypto']);
 assert.equal(publicSnapshot({...fixture,observations:[{...good,research:{...good.research,at:now+60000}}]},now).observations.length,0);
 console.log('Spot and perpetual identities remain disjoint: PASS');
 const future=publicSnapshot({...fixture,targets:{'crypto:BTCUSDT:15':{...fixture.targets['crypto:BTCUSDT:15'],lastCompleteAt:new Date(now+5*60000).toISOString()}},observations:[good]},now);
