@@ -40,6 +40,18 @@ let quoteFeed={ok:false,reason:'QUOTE_FEED_NOT_CONFIGURED',quotes:new Map()};
 const maxStopDistancePct=Math.max(0.01,Math.min(100,Number(process.env.MAX_STOP_DISTANCE_PCT)||5));
 let economic={ok:false,reason:'NOT_CHECKED'};
 function safeError(e){return String(e?.message||e||'خطأ').slice(0,180)}
+function dataReason(error){
+ const code=String(error?.message||error||'');
+ if(code==='KRAKEN_PERPETUAL_NOT_VERIFIED'||code==='BYBIT_SYMBOL_MISMATCH'||/الاستجابة لا يطابق/.test(code))return 'instrument_mismatch';
+ if(code==='STALE_CANDLES')return 'stale_candles';
+ if(code==='LATEST_SEGMENT_TOO_SHORT')return 'candle_gap';
+ if(code==='NOT_ENOUGH_CONFIRMED_CANDLES'||code==='NO_CANDLES')return 'not_enough_candles';
+ if(/(?:_HTTP_|HTTP )(401|403|451)$/.test(code))return 'provider_access_denied';
+ if(/(?:_HTTP_|HTTP )429$/.test(code))return 'provider_rate_limited';
+ if(/(?:_HTTP_|HTTP )\d{3}$/.test(code)||code==='fetch failed'||['AbortError','TimeoutError'].includes(error?.name))return 'provider_unavailable';
+ if(/INVALID|MISMATCH|غير صالحة|غير واضحة|لا يطابق|مكررة/.test(code))return 'invalid_candles';
+ return 'unknown';
+}
 async function fetchBars(target,now,getKrakenInstruments){
  if(target.market==='kraken')return kraken.fetchHistory(target.symbol,target.tf,{now,instruments:await getKrakenInstruments()});
  if(target.market==='crypto')return live.fetchHistory({symbol:target.symbol,interval:target.tf,limit:200,now});
@@ -82,7 +94,7 @@ async function check(target,draft,calendar,getKrakenInstruments,getHourly){const
  meta.newsGate=news.status;
  draft.observations=draft.observations.filter(x=>!previousModels.has(x.id));
  draft.observations.push(...observations);
- }catch(e){meta.status='blocked';meta.error=safeError(e)}
+ }catch(e){meta.status='blocked';meta.error=safeError(e);meta.reason=dataReason(e)}
  const healthy=meta.status==='research_data_valid';
  meta.consecutiveFailures=healthy?0:Math.min(1000000,(Number(previous.consecutiveFailures)||0)+1);
  meta.lastHealthyAt=healthy?meta.lastCompleteAt:(previous.lastHealthyAt||null);
@@ -116,7 +128,7 @@ async function cycle(){if(inCycle||stopping)return;inCycle=true;try{
    const cutoff=Date.now();
    hourly.set(key,fetchBars({...target,tf:'60'},cutoff,getKrakenInstruments)
     .then(bars=>inspectHourly(bars,target.market,cutoff,target.symbol))
-    .catch(()=>({status:'unavailable'})));
+    .catch(error=>({status:'unavailable',reason:dataReason(error)})));
   }
   return hourly.get(key);
  };
@@ -161,4 +173,4 @@ function start(options={}){const httpServer=http.createServer(api);if(!options.n
  if(!options.noSchedule){restore().then(run).catch(e=>process.stderr.write(safeError(e)+'\n'));timer=setInterval(run,intervalMs)}
  return {httpServer,cycle,stop:async()=>{stopping=true;clearInterval(timer);if(httpServer.listening)await new Promise(r=>httpServer.close(r))},snapshot};}
 if(require.main===module){const app=start();for(const sig of ['SIGTERM','SIGINT'])process.on(sig,()=>app.stop().then(()=>process.exit(0)));}
-module.exports={parseTargets,validBars,start,snapshot,cycle,restore,targets};
+module.exports={dataReason,parseTargets,validBars,start,snapshot,cycle,restore,targets};

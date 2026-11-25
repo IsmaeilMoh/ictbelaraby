@@ -5,6 +5,43 @@
  const key='ict-background-service-url-v1';
  try{urlInput.value=localStorage.getItem(key)||''}catch(_){}
  function line(text){const p=document.createElement('p');p.textContent=text;results.append(p)}
+ const reasons={
+  stale_candles:'الشموع قديمة أو وقت إغلاقها غير صالح',
+  candle_gap:'توجد فجوة في تسلسل الشموع المطلوبة',
+  not_enough_candles:'عدد الشموع المكتملة غير كافٍ',
+  provider_access_denied:'المزوّد رفض الوصول إلى التغذية',
+  provider_rate_limited:'المزوّد قيّد عدد الطلبات',
+  provider_unavailable:'تعذّر الاتصال بالمزوّد أو الحصول على استجابة',
+  invalid_candles:'استجابة الشموع مكررة أو غير صالحة أو غير مطابقة للأداة',
+  session_history_missing:'سجل الجلسة السابقة غير مكتمل',
+  instrument_mismatch:'التغذية تعود إلى أداة مختلفة'
+ };
+ function time(value){return typeof value==='number'?value:Date.parse(value)}
+ function reasonLabel(reason,fallback){return Object.hasOwn(reasons,reason)?reasons[reason]:fallback}
+ function targetNote(item,current,fresh){
+  if(!fresh)return 'التقرير قديم أو دورة الفحص غير مكتملة';
+  if(item?.status==='not_checked')return 'لم تُفحص الأداة بعد';
+  if(current)return 'بيانات بحثية حديثة';
+  if(item?.status==='research_data_valid')return reasons.stale_candles;
+  const error=String(item?.error||'');
+  const legacy=error==='STALE_CANDLES'?'stale_candles':error==='LATEST_SEGMENT_TOO_SHORT'?'candle_gap':
+   /(?:_HTTP_|HTTP )(401|403|451)$/.test(error)?'provider_access_denied':null;
+  return 'معلّق: '+reasonLabel(item?.reason||legacy,'سبب تعليق الشموع غير محدد');
+ }
+ function hourlyNote(item,now,side){
+  const context=item?.hourlyContext;
+  const close=time(context?.lastCompleteAt);
+  if(context?.status==='stale'||(Number.isFinite(close)&&now-close>3*3600000))return 'سياق الساعة معلّق بسبب قدم الشموع';
+  if(context?.status!=='ready'||!Number.isFinite(close)||close>now){
+   const fallback=context?.status==='insufficient'?'شموع الساعة غير كافية لتحليل السياق':'سياق الساعة غير متاح';
+   const detail=reasonLabel(context?.reason,null);
+   return detail?'سياق الساعة معلّق: '+detail:fallback;
+  }
+  const closeLabel=' · آخر إغلاق '+window.ICTMarketTimes.format(close);
+  if(!side)return 'سياق الساعة متاح'+closeLabel;
+  const aligned=Array.isArray(context.aligned)&&context.aligned.includes(side==='BUY'?'bull':'bear');
+  return (aligned?'سياق الساعة يدعم الاتجاه بحثيًا':'سياق الساعة لا يدعم اتجاه النموذج')+closeLabel;
+ }
  function describeError(e){status.textContent='تعذر الاتصال بالخدمة: '+String(e.message||e).slice(0,140);status.dataset.bad='1'}
  function validate(){const value=urlInput.value.trim();if(!value)throw Error('لم تُدخل عنوان الخدمة');const u=new URL(value);
  if(!['https:','http:'].includes(u.protocol)||u.username||u.password||u.search||u.hash)throw Error('عنوان غير صالح');
@@ -23,7 +60,12 @@
  if(data.cycleError)line('خطأ في دورة المراقبة: '+String(data.cycleError).slice(0,140));
  line('آخر دورة فحص — نيويورك: '+new Intl.DateTimeFormat('ar-EG',{timeZone:'America/New_York',dateStyle:'medium',timeStyle:'short'}).format(new Date(heartbeat))+' | فلسطين: '+new Intl.DateTimeFormat('ar-EG',{timeZone:'Asia/Gaza',dateStyle:'medium',timeStyle:'short'}).format(new Date(heartbeat)));
  line('عدد دورات الفحص: '+Number(data.cycleCount||0)+' · عدد الأصول: '+Number(data.marketCount||0));
- for(const [name,value] of Object.entries(data.targets||{}).slice(0,16)){line(name+' — '+(value.status==='research_data_valid'&&!value.stale?'شموع صالحة بحثيًا'+(value.lastRecoveredAt?' · آخر تعافٍ: '+value.lastRecoveredAt:''):'معلّق: '+(value.error||value.status)+(value.consecutiveFailures?' · فشل متتالٍ: '+value.consecutiveFailures:'')))}
+ for(const [name,value] of Object.entries(data.targets||{}).slice(0,16)){
+  const current=data.active&&value?.status==='research_data_valid'&&!value.stale;
+  line(name+' — '+targetNote(value,current,data.active)+(current?' · '+hourlyNote(value,Date.now()):'')+
+   (value?.lastRecoveredAt?' · آخر تعافٍ: '+value.lastRecoveredAt:'')+
+   (value?.consecutiveFailures?' · فشل متتالٍ: '+value.consecutiveFailures:''));
+ }
  const gate=data.safety||{};const news=gate.economic||{};
  line('بوابة الأخبار على الخادم: '+(news.ok?'تم جلب أجندة زمنية ('+Number(news.eventCount||0)+' حدثًا)':'غير مكتملة / معلقة: '+(news.reason||'لا توجد بيانات')));
  line('مخاطرة الحساب: غير متحقق منها على الخادم. عرض سعر Bid/Ask: '+(gate.bidAsk?.connected?'المزود متصل (تحقق من حالة كل أصل)':'غير متاح: '+(gate.bidAsk?.reason||'لم يربط بعد'))+'. لا توجد موافقة تنفيذية.');
@@ -57,7 +99,11 @@
    status.dataset.bad=valid?'0':'1';
    if(Number.isFinite(last))line('آخر فحص — '+window.ICTMarketTimes.format(last));
    line('الأسواق: '+validCount+' صالحة من '+targets.length+' · '+(targets.length-validCount)+' معلقة');
-   for(const [key,item] of targets)line(key+' — '+(isCurrent(item,key.split(':')[2])?'بيانات بحثية حديثة':'معلّق أو قديم')+(item.error?' · '+String(item.error).slice(0,90):'')+(item.source?' · المصدر: '+String(item.source).slice(0,70):''));
+   for(const [key,item] of targets){
+    const current=isCurrent(item,key.split(':')[2]);
+    line(key+' — '+targetNote(item,current,fresh)+(current?' · '+hourlyNote(item,now):'')+
+     (item?.source?' · المصدر: '+String(item.source).slice(0,70):''));
+   }
    line('الأخبار: '+(d.safety?.economic?.ok?'تغذية متاحة':'غير مكتملة / معلقة')+' · Bid/Ask: غير متصل · المخاطرة: محلية فقط · الموافقة التنفيذية: غير متاحة');
    const entries=(valid&&Array.isArray(d.observations)?d.observations:[]).filter(x=>{
     if(!x||x.status!=='research_only_blocked'||x.executionApproved!==false||!['BUY','SELL'].includes(x.side))return false;
@@ -72,17 +118,6 @@
     const counts=item.patternCounts;
     if(isCurrent(item,key.split(':')[2])&&counts)line(key+' · Sweep '+counts.sweep+' · MSS '+counts.mss+' · FVG '+counts.fvg+' · نماذج مركّبة '+counts.composite+' · ضمن نافذة المتابعة '+counts.recent+' · خطط سليمة '+counts.valid);
    }
-   function hourlyNote(item,side){
-    const context=item.hourlyContext;
-    const close=Date.parse(context?.lastCompleteAt);
-    if(context?.status==='stale'||(Number.isFinite(close)&&now-close>3*3600000))return 'سياق الساعة معلّق بسبب قدم الشموع';
-    if(context?.status==='insufficient')return 'شموع الساعة غير كافية لتحليل السياق';
-    if(context?.status!=='ready'||!Number.isFinite(close)||close>now)return 'سياق الساعة غير متاح';
-    if(!side)return 'سياق الساعة متاح · آخر إغلاق '+window.ICTMarketTimes.format(close);
-    const aligned=Array.isArray(context.aligned)&&context.aligned.includes(side==='BUY'?'bull':'bear');
-    return (aligned?'سياق الساعة يدعم الاتجاه بحثيًا':'سياق الساعة لا يدعم اتجاه النموذج')+' · آخر إغلاق '+window.ICTMarketTimes.format(close);
-   }
-   for(const [key,item] of targets)if(isCurrent(item,key.split(':')[2]))line(key+' · '+hourlyNote(item));
    showIntegrated(entries.map(x=>{
     const item=d.targets[[x.market,x.symbol,x.frame].join(':')];
     const at=Date.parse(x.research?.at);
@@ -91,7 +126,7 @@
      research:Number.isFinite(at)?{phase:x.research.phase,at}:null,
      modelEvidence:['sweepAt','mssAt','fvgAt'].map(key=>Date.parse(x.evidence?.[key])),
      blocks:[x.newsGate==='clear_research_only'?'فحص الأخبار البحثي متاح':'تغطية الأخبار غير مؤكدة أو يوجد مانع',
-      hourlyNote(item,x.side),
+      hourlyNote(item,now,x.side),
       'مخاطرة الحساب غير متحققة','أسعار Bid/Ask غير متحققة']};
    }),fresh?'لا توجد فرص للعرض في التقرير المجدول الحالي.':'التقرير المجدول قديم أو غير مكتمل.');
    line('GitHub Actions تشغيل مجدول بأفضل جهد، وليس مراقبة مستمرة أو إشعارات هاتف.');

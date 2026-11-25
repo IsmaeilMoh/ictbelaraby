@@ -38,3 +38,14 @@ assert.equal(future.targets['crypto:BTCUSDT:15'].stale,true);
 assert.equal(future.marketDataReady,false);
 assert.equal(future.observations.length,0);
 console.log('Future-dated candles cannot produce published opportunities: PASS');
+
+const key='crypto:BTCUSDT:15';
+const refused=publicSnapshot({...fixture,targets:{[key]:{...fixture.targets[key],
+ status:'blocked',lastCompleteAt:null,error:'BYBIT_HTTP_403',
+ hourlyContext:{status:'unavailable',reason:'internal arbitrary error'}
+}}},now);
+assert.equal(refused.targets[key].reason,'provider_access_denied');
+assert.equal(refused.targets[key].error,null);
+assert.equal(refused.targets[key].hourlyContext.reason,'unknown');
+assert.equal(future.targets[key].reason,'stale_candles');
+console.log('Public market reasons are stable and omit raw provider errors: PASS');
