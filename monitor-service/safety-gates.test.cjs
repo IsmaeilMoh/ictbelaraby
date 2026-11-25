@@ -17,7 +17,10 @@ async function test(){
  assert.equal(g.checkStructure(good).status,'clear_research_only');
  assert.equal(g.checkStructure({...good,stop:102}).status,'blocked');
  assert.equal(g.checkStructure({...good,stop:90}).reason,'STOP_DISTANCE_OUT_OF_POLICY');
- assert.equal((await g.fetchEconomic('',now)).ok,false);
+ // Never use a live economic provider in this deterministic safety regression test.
+ const unavailable=await g.fetchEconomic('',now,{fetch:async()=>({ok:false,status:503})});
+ assert.equal(unavailable.ok,false);
+ assert.match(unavailable.reason,/FREE_CALENDAR_HTTP_503/);
  const ok=await g.fetchEconomic('https://data.example.org/calendar.json',now,{fetch:async()=>({ok:true,text:async()=>JSON.stringify({events:[{currency:'USD',impact:'high',datetime:'2026-11-24T14:15:00Z'}]})})});
  assert.equal(ok.ok,true);
  const old=await g.fetchEconomic('https://data.example.org/calendar.json',now,{fetch:async()=>({ok:true,text:async()=>JSON.stringify({events:[{currency:'USD',impact:'high',datetime:'2020-01-01T00:00:00Z'}]})})});

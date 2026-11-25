@@ -1,5 +1,10 @@
 name: ICT Arabic - free periodic market research
 on:
+  push:
+    branches: [main]
+    paths:
+      - 'monitor-service/**'
+      - '.github/workflows/ict-free-market-monitor.yml'
   schedule:
     # Offset avoids the most congested minute-0 schedule, cadence best effort.
     - cron: '7,22,37,52 * * * *'
