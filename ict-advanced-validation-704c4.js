@@ -34,6 +34,27 @@ function amdRange(candidate,bars,si,frame){
  const high=Math.max(...prior.map(bar=>bar.high)),low=Math.min(...prior.map(bar=>bar.low));
  return (candidate.direction==='bull'?bars[si].low<low:bars[si].high>high)?{accumulationHigh:high,accumulationLow:low}:null;
 }
+// Month 04 Breaker Block: https://www.youtube.com/watch?v=UrS-mtGHtAA
+// This implementation uses the swing candle's full range and a closed retest.
+function breakerEvidence(candidate,bars,index,pivots){
+ const bullish=candidate.direction==='bull',sweep=index.get(candidate.sweepAt),mss=index.get(candidate.mssAt);
+ if(sweep==null||mss==null||sweep>=mss)return null;
+ const pivot=pivots.findLast(p=>p.type===(bullish?'swing-high':'swing-low')&&
+  p.start<candidate.sweepAt&&p.confirmedAt<candidate.sweepAt);
+ if(!pivot)return null;
+ const block=bars[index.get(pivot.start)];
+ if(!block||(bullish?block.close<=block.open:block.close>=block.open))return null;
+ const crossed=bar=>bullish?bar.close>block.high:bar.close<block.low;
+ const breach=bars.slice(sweep+1,mss+1).find(crossed);
+ if(!breach)return null;
+ const breachIndex=index.get(breach.start);
+ let retestAt=null;
+ for(const bar of bars.slice(breachIndex+1)){
+  if(bullish?bar.low<=block.low:bar.high>=block.high)return null;
+  if(retestAt===null&&bar.low<=block.high&&bar.high>=block.low&&crossed(bar))retestAt=bar.start;
+ }
+ return retestAt===null?null:{blockAt:block.start,breakAt:breach.start,retestAt,low:block.low,high:block.high};
+}
 function summary(rows,cost){const wins=rows.filter(x=>x.outcome==='win').length,losses=rows.filter(x=>x.outcome==='loss').length,settled=wins+losses;return {total:rows.length,settled,wins,losses,misses:rows.filter(x=>x.outcome==='miss').length,invalid:rows.filter(x=>x.outcome==='invalid').length,uncertain:rows.filter(x=>x.outcome==='uncertain').length,winRate:settled?100*wins/settled:null,avgR:settled?(2*wins-losses-cost*settled)/settled:null}}
 function split(rows,cost){rows=rows.slice().sort((a,b)=>a.formedAt-b.formedAt);const k=Math.max(1,Math.floor(rows.length*.7)),cut=rows[k]?.formedAt??null,train=rows.slice(0,k).filter(r=>cut!=null&&r.evaluatedThrough<cut),test=rows.slice(k),a=summary(train,cost),b=summary(test,cost);return {train:a,test:b,purged:k-train.length,candidates:rows,status:a.settled>=RULES.minSettled&&b.settled>=RULES.minSettled?'exploratory_only':'insufficient_evidence'}}
 function validate(candles,frame,opts={}){
@@ -68,5 +89,5 @@ function validate(candles,frame,opts={}){
  'يُعد الهدف والوقف في شمعة واحدة غير حاسمين؛ النوافذ الزمنية تعتمد America/New_York وDST تلقائيًا.'
  ]};
 }
-return Object.freeze({VERSION,RULES,ny,oteEntry,amdRange,validate,split});
+return Object.freeze({VERSION,RULES,ny,oteEntry,amdRange,breakerEvidence,validate,split});
 });

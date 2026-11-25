@@ -135,7 +135,7 @@ function showArchive(){clear(archive);const arr=saved().slice(0,8);if(!arr.lengt
 function block(title,parent=output){const c=document.createElement('section');c.className='dc-card';node('h3',title,c);parent.append(c);return c}
 const phases={observed:'مرصودة',awaiting_confirmation:'بانتظار التأكيد',confirmed_research:'مؤكدة بحثيًا',invalidated:'ملغاة',expired:'منتهية الصلاحية'};
 const types={SPOT_RESEARCH:'Spot · سوق فوري',SPOT_RESEARCH_PROXY:'Spot · سوق فوري',PERPETUAL:'عقد دائم',PROVIDER_NATIVE:'أداة المزود'};
-function matchingModels(plan,bars,index,tf){
+function matchingModels(plan,bars,index,tf,pivots){
  const matches=[{type:'composite',label:'Sweep → MSS → FVG'}];
  const [sweepAt,mssAt,fvgAt]=plan.modelEvidence;
  const si=index.get(sweepAt),mi=index.get(mssAt);
@@ -152,6 +152,9 @@ function matchingModels(plan,bars,index,tf){
  if(ote!==null)matches.push({type:'ote',label:'OTE',evidence:'تصحيح 70.5% داخل FVG · '+money(ote)});
  const range=advanced.amdRange(candidate,bars,si,tf);
  if(range)matches.push({type:'amd',label:'Power of Three (AMD)',evidence:'نطاق تراكم نيويورك 00–05 · '+money(range.accumulationLow)+' — '+money(range.accumulationHigh)});
+ const breaker=advanced.breakerEvidence(candidate,bars,index,pivots);
+ if(breaker)matches.push({type:'breaker',label:'Breaker Block',evidence:'الكتلة '+money(breaker.low)+' — '+money(breaker.high)+
+  ' · شمعة الكتلة '+dual(breaker.blockAt)+' · الكسر '+dual(breaker.breakAt)+' · إعادة الاختبار '+dual(breaker.retestAt)});
  return matches;
 }
 function card(parent,o,origin){
@@ -250,9 +253,11 @@ function inspectContract(contract,tf,{entryBars,hourly,higherCandles},news,batch
  if(res.opportunities.length){
   const bars=structure.normalize(entryBars,tf,now).segments.at(-1)||[];
   const index=new Map(bars.map((bar,i)=>[bar.start,i]));
-  for(const plan of res.opportunities)plan.modelMatches=matchingModels(plan,bars,index,tf);
+  const pivots=structure.analyze(entryBars,tf,{now}).pivots;
+  for(const plan of res.opportunities)plan.modelMatches=matchingModels(plan,bars,index,tf,pivots);
   if(modelType.value)res.opportunities=res.opportunities.filter(plan=>plan.modelMatches.some(match=>match.type===modelType.value));
   // OTE is an additional research level; the existing entry stream tracks the composite midpoint.
+  if(modelType.value==='breaker')for(const plan of res.opportunities)plan.blocks.push('إعادة اختبار Breaker معروضة كدليل بحثي. مستويات البطاقة تخص النموذج المركب.');
   if(modelType.value==='ote')for(const plan of res.opportunities)plan.blocks.push('مستوى OTE للبحث. الدخول المعروض للبطاقة هو الدخول المرجعي للنموذج المركب.');
  }
  if(batch)for(const plan of res.opportunities)plan.blocks.push('الفحص الجماعي بحثي؛ افحص العقد منفردًا للتحقق من Bid/Ask والمراقبة اللحظية.');
