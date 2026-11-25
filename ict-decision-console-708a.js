@@ -55,6 +55,10 @@ function showEntryStream(res,news){
      if(reported.has(key))continue;
      reported.add(key);
      if(reported.size>500)reported.delete(reported.values().next().value);
+     if(event.kind==='entry')root.dispatchEvent(new CustomEvent('ict:live-entry',{detail:{
+      plan:{...event.plan,market:res.market,symbol:res.symbol,frame:res.frame},
+      observedAt:now,quote:event.quote,source:res.source
+     }}));
      const label=event.kind==='entry'?'تنبيه بحثي: تحقق شرط سعر الدخول':
       event.kind==='invalidated'?'أُلغي النموذج عند رصد تجاوز الوقف':'لم يمكن تأكيد عبور الدخول؛ أعد الفحص';
      const row=document.createElement('li');
