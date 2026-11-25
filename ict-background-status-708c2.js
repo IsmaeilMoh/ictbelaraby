@@ -18,6 +18,21 @@
  };
  function time(value){return typeof value==='number'?value:Date.parse(value)}
  function reasonLabel(reason,fallback){return Object.hasOwn(reasons,reason)?reasons[reason]:fallback}
+ const durationNumber=new Intl.NumberFormat('ar',{numberingSystem:'arab'});
+ function durationLabel(since,through){
+  const start=time(since),end=time(through);
+  if(!Number.isFinite(start)||!Number.isFinite(end)||end<start)return '';
+  const minutes=Math.floor((end-start)/60000);
+  if(minutes<1)return 'أقل من دقيقة';
+  const days=Math.floor(minutes/1440),hours=Math.floor(minutes/60)%24;
+  return [[days,'يوم'],[hours,'س'],[minutes%60,'د']].filter(([n])=>n)
+   .map(([n,unit])=>durationNumber.format(n)+' '+unit).join(' و');
+ }
+ function ongoingDelay(item,now){
+  if(item?.status!=='blocked'||time(item.sourceDelay?.through)>now)return '';
+  const duration=durationLabel(item.sourceDelay?.since,item.sourceDelay?.through);
+  return duration?' · مدة التعليق المرصودة حتى آخر فحص: '+duration:'';
+ }
  function showSourceHistory(name,item,now){
   const rows=Array.isArray(item?.sourceHistory)?item.sourceHistory.slice(0,8):[];
   const details=document.createElement('details');
@@ -28,7 +43,8 @@
    const at=time(event?.at);
    if(!Number.isFinite(at)||at>now)continue;
    const reason=reasonLabel(event.reason,'السبب غير محدد');
-   const message=event.kind==='recovered'?'عادت الشموع الحديثة':
+   const duration=event.kind==='recovered'?durationLabel(event.since,event.at):'';
+   const message=event.kind==='recovered'?'عادت الشموع الحديثة'+(duration?' · مدة التعليق المرصودة: '+duration:''):
     event.kind==='blocked'?'رُصد التعليق: '+reason:
     event.kind==='reason_changed'?'تغيّر سبب التعليق: '+reason:null;
    if(!message)continue;
@@ -85,7 +101,7 @@
  line('عدد دورات الفحص: '+Number(data.cycleCount||0)+' · عدد الأصول: '+Number(data.marketCount||0));
  for(const [name,value] of Object.entries(data.targets||{}).slice(0,16)){
   const current=data.active&&value?.status==='research_data_valid'&&!value.stale;
-  line(name+' — '+targetNote(value,current,data.active)+(current?' · '+hourlyNote(value,Date.now()):'')+
+  line(name+' — '+targetNote(value,current,data.active)+(current?' · '+hourlyNote(value,Date.now()):'')+ongoingDelay(value,Date.now())+
    (value?.lastRecoveredAt?' · آخر تعافٍ: '+value.lastRecoveredAt:'')+
    (value?.consecutiveFailures?' · فشل متتالٍ: '+value.consecutiveFailures:''));
   showSourceHistory(name,value,Date.now());
@@ -125,7 +141,7 @@
    line('الأسواق: '+validCount+' صالحة من '+targets.length+' · '+(targets.length-validCount)+' معلقة');
    for(const [key,item] of targets){
     const current=isCurrent(item,key.split(':')[2]);
-    line(key+' — '+targetNote(item,current,fresh)+(current?' · '+hourlyNote(item,now):'')+
+    line(key+' — '+targetNote(item,current,fresh)+(current?' · '+hourlyNote(item,now):'')+ongoingDelay(item,now)+
      (item?.source?' · المصدر: '+String(item.source).slice(0,70):''));
     showSourceHistory(key,item,now);
    }

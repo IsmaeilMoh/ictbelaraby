@@ -48,6 +48,7 @@ function publicSnapshot(data,now=Date.now()){
    error:legacyProxy?'LEGACY_SPOT_PROXY':null,
    hourlyContext:publicHour(val.hourlyContext,now),
    sourceHistory:legacyProxy?[]:runner.sourceHistory(val.sourceHistory,now),
+   sourceDelay:legacyProxy?null:runner.sourceDelay(val,now),
    newsGate:val.newsGate||null,executionQuoteGate:'not_verified',accountRiskGate:'not_verified'};
  }
  // Only expose recent, observed research setups with internally consistent levels.
@@ -98,7 +99,7 @@ async function main(){
   for(const [id,t] of Object.entries(payload.targets)){
    const diagnostics=snapshot.targets[id]?.hourlyContext?.diagnostics;
    const coverage=diagnostics?' hourlyCoverage='+JSON.stringify(diagnostics):'';
-   process.stdout.write(id+' '+(snapshot.targets[id]?.error||t.error||t.source)+' reason='+(t.reason||'none')+' sourceChanges='+t.sourceHistory.length+' hourly='+t.hourlyContext.status+coverage+' '+JSON.stringify(t.patternCounts)+'\n');
+   process.stdout.write(id+' '+(snapshot.targets[id]?.error||t.error||t.source)+' reason='+(t.reason||'none')+' sourceChanges='+t.sourceHistory.length+' sourceDelay='+JSON.stringify(t.sourceDelay)+' hourly='+t.hourlyContext.status+coverage+' '+JSON.stringify(t.patternCounts)+'\n');
   }
   process.stdout.write('Public research observations: '+payload.observations.length+'\n');
   if(!payload.marketDataReady)process.stdout.write('WARNING: no verified current market data; status remains blocked\n');

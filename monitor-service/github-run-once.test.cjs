@@ -59,3 +59,12 @@ const history=publicSnapshot({...fixture,targets:{[key]:{...fixture.targets[key]
 ]}}},now);
 assert.deepEqual(history.targets[key].sourceHistory,[{kind:'blocked',at:eventTime,reason:'provider_access_denied'}]);
 assert.equal(history.readyForExecution,false);
+
+
+const delay=publicSnapshot({...fixture,targets:{[key]:{...fixture.targets[key],status:'blocked',
+ blockedSince:eventTime,lastAttempt:new Date(now-60000).toISOString()
+}}},now);
+assert.deepEqual(delay.targets[key].sourceDelay,{since:eventTime,through:new Date(now-60000).toISOString()});
+assert.equal(publicSnapshot({...fixture,targets:{[key]:{...fixture.targets[key],status:'blocked',
+ blockedSince:new Date(now+60000).toISOString(),lastAttempt:new Date(now).toISOString()
+}}},now).targets[key].sourceDelay,null);
