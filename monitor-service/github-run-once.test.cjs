@@ -49,3 +49,13 @@ assert.equal(refused.targets[key].error,null);
 assert.equal(refused.targets[key].hourlyContext.reason,'unknown');
 assert.equal(future.targets[key].reason,'stale_candles');
 console.log('Public market reasons are stable and omit raw provider errors: PASS');
+
+
+const eventTime=new Date(now-120000).toISOString();
+const history=publicSnapshot({...fixture,targets:{[key]:{...fixture.targets[key],sourceHistory:[
+ {kind:'blocked',at:eventTime,reason:'provider_access_denied',details:'private provider text'},
+ {kind:'recovered',at:new Date(now+60000).toISOString()},
+ {kind:'invalid',at:eventTime,reason:'provider_unavailable'}
+]}}},now);
+assert.deepEqual(history.targets[key].sourceHistory,[{kind:'blocked',at:eventTime,reason:'provider_access_denied'}]);
+assert.equal(history.readyForExecution,false);

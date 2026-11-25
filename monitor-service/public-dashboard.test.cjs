@@ -3,13 +3,13 @@ const assert=require('node:assert/strict');
 const fs=require('node:fs');
 const vm=require('node:vm');
 const code=fs.readFileSync(require('node:path').join(__dirname,'..','ict-background-status-708c2.js'),'utf8');
-function element(id){return {id,value:'',textContent:'',disabled:false,dataset:{},children:[],events:{},append(x){this.children.push(x)},replaceChildren(){this.children=[]},addEventListener(name,callback){this.events[name]=callback}};}
+function element(id){return {id,value:'',textContent:'',disabled:false,dataset:{},children:[],get childElementCount(){return this.children.length},events:{},append(...nodes){this.children.push(...nodes)},replaceChildren(){this.children=[]},addEventListener(name,callback){this.events[name]=callback}};}
 const ids=['dc-background-8c2','dc-bg-url','dc-bg-save','dc-bg-check','dc-bg-status','dc-bg-results','dc-bg-free-check'];
 const elements=Object.fromEntries(ids.map(i=>[i,element(i)]));
 const current=Date.parse('2026-11-24T12:00:00Z');
 function makeSnapshot(active=true,stale=false){return {
  schema:'ict-research-monitor/1',transport:'github-actions-static',readyForExecution:false,active,marketDataReady:true,lastCycleAt:new Date(active?current-60000:current-3600000).toISOString(),
- safety:{executionApproved:false,economic:{ok:false}},marketSummary:{valid:1,configured:1,blocked:0},targets:{'metals:XAUUSD:15':{status:'blocked',reason:'provider_access_denied',error:'RAW_PROVIDER_DETAIL'},'crypto:BTCUSDT:15':{hourlyContext:{status:'insufficient',reason:'session_history_missing'},status:'research_data_valid',stale:false,lastCompleteAt:new Date(current-(stale?46:2)*60000).toISOString()}},
+ safety:{executionApproved:false,economic:{ok:false}},marketSummary:{valid:1,configured:1,blocked:0},targets:{'metals:XAUUSD:15':{status:'blocked',reason:'provider_access_denied',error:'RAW_PROVIDER_DETAIL',sourceHistory:[{kind:'blocked',at:new Date(current-120000).toISOString(),reason:'provider_access_denied'},{kind:'recovered',at:new Date(current+60000).toISOString()}]},'crypto:BTCUSDT:15':{hourlyContext:{status:'insufficient',reason:'session_history_missing'},status:'research_data_valid',stale:false,lastCompleteAt:new Date(current-(stale?46:2)*60000).toISOString()}},
  observations:[{id:'crypto:BTCUSDT:15:a',market:'crypto',symbol:'BTCUSDT',frame:'15',side:'BUY',entry:100,stop:99,target:102,rr:2,detectedAt:new Date(current-60000).toISOString(),status:'research_only_blocked',executionApproved:false,model:'Sweep → MSS → FVG'}]};}
 async function run(active,stale=false){
  elements['dc-bg-results'].replaceChildren();
@@ -24,6 +24,10 @@ async function run(active,stale=false){
  await elements['dc-bg-free-check'].events.click();
  const output=elements['dc-bg-results'].children.map(node=>node.textContent).join(' ');
  assert.doesNotMatch(output,/RAW_PROVIDER_DETAIL/);
+ const detail=elements['dc-bg-results'].children.find(node=>node.id==='details');
+ assert.match(detail.children[0].textContent,/سجل تغيّر حالة المصدر/);
+ assert.equal(detail.children[1].children.length,1);
+ assert.match(detail.children[1].children[0].textContent,/رُصد التعليق/);
  if(active)assert.match(output,/المزوّد رفض الوصول/);
  if(active&&stale)assert.match(output,/الشموع قديمة/);
  if(active&&!stale)assert.match(output,/سجل الجلسة السابقة غير مكتمل/);
