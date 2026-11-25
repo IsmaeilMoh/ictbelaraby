@@ -121,6 +121,9 @@ async function main(){
   const hasPublicChart=html.includes('id="dc-public-quote"');
   const restored=hasScanControls&&!hasPublicChart&&!html.includes('id="dc-oanda-key"');
   console.log('GitHub Pages scan form: '+(restored?'restored layout verified':hasPublicChart?'earlier layout with embedded quote still deployed':'not verified (HTTP '+result.status+')'));
+  const sections=['dc-scan-actions','dc-results','dc-lifecycle','dc-advanced'].map(id=>html.indexOf('id="'+id+'"'));
+  const journey=sections.every((at,index)=>at>=0&&(index===0||at>sections[index-1]));
+  console.log('GitHub Pages visitor journey: '+(journey?'scan, results, tracking and advanced sections verified':'not verified'));
  }catch(error){
   console.log('GitHub Pages scan form: not verified ('+(error.cause?.code||error.name)+')');
  }
