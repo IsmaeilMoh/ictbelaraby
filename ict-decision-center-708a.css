@@ -15,3 +15,8 @@ html[data-theme="light"] #ict-decision-8a .dc-panel,body[data-theme="light"] #ic
 
 #ict-decision-8a .dc-shortcut{display:inline-flex;align-items:center;gap:8px;min-height:44px;padding:7px 12px;border:1px solid currentColor;border-radius:12px;text-decoration:none;font-weight:650}
 #ict-decision-8a .dc-shortcut .uii-svg{display:inline-flex;flex:none;width:18px;height:18px}
+
+#ict-decision-8a .dc-evidence-chart{min-width:0;margin-block:1rem}
+#ict-decision-8a .dc-evidence-chart summary{cursor:pointer;font-weight:700;padding-block:.5rem}
+#ict-decision-8a .dc-chart-scroll{direction:ltr;overflow-x:auto;max-width:100%;margin-block:.5rem;border-radius:12px}
+#ict-decision-8a .dc-chart-scroll canvas{display:block;width:100%;min-width:620px;height:auto}
