@@ -1,8 +1,31 @@
 {
-  "updatedAt": "2026-11-25T12:51:53.269154Z",
+  "updatedAt": "2026-11-25T14:26:50.659145Z",
   "source": "Yahoo Finance public chart feed (unofficial)",
   "intervalMinutes": 5,
   "windowBasis": "5-minute chart close comparisons",
   "isRealtime": false,
-  "items": []
+  "items": [
+    {
+      "symbol": "AUDUSD",
+      "label": "أسترالي / دولار",
+      "category": "forex",
+      "proxy": false,
+      "quotedAt": "2026-11-25T14:25:43Z",
+      "price": 0.6585446,
+      "5": -0.02634,
+      "15": 0.04609,
+      "60": -0.00659
+    },
+    {
+      "symbol": "NZDUSD",
+      "label": "نيوزيلندي / دولار",
+      "category": "forex",
+      "proxy": false,
+      "quotedAt": "2026-11-25T14:25:43Z",
+      "price": 0.5462988,
+      "5": 0.0,
+      "15": 0.03823,
+      "60": 0.00546
+    }
+  ]
 }
