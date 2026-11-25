@@ -9,12 +9,13 @@ function build(context,structure,opts={}){
  if(!finite(day.high)||!finite(day.low)||day.high<=day.low)throw Error('حدود اليوم السابق غير صالحة');
  const price=context.price;
  const fresh=finite(price)&&Number.isFinite(context.priceAt)&&now-(context.priceAt+HOUR)<=3*HOUR&&now>=context.priceAt+HOUR;
- const eligible=structure.eligible===true&&structure.usableBars>=structure.minimum&&Number.isFinite(structure.last)&&now-(structure.last+HOUR)<=3*HOUR;
+ const eligible=structure.eligible===true&&structure.usableBars>=structure.minimum&&Number.isFinite(structure.last)&&structure.last+HOUR<=now&&now-(structure.last+HOUR)<=3*HOUR;
  const dataOK=fresh&&eligible;
  const lastAt=structure.last||0;
  // An event counts as recent only if its candle is within 24 completed hourly bars of the latest candle.
- const events=(Array.isArray(structure.events)?structure.events:[]).filter(e=>e&&e.type&&['BOS','MSS','SWEEP'].includes(e.type)&&['bull','bear'].includes(e.direction)&&Number.isFinite(e.at)&&e.at<=lastAt&&lastAt-e.at<=24*HOUR);
- const zones=(Array.isArray(structure.zones)?structure.zones:[]).filter(z=>z&&z.type==='FVG'&&['bull','bear'].includes(z.direction)&&finite(z.low)&&finite(z.high)&&z.low<z.high&&z.mitigated!==true&&Number.isFinite(z.at)&&z.at<=lastAt&&lastAt-z.at<=24*HOUR);
+ const firstAt=lastAt-(structure.usableBars-1)*HOUR;
+ const events=(Array.isArray(structure.events)?structure.events:[]).filter(e=>e&&e.type&&['BOS','MSS','SWEEP'].includes(e.type)&&['bull','bear'].includes(e.direction)&&Number.isFinite(e.at)&&e.at>=firstAt&&e.at<=lastAt&&lastAt-e.at<=24*HOUR);
+ const zones=(Array.isArray(structure.zones)?structure.zones:[]).filter(z=>z&&z.type==='FVG'&&['bull','bear'].includes(z.direction)&&finite(z.low)&&finite(z.high)&&z.low<z.high&&z.mitigated!==true&&Number.isFinite(z.at)&&z.at>=firstAt&&z.at<=lastAt&&lastAt-z.at<=24*HOUR);
  const upper=context.priorWeek&&finite(context.priorWeek.high)?context.priorWeek.high:null;
  const lower=context.priorWeek&&finite(context.priorWeek.low)?context.priorWeek.low:null;
  function make(dir){const bull=dir==='bull',reference=bull?day.high:day.low,opposite=bull?day.low:day.high;

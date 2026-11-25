@@ -22,11 +22,13 @@
  function parseHistory(payload,symbol,interval,now){const pair=checkPair(symbol,interval);now=now||Date.now();
   if(!payload||payload.retCode!==0||!Array.isArray(payload.result?.list))throw Error('BYBIT_REST_INVALID_RESPONSE');
   if(payload.result.symbol&&payload.result.symbol!==pair.symbol)throw Error('BYBIT_SYMBOL_MISMATCH');
+  const providerTime=n(payload.time);
+  const closeCutoff=providerTime===null?now:Math.min(now,providerTime);
   const array=payload.result.list.map(r=>parseRow(r,pair,'rest')).sort((a,b)=>a.start-b.start);const out=[];
   for(const c of array){if(out.length&&out[out.length-1].start===c.start)continue;if(out.length&&c.start<out[out.length-1].start)throw Error('CANDLE_ORDER');
    if(c.start>now+60000)throw Error('FUTURE_CANDLE');
    // REST includes the active candle: only mark completed if its time window has ended.
-   c.confirmed=now>=c.start+pair.ms;out.push(c);
+   c.confirmed=closeCutoff>=c.start+pair.ms;out.push(c);
   }
   if(!out.length)throw Error('NO_CANDLES');return out;
  }

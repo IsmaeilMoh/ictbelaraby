@@ -45,33 +45,39 @@ async function fetchBars(target,now){if(target.market==='crypto'){
 }
  const ins=traditional.resolve(target.market,target.symbol);
  return traditional.get(ins,target.tf==='5'?'5min':'15min',{limit:200,now});}
-function validBars(bars,tf,now){const ms=Number(tf)*60000;const valid=bars.filter(x=>x.confirmed===true&&x.start+ms<=now).sort((a,b)=>a.start-b.start);
- if(valid.length<30)throw Error('NOT_ENOUGH_CONFIRMED_CANDLES');
- const consecutive=[];for(const b of valid){const last=consecutive.at(-1);if(last&&b.start-last.start!==ms)consecutive.length=0;consecutive.push(b)}
+function validBars(bars,tf,now){
+ const normalized=structure.normalize(bars,tf,now);
+ if(normalized.rejected||normalized.duplicates)throw Error('INVALID_OR_DUPLICATE_CANDLES');
+ if(normalized.rows.length<30)throw Error('NOT_ENOUGH_CONFIRMED_CANDLES');
+ const consecutive=normalized.segments.at(-1);
  if(consecutive.length<30)throw Error('LATEST_SEGMENT_TOO_SHORT');
- const last=consecutive.at(-1);if(now-(last.start+ms)>Math.max(3*ms,180000))throw Error('STALE_CANDLES');
- return consecutive;}
-function recentObservation(m,target,now,news,structureGate){return {id:target.id+':'+String(m.id),market:target.market,symbol:target.symbol,frame:target.tf,formedAt:m.formedAt,detectedAt:new Date(now).toISOString(),status:'research_only_blocked',reason:'غير معتمدة للتنفيذ: لا توجد مراجعة مخاطرة حساب أو أسعار Bid/Ask',newsGate:news,structureGate,accountRiskGate:'not_verified',side:m.direction==='bull'?'BUY':'SELL',entry:m.entry,stop:m.stop,target:m.target,model:'Sweep → MSS → FVG',zone:{low:Number(m.zone?.low),high:Number(m.zone?.high)},reasonCodes:['ACCOUNT_RISK_NOT_VERIFIED','EXECUTION_QUOTE_NOT_VERIFIED']};}
-async function check(target){const now=Date.now();const previous=state.targets[target.id]||{};const meta={market:target.market,symbol:target.symbol,frame:target.tf,lastAttempt:new Date(now).toISOString(),source:target.market==='crypto'?'Bybit V5 USDT':'Biquote independent feed',status:'unavailable',lastCompleteAt:null,modelCount:0};
+ if(now-(consecutive.at(-1).start+normalized.intervalMs)>3*normalized.intervalMs)throw Error('STALE_CANDLES');
+ const raw=new Map(bars.filter(b=>b.confirmed===true).map(b=>[Number(b.start),b]));
+ return consecutive.map(b=>raw.get(b.start));
+}
+function recentObservation(m,target,now,news,structureGate){return {id:target.id+':'+String(m.id),market:target.market,symbol:target.symbol,frame:target.tf,formedAt:m.formedAt,detectedAt:new Date(now).toISOString(),status:'research_only_blocked',reason:'غير معتمدة للتنفيذ: لا توجد مراجعة مخاطرة حساب أو أسعار Bid/Ask',newsGate:news,structureGate,accountRiskGate:'not_verified',side:m.direction==='bull'?'BUY':'SELL',entry:m.entry,stop:m.stop,target:m.target,model:'Sweep → MSS → FVG',zone:{low:m.zone.low,high:m.zone.high},evidence:{sweepAt:m.sweepAt,mssAt:m.mssAt,fvgAt:m.fvgAt},reasonCodes:['ACCOUNT_RISK_NOT_VERIFIED','EXECUTION_QUOTE_NOT_VERIFIED']};}
+async function check(target,draft,calendar){const now=Date.now();
+ draft.observations=draft.observations.filter(x=>!x.id.startsWith(target.id+':'));
+ const previous=draft.targets[target.id]||{};const meta={market:target.market,symbol:target.symbol,frame:target.tf,lastAttempt:new Date(now).toISOString(),source:target.market==='crypto'?'Bybit V5 USDT':'Biquote independent feed',status:'unavailable',lastCompleteAt:null,modelCount:0};
  try {const bars=validBars(await fetchBars(target,now),target.tf,now);const last=bars.at(-1);
  meta.source=last.source||meta.source;meta.marketType=last.market==='spot'?'SPOT_RESEARCH_PROXY':'PERPETUAL_OR_PROVIDER_NATIVE';meta.lastCompleteAt=new Date(last.start+Number(target.tf)*60000).toISOString();meta.status='research_data_valid';
  const result=signals.evaluate(bars,target.tf,{now,market:target.market,symbol:target.symbol});
- const models=result.models.filter(m=>m.ageBars<=2&&m.status==='watching'&&Number.isFinite(m.entry)&&Number.isFinite(m.stop)&&Number.isFinite(m.target));meta.modelCount=models.length;
- for(const model of models){const news=gates.checkNews(economic.ok?economic.feed:null,target,now);
- const plan=gates.checkStructure(model,maxStopDistancePct);
- const obs=recentObservation(model,target,now,news,plan);if(!state.observations.some(x=>x.id===obs.id))state.observations.unshift(obs);
+ const news=gates.checkNews(calendar.ok?calendar.feed:null,target,now);
+ const observations=[];
+ for(const model of result.models){
+  if(model.ageBars>2||model.status!=='watching')continue;
+  const plan=gates.checkStructure(model,maxStopDistancePct);
+  if(plan.status==='clear_research_only')observations.push(recentObservation(model,target,now,news,plan));
  }
- meta.newsGate=gates.checkNews(economic.ok?economic.feed:null,target,now).status;
- const qt=quoteFeed.ok?quoteFeed.quotes.get(target.id):null;const checked=quotesGuard.parseQuote(qt,now);
- meta.executionQuoteGate=checked.status;meta.executionQuoteReason=checked.reason;
- meta.quoteSpreadBps=Number.isFinite(checked.spreadBps)?Math.round(checked.spreadBps*100)/100:null;
- meta.quoteSource=checked.source||null;meta.accountRiskGate='not_verified';
+ meta.modelCount=observations.length;
+ meta.newsGate=news.status;
+ draft.observations.unshift(...observations);
  }catch(e){meta.status='blocked';meta.error=safeError(e)}
  const healthy=meta.status==='research_data_valid';
  meta.consecutiveFailures=healthy?0:Math.min(1000000,(Number(previous.consecutiveFailures)||0)+1);
  meta.lastHealthyAt=healthy?meta.lastCompleteAt:(previous.lastHealthyAt||null);
  meta.lastRecoveredAt=healthy&&Number(previous.consecutiveFailures)>0?new Date(now).toISOString():(previous.lastRecoveredAt||null);
- state.targets[target.id]=meta;state.observations=state.observations.slice(0,100);}
+ draft.targets[target.id]=meta;draft.observations=draft.observations.slice(0,100);}
 async function restore(){
  try{
   const st=await fs.stat(storage);
@@ -85,22 +91,40 @@ async function restore(){
   return true;
  }catch(e){if(e.code!=='ENOENT')process.stderr.write('Monitor storage restore: '+safeError(e)+'\n');return false}
 }
-async function persist(){const tmp=storage+'.tmp';await fs.mkdir(path.dirname(storage),{recursive:true});await fs.writeFile(tmp,JSON.stringify(state,null,2),'utf8');await fs.rename(tmp,storage)}
+async function persist(draft){const tmp=storage+'.tmp';await fs.mkdir(path.dirname(storage),{recursive:true});await fs.writeFile(tmp,JSON.stringify(draft,null,2),'utf8');await fs.rename(tmp,storage)}
 async function cycle(){if(inCycle||stopping)return;inCycle=true;try{
- economic=await gates.fetchEconomic(economicUrl,Date.now());
- quoteFeed=await quotesGuard.fetchQuotes(quoteUrl,Date.now());
- for(const t of targets){if(stopping)break;await check(t)}
- state.lastCycleAt=new Date().toISOString();state.cycleCount++;lastCycleError=null;await persist();
+ const calendar=await gates.fetchEconomic(economicUrl,Date.now());
+ const quotes=await quotesGuard.fetchQuotes(quoteUrl,Date.now());
+ const draft={...state,targets:{...state.targets}};
+ for(const t of targets){if(stopping)return;await check(t,draft,calendar)}
+ draft.lastCycleAt=new Date(Date.now()).toISOString();
+ draft.cycleCount++;
+ await persist(draft);
+ state=draft;
+ economic=calendar;
+ quoteFeed=quotes;
+ lastCycleError=null;
  }catch(e){lastCycleError=safeError(e);process.stderr.write('Monitor cycle error: '+lastCycleError+'\n')}finally{inCycle=false}}
 function snapshot(){const now=Date.now(),last=state.lastCycleAt?Date.parse(state.lastCycleAt):NaN;
- const active=!stopping&&!lastCycleError&&Number.isFinite(last)&&now-last<=Math.max(3*intervalMs,900000);
- const checked=Object.fromEntries(targets.map(t=>{const v=state.targets[t.id];const stale=!v?.lastCompleteAt||!Number.isFinite(Date.parse(v.lastCompleteAt))||now-Date.parse(v.lastCompleteAt)>Math.max(3*Number(t.tf)*60000,300000);
- return [t.id,v?{...v,stale}:{market:t.market,symbol:t.symbol,frame:t.tf,status:'not_checked',stale:true}];}));
+ const active=!stopping&&!lastCycleError&&Number.isFinite(last)&&last<=now&&now-last<=Math.max(3*intervalMs,900000);
+ const checked=Object.fromEntries(targets.map(t=>{
+  const v=state.targets[t.id],complete=Date.parse(v?.lastCompleteAt);
+  if(!v)return [t.id,{market:t.market,symbol:t.symbol,frame:t.tf,status:'not_checked',stale:true}];
+  const stale=!Number.isFinite(complete)||complete>now||now-complete>3*Number(t.tf)*60000;
+  const quote=quotesGuard.parseQuote(active&&v.status==='research_data_valid'&&!stale?quoteFeed.quotes.get(t.id):null,now);
+  return [t.id,{...v,stale,executionQuoteGate:quote.status,executionQuoteReason:quote.reason,
+   quoteSpreadBps:Number.isFinite(quote.spreadBps)?Math.round(quote.spreadBps*100)/100:null,
+   quoteSource:quote.source||null,accountRiskGate:'not_verified'}];
+ }));
  const totals={configured:targets.length,valid:0,blocked:0,stale:0,unchecked:0};
  for(const t of Object.values(checked)){if(t.stale)totals.stale++;if(t.status==='not_checked')totals.unchecked++;else if(t.status==='research_data_valid'&&!t.stale)totals.valid++;else totals.blocked++;}
  const marketDataReady=active&&totals.valid>0;
  const failingTargets=Object.entries(checked).filter(([,v])=>v.status==='blocked'||v.stale).map(([id,v])=>({id,consecutiveFailures:Number(v.consecutiveFailures)||0,lastHealthyAt:v.lastHealthyAt||null}));
- return {...state,safety:{economic:{ok:economic.ok,reason:economic.reason||null,eventCount:economic.eventCount||0,invalid:economic.invalid||0,receivedAt:economic.receivedAt||null},accountRisk:'not_verified',bidAsk:{connected:quoteFeed.ok,reason:quoteFeed.reason||null,receivedAt:quoteFeed.receivedAt||null},executionApproved:false},serverTime:new Date(now).toISOString(),uptimeSeconds:Math.floor((now-started)/1000),active,pollIntervalMs:intervalMs,cycleError:lastCycleError,marketDataReady,allMarketDataReady:marketDataReady&&totals.valid===totals.configured,marketSummary:totals,failingTargets,targets:checked};}
+ const observations=active?state.observations.filter(x=>{
+  const target=checked[[x.market,x.symbol,x.frame].join(':')];
+  return target?.status==='research_data_valid'&&!target.stale;
+ }):[];
+ return {...state,observations,safety:{economic:{ok:economic.ok,reason:economic.reason||null,eventCount:economic.eventCount||0,invalid:economic.invalid||0,receivedAt:economic.receivedAt||null},accountRisk:'not_verified',bidAsk:{connected:quoteFeed.ok,reason:quoteFeed.reason||null,receivedAt:quoteFeed.receivedAt||null},executionApproved:false},serverTime:new Date(now).toISOString(),uptimeSeconds:Math.floor((now-started)/1000),active,pollIntervalMs:intervalMs,cycleError:lastCycleError,marketDataReady,allMarketDataReady:marketDataReady&&totals.valid===totals.configured,marketSummary:totals,failingTargets,targets:checked};}
 
 function api(req,res){if(req.method!=='GET'||!['/health','/snapshot'].includes(new URL(req.url,'http://127.0.0.1').pathname)){res.writeHead(404);res.end('Not found');return}
  if(origin&&req.headers.origin===origin){res.setHeader('Access-Control-Allow-Origin',origin);res.setHeader('Vary','Origin')}

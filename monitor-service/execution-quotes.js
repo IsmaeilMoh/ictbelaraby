@@ -1,12 +1,13 @@
 'use strict';
 /** Read-only quotes guard. Quote source must be operator configured. Never estimates Bid/Ask from candle closes. */
+const {isoTime}=require('./safety-gates.js');
 const MAX_AGE_MS=Number(process.env.QUOTE_MAX_AGE_MS)||30000;
 const MAX_SPREAD_BPS=Number(process.env.QUOTE_MAX_SPREAD_BPS)||40;
 function finite(x){return typeof x==='number'&&Number.isFinite(x)}
 function parseQuote(raw,now,options={}){
  const maxAge=options.maxAgeMs||MAX_AGE_MS, maxSpread=options.maxSpreadBps||MAX_SPREAD_BPS;
  if(!raw||typeof raw!=='object')return {status:'blocked',reason:'QUOTE_MISSING'};
- const bid=raw.bid,ask=raw.ask,at=Date.parse(raw.timestamp||''),source=String(raw.source||'').trim();
+ const bid=raw.bid,ask=raw.ask,at=typeof raw.timestamp==='string'?isoTime(raw.timestamp):NaN,source=String(raw.source||'').trim();
  if(!finite(bid)||!finite(ask)||bid<=0||ask<=0||bid>=ask)return {status:'blocked',reason:'INVALID_BID_ASK'};
  if(!Number.isFinite(at)||!source)return {status:'blocked',reason:'QUOTE_TIMESTAMP_OR_SOURCE_MISSING'};
  const age=now-at;if(age< -5000||age>maxAge)return {status:'blocked',reason:'QUOTE_STALE_OR_FUTURE',ageMs:age};

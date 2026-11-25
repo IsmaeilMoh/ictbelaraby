@@ -25,7 +25,7 @@ async function load(){const type=market.value,tf=frame.value;const adapted=type=
  if(type==='crypto'){const rows=await bybit.fetchHistory({symbol:symbol.value,interval:adapted,limit:220});return {candles:rows,frame:adapted,source:'Bybit V5 USDT perpetual'}}
  const instrument=pub.resolve(type,symbol.value);const rows=await pub.get(instrument,tf);return {candles:rows,frame:tf,source:instrument.source+' · '+instrument.providerSymbol};
 }
-function recentNotice(models,source,now){if(!running)return;for(const m of models){if(m.formedAt+({"1min":60000,"5min":300000,"15min":900000,"1h":3600000,"4h":14400000,"1day":86400000}[frame.value]||900000)<startedAt||m.status!=='watching'||m.ageBars>1)continue;const id=m.id;let stored=[];try{stored=JSON.parse(localStorage.getItem('ict-2e-alert-ids')||'[]');if(!Array.isArray(stored))stored=[]}catch(_){stored=[]}
+function recentNotice(models,source,now){if(!running)return;for(const m of models){if(m.formedAt<startedAt||m.status!=='watching'||m.ageBars>1)continue;const id=m.id;let stored=[];try{stored=JSON.parse(localStorage.getItem('ict-2e-alert-ids')||'[]');if(!Array.isArray(stored))stored=[]}catch(_){stored=[]}
  if(stored.includes(id)||id===lastNew)continue;lastNew=id;stored.push(id);try{localStorage.setItem('ict-2e-alert-ids',JSON.stringify(stored.slice(-180)))}catch(_){}
  const direction=m.direction==='bull'?'صعودي':'هبوطي',txt=symbol.value+' '+frame.value+' · '+direction+' · نموذج ICT مكتمل بنيويًا — راجع الشروط والإبطال';note('نموذج جديد: '+txt);
  if('Notification' in window&&Notification.permission==='granted')try{new Notification('ICT بالعربي — متابعة نموذج',{body:txt,tag:'ict-2e-'+id})}catch(_){}

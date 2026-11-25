@@ -21,12 +21,44 @@ function match(event,raw,frameMs){if(!event||!event.when)return {status:'unknown
 function zone(ts,timezone){const d=new Date(ts);if(!Number.isFinite(d.getTime()))return 'وقت غير صالح';return new Intl.DateTimeFormat('ar-EG',{timeZone:timezone,year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',hourCycle:'h23'}).format(d)}
 function timeLabel(ts){return 'نيويورك: '+zone(ts,'America/New_York')+' | فلسطين: '+zone(ts,'Asia/Gaza')}
 function meaningfulEvent(event){return !!event&&!!event.when&&!!event.title}
-async function loadEvents(fetcher){const results=[],failures=[];await Promise.all(FEEDS.map(async ([file,label])=>{try{const response=await fetcher(file+'?v='+Date.now(),{cache:'no-store'});if(!response.ok)throw Error('HTTP '+response.status);const json=await response.json();results.push({json,feed:label})}catch(err){failures.push(label+': '+String(err.message||err))}}));return {events:collect(results),failures,feedsLoaded:results.length}}
+// The calendar producer groups its weekly snapshots by Asia/Gaza dates.
+const calendarDay=new Intl.DateTimeFormat('sv-SE',{timeZone:'Asia/Gaza',year:'numeric',month:'2-digit',day:'2-digit'});
+function scheduleCovers(parts,now){
+ const first=calendarDay.format(now-30*60000),last=calendarDay.format(now+30*60000);
+ const weeks=parts.filter(p=>{
+  const {json,file}=p;
+  if(file==='economic-official.json'||json.coverage!=='full'||json.source!=='Forex Factory')return false;
+  const updated=absoluteTime(json.updatedAt),start=Date.parse(json.weekStart+'T00:00:00Z');
+  if(updated===null||updated>now||now-updated>24*3600000||!Number.isFinite(start)||new Date(start).getUTCDay()!==1)return false;
+  const rows=getRows(json);
+  const end=new Date(start+7*86400000).toISOString().slice(0,10);
+  return rows.length>0&&rows.every(row=>{
+   const event=normalizeEvent(row,p.feed);
+   if(!event?.when||!(/^[A-Z]{3}$/.test(event.currency)))return false;
+   const day=calendarDay.format(event.when);
+   return day>=json.weekStart&&day<end;
+  });
+ }).map(({json})=>[json.weekStart,new Date(Date.parse(json.weekStart)+7*86400000).toISOString().slice(0,10)]);
+ return [first,last].every(day=>weeks.some(([start,end])=>day>=start&&day<end));
+}
+async function loadEvents(fetcher){
+ const failures=[];
+ const parts=(await Promise.all(FEEDS.map(async ([file,feed])=>{
+  try{
+   const response=await fetcher(file+'?v='+Date.now(),{cache:'no-store'});
+   if(!response.ok)throw Error('HTTP '+response.status);
+   const json=await response.json();
+   getRows(json);
+   return {file,feed,json};
+  }catch(err){failures.push(feed+': '+String(err.message||err));return null}
+ }))).filter(Boolean);
+ return {events:collect(parts),failures,feedsLoaded:parts.length,parts};
+}
 async function loadCandles(market,symbol,when,fetcher){if(market==='crypto'){
   if(!['BTCUSDT','ETHUSDT'].includes(symbol))throw Error('عقد الكريبتو غير مدعوم');
   const frameMs=3600000,window=10*frameMs,url=new URL('https://api.bybit.com/v5/market/kline');url.searchParams.set('category','linear');url.searchParams.set('symbol',symbol);url.searchParams.set('interval','60');url.searchParams.set('start',String(when-window));url.searchParams.set('end',String(when+window));url.searchParams.set('limit','100');const response=await fetcher(url.toString(),{cache:'no-store'});if(!response.ok)throw Error('Bybit HTTP '+response.status);const json=await response.json();if(json.retCode!==0||!Array.isArray(json.result?.list))throw Error('استجابة Bybit غير صالحة');const candles=json.result.list.map(r=>({start:Number(r[0]),open:+r[1],high:+r[2],low:+r[3],close:+r[4],confirmed:Number(r[0])+frameMs<=Date.now()}));return {candles,frameMs,provider:'Bybit V5 — عقود USDT الدائمة',sourceKind:'crypto-contract'};
  }
  const adapter=typeof window!=='undefined'?window.ICTPublicMarkets:null;if(!adapter)throw Error('محرك الأسواق التقليدية غير محمّل');const instrument=adapter.resolve(market,symbol);const candles=await adapter.get(instrument,'1h');return {candles,frameMs:3600000,provider:instrument.source,sourceKind:'third-party-spot-or-cfd'};
 }
-return Object.freeze({FEEDS,MARKETS,absoluteTime,getRows,normalizeEvent,collect,match,zone,timeLabel,meaningfulEvent,loadEvents,loadCandles});
+return Object.freeze({FEEDS,MARKETS,absoluteTime,getRows,normalizeEvent,collect,match,zone,timeLabel,meaningfulEvent,scheduleCovers,loadEvents,loadCandles});
 });
