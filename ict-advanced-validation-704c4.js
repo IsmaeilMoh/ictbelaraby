@@ -9,8 +9,31 @@
  if(root)root.ICTAdvancedValidation4C4=make();})(typeof globalThis!=='undefined'?globalThis:null,function(base,structure){'use strict';
 const VERSION='7.0.4c.4', TZ='America/New_York', RR=2;
 const RULES=Object.freeze({oteRatio:.705,amdAccumFrom:0,amdAccumTo:5,amdManipFrom:5,amdManipTo:10,amdDistributionTo:16,breakerToleranceATR:.2,minSettled:10});
-const datefmt=new Intl.DateTimeFormat('en-CA',{timeZone:TZ,year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',hourCycle:'h23'});
-function ny(t){const p=Object.fromEntries(datefmt.formatToParts(new Date(t)).filter(x=>x.type!=='literal').map(x=>[x.type,x.value]));return {date:`${p.year}-${p.month}-${p.day}`,hour:Number(p.hour)}}
+const datefmt=new Intl.DateTimeFormat('en-CA',{timeZone:TZ,year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',hourCycle:'h23'});
+function ny(t){const p=Object.fromEntries(datefmt.formatToParts(new Date(t)).filter(x=>x.type!=='literal').map(x=>[x.type,x.value]));return {date:`${p.year}-${p.month}-${p.day}`,hour:Number(p.hour),minute:Number(p.minute)}}
+function oteEntry(candidate,bars,si,mi){
+ const bullish=candidate.direction==='bull',impulse=bars.slice(si,mi+1);
+ const origin=bullish?bars[si].low:bars[si].high;
+ const extreme=bullish?Math.max(...impulse.map(b=>b.high)):Math.min(...impulse.map(b=>b.low));
+ const entry=extreme+(origin-extreme)*RULES.oteRatio;
+ return entry>=candidate.gapLow&&entry<=candidate.gapHigh?entry:null;
+}
+function amdRange(candidate,bars,si,frame){
+ const sweep=ny(candidate.sweepAt),mss=ny(candidate.mssAt),fvg=ny(candidate.fvgAt);
+ if(!['5','15','60'].includes(String(frame))||sweep.hour<RULES.amdManipFrom||sweep.hour>=RULES.amdManipTo||
+    mss.date!==sweep.date||fvg.date!==sweep.date||fvg.hour>=RULES.amdDistributionTo||mss.hour>=RULES.amdDistributionTo)return null;
+ const ms=Number(frame)*60000;
+ const prior=bars.slice(0,si).filter(bar=>{
+  const time=ny(bar.start);
+  return time.date===sweep.date&&time.hour>=RULES.amdAccumFrom&&time.hour<RULES.amdAccumTo;
+ });
+ if(!prior.length)return null;
+ const start=ny(prior[0].start),end=ny(prior.at(-1).start+ms);
+ if(start.hour!==RULES.amdAccumFrom||start.minute!==0||end.hour!==RULES.amdAccumTo||end.minute!==0||
+    prior.some((bar,i)=>i>0&&bar.start-prior[i-1].start!==ms))return null;
+ const high=Math.max(...prior.map(bar=>bar.high)),low=Math.min(...prior.map(bar=>bar.low));
+ return (candidate.direction==='bull'?bars[si].low<low:bars[si].high>high)?{accumulationHigh:high,accumulationLow:low}:null;
+}
 function summary(rows,cost){const wins=rows.filter(x=>x.outcome==='win').length,losses=rows.filter(x=>x.outcome==='loss').length,settled=wins+losses;return {total:rows.length,settled,wins,losses,misses:rows.filter(x=>x.outcome==='miss').length,invalid:rows.filter(x=>x.outcome==='invalid').length,uncertain:rows.filter(x=>x.outcome==='uncertain').length,winRate:settled?100*wins/settled:null,avgR:settled?(2*wins-losses-cost*settled)/settled:null}}
 function split(rows,cost){rows=rows.slice().sort((a,b)=>a.formedAt-b.formedAt);const k=Math.max(1,Math.floor(rows.length*.7)),cut=rows[k]?.formedAt??null,train=rows.slice(0,k).filter(r=>cut!=null&&r.evaluatedThrough<cut),test=rows.slice(k),a=summary(train,cost),b=summary(test,cost);return {train:a,test:b,purged:k-train.length,candidates:rows,status:a.settled>=RULES.minSettled&&b.settled>=RULES.minSettled?'exploratory_only':'insufficient_evidence'}}
 function validate(candles,frame,opts={}){
@@ -20,19 +43,11 @@ function validate(candles,frame,opts={}){
  const candidateRows={ote:[],amd:[],breakerProxy:[]};const rejected={ote:0,amd:0,breakerProxy:0};
  function finish(model,c,entry,stop,extra={}){const bullish=c.direction==='bull',risk=Math.abs(entry-stop);if(!Number.isFinite(risk)||risk<=0||(bullish?entry<=stop:entry>=stop))return null;const formIndex=idx.get(c.formedAt);if(formIndex==null)return null;return base.evaluateCandidate({...c,model,entry,stop,target:bullish?entry+2*risk:entry-2*risk,...extra},bars,formIndex)}
  for(const c of scan.candidates){const si=idx.get(c.sweepAt),mi=idx.get(c.mssAt),fi=idx.get(c.fvgAt);if(si==null||mi==null||fi==null){for(const k of Object.keys(rejected))rejected[k]++;continue}
-  // OTE anchors are known at formation, never chosen using later price bars.
-  const impulse=bars.slice(si,mi+1),extreme=c.direction==='bull'?Math.max(...impulse.map(x=>x.high)):Math.min(...impulse.map(x=>x.low)),origin=c.direction==='bull'?bars[si].low:bars[si].high;
-  const entry=extreme+(origin-extreme)*RULES.oteRatio,stop=c.stop;
-  const validRange=c.direction==='bull'?entry>=c.gapLow&&entry<=c.gapHigh:entry>=c.gapLow&&entry<=c.gapHigh;
-  const o=validRange&&finish('ote',c,entry,stop,{evidence:'70.5% impulse retracement inside confirmed FVG'});
+  const entry=oteEntry(c,bars,si,mi);
+  const o=entry!==null&&finish('ote',c,entry,c.stop,{evidence:'70.5% impulse retracement inside confirmed FVG'});
   if(o)candidateRows.ote.push(o);else rejected.ote++;
-  // NY calendar accumulation window; exclude incomplete history from either side of the boundary.
-  const sweepNY=ny(c.sweepAt),mssNY=ny(c.mssAt),fvgNY=ny(c.fvgAt);
-  const prior=bars.filter(b=>{const d=ny(b.start);return d.date===sweepNY.date&&d.hour>=0&&d.hour<5&&b.start<c.sweepAt});
-  const expected=Math.ceil(5*60/Number(frame));const complete=prior.length>=expected&&prior.length<=expected+1;
-  const high=complete?Math.max(...prior.map(x=>x.high)):NaN,low=complete?Math.min(...prior.map(x=>x.low)):NaN;
-  const touched=c.direction==='bull'?bars[si].low<low:bars[si].high>high;
-  const amd=complete&&sweepNY.hour>=5&&sweepNY.hour<10&&mssNY.date===sweepNY.date&&fvgNY.date===sweepNY.date&&fvgNY.hour<16&&touched&&finish('amd',c,c.entry,c.stop,{accumulationHigh:high,accumulationLow:low,evidence:'NY 00-05 range swept 05-10 followed by confirmed MSS FVG before 16'});
+  const range=amdRange(c,bars,si,frame);
+  const amd=range&&finish('amd',c,c.entry,c.stop,{...range,evidence:'NY 00-05 range swept 05-10 followed by confirmed MSS FVG before 16'});
   if(amd)candidateRows.amd.push(amd);else rejected.amd++;
   // Breaker PROXY only: former structural price near MSS body, not order-block identification.
   const m=bars[mi],bodyLow=Math.min(m.open,m.close),bodyHigh=Math.max(m.open,m.close);
@@ -53,5 +68,5 @@ function validate(candles,frame,opts={}){
  'يُعد الهدف والوقف في شمعة واحدة غير حاسمين؛ النوافذ الزمنية تعتمد America/New_York وDST تلقائيًا.'
  ]};
 }
-return Object.freeze({VERSION,RULES,ny,validate,split});
+return Object.freeze({VERSION,RULES,ny,oteEntry,amdRange,validate,split});
 });
