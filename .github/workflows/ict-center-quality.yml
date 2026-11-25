@@ -98,3 +98,18 @@ jobs:
       - name: Audit all traditional-market symbols without credentials
         if: github.event_name == 'pull_request'
         run: node monitor-service/audit-public-markets.cjs | tee -a "$GITHUB_STEP_SUMMARY"
+      - name: Check parser against a published BEA release
+        if: github.event_name == 'pull_request'
+        run: |
+          PYTHONPATH=scripts python - <<'PY'
+          from datetime import datetime, timezone
+          import requests
+          from update_bea_results import parse_release
+          url = 'https://www.bea.gov/news/2026/personal-income-and-outlays-september-2026'
+          response = requests.get(url, timeout=18)
+          response.raise_for_status()
+          result = parse_release(response.text, datetime(2026, 9, 1),
+                                 datetime(2026, 10, 29, 12, 30, tzinfo=timezone.utc), url)
+          assert result['actual'] == 0.3, result
+          print('Verified archived September 2026 Core PCE monthly reading from BEA')
+          PY

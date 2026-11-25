@@ -231,6 +231,11 @@ monitor.addEventListener('click',()=>{if(publicView())return;if(active){stop();r
 document.addEventListener('visibilitychange',()=>{if(document.hidden)stop()});
 window.addEventListener('pagehide',stop);
 window.addEventListener('ict:accounts-changed',()=>{accountsChanged();selectionChanged()});
+if(window.ICTSharedIcons){
+ for(const link of root.querySelectorAll('[data-dc-icon]')){
+  link.prepend(window.ICTSharedIcons.makeIcon(link.dataset.dcIcon));
+ }
+}
 const advanced=$('dc-advanced');
 const advancedStatus=$('dc-advanced-loading');
 const advancedRetry=$('dc-advanced-retry');
