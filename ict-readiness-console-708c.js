@@ -1,6 +1,6 @@
 /* ICT بالعربي 8C — explicit on-demand audit; never promises live/executable quotes. */
 (function(){'use strict';const root=document.getElementById('ict-decision-8a'),panel=document.getElementById('dc-readiness-8c');if(!root||!panel)return;
-const $=id=>document.getElementById(id),run=$('dc-audit-run'),exp=$('dc-audit-export'),status=$('dc-audit-status'),summary=$('dc-audit-summary'),list=$('dc-audit-list');const core=window.ICTReadiness708C;let report=null,busy=false,lastScan=null;
+const $=id=>document.getElementById(id),run=$('dc-audit-run'),exp=$('dc-audit-export'),status=$('dc-audit-status'),summary=$('dc-audit-summary'),list=$('dc-audit-list');const core=window.ICTReadiness708C;let report=null,busy=false;
 function line(label,detail,level){const e=document.createElement('li');e.className='dc-audit-'+level;const b=document.createElement('strong');b.textContent=(level==='pass'?'✓ ':level==='warn'?'! ':'× ')+label;const s=document.createElement('span');s.textContent=detail;e.append(b,s);list.append(e)}
 function create(id,label,ok,detail,level){return core.check(id,label,Boolean(ok),detail,level)}
 function localHealth(){try{const k='ict-8c-storage-probe';localStorage.setItem(k,'1');const ok=localStorage.getItem(k)==='1';localStorage.removeItem(k);return ok}catch{return false}}
@@ -30,6 +30,5 @@ async function audit(){if(busy||!core)return;busy=true;run.disabled=true;exp.dis
  const sr=core.summarize(checks);report={schema:'ict-readiness-8c-v1',at:started,market,symbol,frame,items:checks,summary:sr,limits:['البحث عند الطلب فقط','لا توصيات مستقلة 24 ساعة','لا تنفيذ صفقات','لا عرض أسعار Bid/Ask تنفيذية','لا إثبات ربحية']};render(report);busy=false;run.disabled=false;
 }
 run.addEventListener('click',()=>audit().catch(e=>{busy=false;run.disabled=false;status.textContent='تعذر إتمام التدقيق: '+String(e.message||e)}));exp.addEventListener('click',()=>{if(!report)return;const blob=new Blob([JSON.stringify(report,null,2)],{type:'application/json'}),u=URL.createObjectURL(blob),a=document.createElement('a');a.href=u;a.download='ICT_8C_Readiness_'+new Date(report.at).toISOString().slice(0,10)+'.json';a.click();setTimeout(()=>URL.revokeObjectURL(u),1500)});
-root.addEventListener('ict:decision-scanned',e=>{lastScan=e.detail?.result||null;const el=$('dc-audit-lastscan');if(el&&lastScan)el.textContent='آخر فحص 8A: '+lastScan.symbol+'، نماذج: '+lastScan.opportunities.length+'، موانع عامة: '+lastScan.blocks.length+' — النتيجة بحثية مشروطة وليست أمر تنفيذ.'});
 status.textContent='اضغط «فحص الجاهزية الآن» لتدقيق الاتصال والمحركات والتخزين. لن يبدأ أي فحص أو اتصال إضافي تلقائيًا.';
 })();

@@ -231,9 +231,50 @@ monitor.addEventListener('click',()=>{if(publicView())return;if(active){stop();r
 document.addEventListener('visibilitychange',()=>{if(document.hidden)stop()});
 window.addEventListener('pagehide',stop);
 window.addEventListener('ict:accounts-changed',()=>{accountsChanged();selectionChanged()});
+const advanced=$('dc-advanced');
+const advancedStatus=$('dc-advanced-loading');
+const advancedRetry=$('dc-advanced-retry');
+const advancedButtons=['dc-audit-run','dc-exec-check-risk','dc-exec-check-quote'].map($);
+const advancedScripts=new Map();
+function loadAdvancedScript(src){
+ if(advancedScripts.has(src))return advancedScripts.get(src);
+ const script=document.createElement('script');
+ script.src=src;
+ const load=new Promise((resolve,reject)=>{
+  script.onload=resolve;
+  script.onerror=()=>{advancedScripts.delete(src);script.remove();reject(Error('تعذر تحميل أداة الفحص'))};
+ });
+ advancedScripts.set(src,load);
+ document.head.append(script);
+ return load;
+}
+let advancedBusy=false,advancedReady=false;
+async function loadAdvanced(){
+ if(!advanced.open||advancedBusy||advancedReady)return;
+ advancedBusy=true;
+ advancedRetry.hidden=true;
+ advancedStatus.textContent='جارٍ تحميل أدوات الفحص المتقدمة…';
+ try{
+  await Promise.all([
+   loadAdvancedScript('ict-readiness-core-708c.js?v=7.0.8c').then(()=>loadAdvancedScript('ict-readiness-console-708c.js?v=7.0.8c1')),
+   loadAdvancedScript('ict-execution-safety-708c5.js?v=7.0.8c5')
+  ]);
+  advancedReady=true;
+  advancedButtons.forEach(button=>{button.disabled=false});
+  advancedStatus.textContent='';
+ }catch{
+  advancedStatus.textContent='تعذر تحميل أدوات الفحص المتقدمة. تحقق من اتصالك ثم أعد المحاولة.';
+  advancedRetry.hidden=false;
+ }finally{advancedBusy=false}
+}
+advanced.addEventListener('toggle',loadAdvanced);
+advancedRetry.addEventListener('click',loadAdvanced);
+root.addEventListener('ict:decision-scanned',e=>{
+ const scan=e.detail?.result;
+ if(scan)$('dc-audit-lastscan').textContent='آخر فحص: '+scan.symbol+'، نماذج: '+scan.opportunities.length+'، موانع عامة: '+scan.blocks.length+' — النتيجة بحثية مشروطة.';
+});
 function openLinkedDetails(){
  const id=window.location.hash.slice(1);
- const advanced=$('dc-advanced');
  const target=$(id);
  if(target&&advanced.contains(target)){
   advanced.open=true;
@@ -252,4 +293,5 @@ marketsChanged(validSelection?requestedSymbol:undefined);
 showArchive();
 window.addEventListener('hashchange',openLinkedDetails);
 openLinkedDetails();
+loadAdvanced();
 })();
