@@ -26,3 +26,8 @@ const proxy=publicSnapshot({...fixture,targets:{'crypto:BTCUSDT:15':{...fixture.
 assert.equal(proxy.targets['crypto:BTCUSDT:15'].marketType,'SPOT_RESEARCH_PROXY');
 assert.match(proxy.targets['crypto:BTCUSDT:15'].source,/NOT Bybit perpetual/);
 console.log('Spot backup provenance retained: PASS');
+const future=publicSnapshot({...fixture,targets:{'crypto:BTCUSDT:15':{...fixture.targets['crypto:BTCUSDT:15'],lastCompleteAt:new Date(now+5*60000).toISOString()}},observations:[good]},now);
+assert.equal(future.targets['crypto:BTCUSDT:15'].stale,true);
+assert.equal(future.marketDataReady,false);
+assert.equal(future.observations.length,0);
+console.log('Future-dated candles cannot produce published opportunities: PASS');

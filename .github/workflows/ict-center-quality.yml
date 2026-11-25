@@ -1,0 +1,29 @@
+name: ICT decision center quality gate
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'monitor-service/**'
+      - 'ict-monitor-auto-refresh-709.js'
+      - 'ict-background-status-708c2.js'
+      - 'decision-center.html'
+      - 'sw.js'
+      - '.github/workflows/ict-center-quality.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  quality:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Test monitor, safety gates and market data parsers
+        working-directory: monitor-service
+        run: npm test
+      - name: Test publication safety and center integration
+        working-directory: monitor-service
+        run: npm run test:actions
