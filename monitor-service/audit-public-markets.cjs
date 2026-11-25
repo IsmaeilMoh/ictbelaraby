@@ -91,6 +91,40 @@ async function auditBrokerAccess(){
  console.log('');
 }
 
+async function auditGold(){
+ const feed='https://standardbullion.com/spot-prices.json';
+ const history='https://standardbullion.com/api/v1/market/history?metal=XAU&range=24h';
+ const historyRequest=get(history);
+ console.log('### XAU/USD pilot: Standard Bullion');
+ console.log('USD per troy ounce. Wholesale dealer Bid/Ask; public display requires attribution. Different instrument from a broker CFD.');
+ console.log('| Sample UTC | Provider timestamp | Age (s) | Valid dealer Bid/Ask | Browser CORS |');
+ console.log('| --- | --- | --- | --- | --- |');
+ for(let sample=0;sample<3;sample++){
+  if(sample)await new Promise(resolve=>setTimeout(resolve,16000));
+  const reply=await get(feed),now=Date.now();
+  if(reply.failure){
+   console.log('| '+new Date(now).toISOString()+' | '+reply.failure+' | — | unverified | unverified |');
+   continue;
+  }
+  const data=reply.data;
+  const gold=Array.isArray(data?.metals)&&data.metals.find(row=>row?.symbol==='XAU');
+  const timestamp=Date.parse(data?.updated);
+  const age=Number.isFinite(timestamp)?(now-timestamp)/1000:null;
+  const valid=data?.source==='Standard Bullion'&&data.unit==='USD per troy ounce'&&
+   Number.isFinite(gold?.bid)&&gold.bid>0&&Number.isFinite(gold?.ask)&&gold.ask>=gold.bid;
+  console.log('| '+new Date(now).toISOString()+' | '+(age===null?'unverified':new Date(timestamp).toISOString())+
+   ' | '+(age===null?'—':age.toFixed(1))+' | '+(valid?'yes':'no')+' | '+(reply.cors?'yes':'unverified')+' |');
+ }
+ const result=await historyRequest;
+ const points=result.data?.points;
+ const sample=Array.isArray(points)?points.at(-1):null;
+ const closeOnly=sample&&Number.isFinite(sample.price)&&!['open','high','low','close'].some(key=>Object.hasOwn(sample,key));
+ console.log('History: '+(result.failure??(closeOnly?'close-only samples confirmed':'unexpected or empty response')));
+ console.log('ICT readiness: blocked. Close-only history cannot establish intrabar sweeps or FVGs. Dealer quotes do not establish the Bid/Ask at a broker.');
+ console.log('[Standard Bullion API documentation](https://standardbullion.com/gold-price-api) · [Gold-API.com](https://gold-api.com/faqs) offers anonymous reference prices, with a key required for history and OHLC.');
+ console.log('');
+}
+
 async function main(){
  const instruments=Object.entries(PUBLIC_QUOTES).flatMap(([group,items])=>Object.keys(items).map(symbol=>({group,symbol})));
  console.log('### Traditional market source audit');
@@ -113,6 +147,7 @@ async function main(){
  await auditDiscovery(instruments);
  await auditEquities(instruments);
  await auditBrokerAccess();
+ await auditGold();
  console.log('### Other free plans (documented limits)');
  console.log('| Provider | Relevant coverage | Limitation for this public site |');
  console.log('| --- | --- | --- |');
