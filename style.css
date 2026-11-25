@@ -928,3 +928,6 @@ footer{padding-bottom:105px}
 .related-asset-links summary{cursor:pointer}
 .related-asset-links ul{margin-block:6px;padding-inline-start:1.25rem}
 .related-asset-links a:focus-visible,.related-asset-links summary:focus-visible{outline:2px solid currentColor;outline-offset:3px}
+
+.econ-reading{display:block;font-size:.875em;direction:rtl;text-align:start;white-space:normal;font-weight:400;overflow-wrap:anywhere}
+.econ-reading summary{cursor:pointer;margin-block:4px}
