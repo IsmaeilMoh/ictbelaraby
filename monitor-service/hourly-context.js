@@ -25,23 +25,30 @@ function goldSessionAnalysis(analysis, segments, now) {
 
 function inspectHourly(bars, market, now, symbol) {
   const { rows, gaps, segments, rejected, duplicates } = structure.normalize(bars, '60', now);
-  if (!rows.length || rejected || duplicates) return { status: 'insufficient' };
+  if (rejected || duplicates) return { status: 'insufficient', reason:'invalid_candles' };
+  if (!rows.length) return { status: 'insufficient', reason:'not_enough_candles' };
   const diagnostics = { completed: rows.length, contiguous: segments.at(-1).length,
     recentGaps: gaps.slice(-5).map(gap => ({ before: new Date(gap.before).toISOString(), after: new Date(gap.after).toISOString() })) };
   const lastCompleteAt = rows.at(-1).start + context.HOUR;
   if (now - lastCompleteAt > 3 * context.HOUR) return { status: 'stale', lastCompleteAt };
+  const marketKind = ['crypto', 'spot', 'kraken'].includes(market) ? 'crypto' : market;
+  const rollHour = ['forex', 'metals', 'energy'].includes(marketKind) ? 17 : 0;
+  const insufficient = reason => ({ status:'insufficient', reason, lastCompleteAt, diagnostics });
+  let levels;
   try {
-    const marketKind = ['crypto', 'spot', 'kraken'].includes(market) ? 'crypto' : market;
-    const rollHour = ['forex', 'metals', 'energy'].includes(marketKind) ? 17 : 0;
-    const levels = context.build([], bars, { market: marketKind, rollHour, now });
+    levels = context.build([], bars, { market: marketKind, rollHour, now });
+  } catch {
+    return insufficient('session_history_missing');
+  }
+  try {
     let analysis = structure.analyze(bars, '60', { now, pivot: 2 });
     if (market === 'metals' && symbol === 'XAUUSD') analysis = goldSessionAnalysis(analysis, segments, now);
     const view = scenarios.build(levels, analysis, { now });
-    if (!view.qualified) return { status: 'insufficient', lastCompleteAt, diagnostics };
+    if (!view.qualified) return insufficient(gaps.length && !analysis.eligible ? 'candle_gap' : 'not_enough_candles');
     const aligned = view.scenarios.filter(s => s.score >= 2 && s.structuralEvent !== null).map(s => s.direction);
     return { status: 'ready', lastCompleteAt, aligned };
   } catch {
-    return { status: 'insufficient', lastCompleteAt, diagnostics };
+    return insufficient('not_enough_candles');
   }
 }
 

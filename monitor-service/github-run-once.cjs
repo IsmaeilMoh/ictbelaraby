@@ -8,14 +8,18 @@ const spot=require('./crypto-spot-backup.js');
 const phases=new Set(['observed','awaiting_confirmation','confirmed_research','invalidated','expired']);
 const OUT=path.resolve(process.env.PUBLIC_OUTPUT_DIR||path.join(__dirname,'..','_monitor_publish'));
 const OUTFILE=path.join(OUT,'monitor-status.json');
+const reasons=new Set(['stale_candles','candle_gap','not_enough_candles','provider_access_denied',
+ 'provider_rate_limited','provider_unavailable','invalid_candles','session_history_missing','instrument_mismatch','unknown']);
 function publicHour(context,now){
  const last=context?.lastCompleteAt;
  if(context?.status==='ready'&&Number.isSafeInteger(last)&&last<=now&&now-last<=3*3600000){
   const aligned=Array.isArray(context.aligned)?['bull','bear'].filter(side=>context.aligned.includes(side)):[];
   return {status:'ready',lastCompleteAt:new Date(last).toISOString(),aligned};
  }
- if(Number.isSafeInteger(last)&&last<=now&&now-last>3*3600000)return {status:'stale',lastCompleteAt:new Date(last).toISOString()};
- return {status:context?.status==='insufficient'?'insufficient':'unavailable'};
+ if(Number.isSafeInteger(last)&&last<=now&&now-last>3*3600000)return {status:'stale',reason:'stale_candles',lastCompleteAt:new Date(last).toISOString()};
+ return {status:context?.status==='insufficient'?'insufficient':'unavailable',
+  reason:reasons.has(context?.reason)?context.reason:'unknown',
+  ...(Number.isSafeInteger(last)&&last<=now?{lastCompleteAt:new Date(last).toISOString()}:{})};
 }
 function publicSnapshot(data,now=Date.now()){
  if(!data||data.schema!=='ict-research-monitor/1'||data.readyForExecution!==false)throw Error('UNSAFE_OR_INVALID_MONITOR_STATE');
@@ -32,14 +36,17 @@ function publicSnapshot(data,now=Date.now()){
   const source=market==='spot'?spot.SOURCE:market==='crypto'?'Bybit V5 USDT perpetual':market==='kraken'?kraken.SOURCE:'Biquote independent feed';
   const last=Date.parse(val.lastCompleteAt||'');
   const legacyProxy=market!=='spot'&&(/SPOT/.test(val.marketType||'')||/Binance/i.test(val.source||''));
-  const status=val.status==='research_data_valid'&&!legacyProxy?'research_data_valid':'blocked';
+  const status=val.status==='not_checked'?'not_checked':val.status==='research_data_valid'&&!legacyProxy?'research_data_valid':'blocked';
   const patternCounts=Object.fromEntries(['sweep','mss','fvg','composite','recent','valid'].map(k=>[k,Math.min(1000,Math.max(0,Number(val.patternCounts?.[k])||0))]));
   targets[id]={market,symbol,frame,source,marketType,status,patternCounts,
    stale:val.stale===true||!Number.isFinite(last)||last>now||now-last>3*Number(frame)*60000,
    lastCompleteAt:Number.isFinite(last)?new Date(last).toISOString():null,
    consecutiveFailures:Math.max(0,Math.min(999999,Number(val.consecutiveFailures)||0)),
    modelCount:status==='research_data_valid'?patternCounts.valid:0,lastRecoveredAt:val.lastRecoveredAt||null,
-   error:legacyProxy?'LEGACY_SPOT_PROXY':val.error?String(val.error).slice(0,120):null,
+   reason:status==='not_checked'?null:legacyProxy?'instrument_mismatch':status==='blocked'?
+    (reasons.has(val.reason)?val.reason:runner.dataReason(val.error)):
+    (val.stale||!Number.isFinite(last)||last>now||now-last>3*Number(frame)*60000?'stale_candles':null),
+   error:legacyProxy?'LEGACY_SPOT_PROXY':null,
    hourlyContext:publicHour(val.hourlyContext,now),
    newsGate:val.newsGate||null,executionQuoteGate:'not_verified',accountRiskGate:'not_verified'};
  }
@@ -91,7 +98,7 @@ async function main(){
   for(const [id,t] of Object.entries(payload.targets)){
    const diagnostics=snapshot.targets[id]?.hourlyContext?.diagnostics;
    const coverage=diagnostics?' hourlyCoverage='+JSON.stringify(diagnostics):'';
-   process.stdout.write(id+' '+(t.error||t.source)+' hourly='+t.hourlyContext.status+coverage+' '+JSON.stringify(t.patternCounts)+'\n');
+   process.stdout.write(id+' '+(snapshot.targets[id]?.error||t.error||t.source)+' reason='+(t.reason||'none')+' hourly='+t.hourlyContext.status+coverage+' '+JSON.stringify(t.patternCounts)+'\n');
   }
   process.stdout.write('Public research observations: '+payload.observations.length+'\n');
   if(!payload.marketDataReady)process.stdout.write('WARNING: no verified current market data; status remains blocked\n');

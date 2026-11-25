@@ -38,8 +38,8 @@ for (const [start, reopen] of [
   const gold = [...closed,...active];
   assert.equal(inspectHourly(gold,'metals',cutoff,'XAUUSD').status,'ready');
   assert.equal(inspectHourly(gold,'metals',cutoff,'XAGUSD').status,'insufficient');
-  assert.equal(inspectHourly(gold.filter((_,i)=>i!==5),'metals',cutoff,'XAUUSD').status,'insufficient');
-  assert.equal(inspectHourly(gold.filter((_,i)=>i!==26),'metals',cutoff,'XAUUSD').status,'insufficient');
+  assert.equal(inspectHourly(gold.filter((_,i)=>i!==5),'metals',cutoff,'XAUUSD').reason,'session_history_missing');
+  assert.equal(inspectHourly(gold.filter((_,i)=>i!==26),'metals',cutoff,'XAUUSD').reason,'candle_gap');
   assert.equal(inspectHourly(gold, 'metals', cutoff+4*hour, 'XAUUSD').status,'stale');
 
   const shifted = [...closed,...active.map(bar=>({...bar,start:bar.start+hour}))];
@@ -80,6 +80,7 @@ async function run() {
     assert.equal(view.targets['spot:BTCUSDT:5'].hourlyContext.status,'ready');
     assert.deepEqual(view.targets['spot:BTCUSDT:15'].hourlyContext.aligned,['bull']);
     assert.equal(view.targets['spot:ETHUSDT:15'].hourlyContext.status,'unavailable');
+    assert.equal(view.targets['spot:ETHUSDT:15'].hourlyContext.reason,'provider_unavailable');
     assert.equal(view.targets['spot:ETHUSDT:15'].status,'research_data_valid');
     assert.equal(requests.filter(([symbol,interval])=>symbol==='BTCUSDT'&&interval==='1h').length,1);
     assert.equal(requests.filter(([symbol,interval])=>symbol==='ETHUSDT'&&interval==='1h').length,1);

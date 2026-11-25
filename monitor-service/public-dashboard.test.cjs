@@ -9,7 +9,7 @@ const elements=Object.fromEntries(ids.map(i=>[i,element(i)]));
 const current=Date.parse('2026-11-24T12:00:00Z');
 function makeSnapshot(active=true,stale=false){return {
  schema:'ict-research-monitor/1',transport:'github-actions-static',readyForExecution:false,active,marketDataReady:true,lastCycleAt:new Date(active?current-60000:current-3600000).toISOString(),
- safety:{executionApproved:false,economic:{ok:false}},marketSummary:{valid:1,configured:1,blocked:0},targets:{'crypto:BTCUSDT:15':{status:'research_data_valid',stale:false,lastCompleteAt:new Date(current-(stale?46:2)*60000).toISOString()}},
+ safety:{executionApproved:false,economic:{ok:false}},marketSummary:{valid:1,configured:1,blocked:0},targets:{'metals:XAUUSD:15':{status:'blocked',reason:'provider_access_denied',error:'RAW_PROVIDER_DETAIL'},'crypto:BTCUSDT:15':{hourlyContext:{status:'insufficient',reason:'session_history_missing'},status:'research_data_valid',stale:false,lastCompleteAt:new Date(current-(stale?46:2)*60000).toISOString()}},
  observations:[{id:'crypto:BTCUSDT:15:a',market:'crypto',symbol:'BTCUSDT',frame:'15',side:'BUY',entry:100,stop:99,target:102,rr:2,detectedAt:new Date(current-60000).toISOString(),status:'research_only_blocked',executionApproved:false,model:'Sweep → MSS → FVG'}]};}
 async function run(active,stale=false){
  elements['dc-bg-results'].replaceChildren();
@@ -22,6 +22,11 @@ async function run(active,stale=false){
   setTimeout:()=>1,clearTimeout(){},localStorage:{getItem:()=>null,setItem(){}},fetch:async()=>({ok:true,json:async()=>makeSnapshot(active,stale)})};
  vm.runInNewContext(code,ctx);
  await elements['dc-bg-free-check'].events.click();
+ const output=elements['dc-bg-results'].children.map(node=>node.textContent).join(' ');
+ assert.doesNotMatch(output,/RAW_PROVIDER_DETAIL/);
+ if(active)assert.match(output,/المزوّد رفض الوصول/);
+ if(active&&stale)assert.match(output,/الشموع قديمة/);
+ if(active&&!stale)assert.match(output,/سجل الجلسة السابقة غير مكتمل/);
  const eligible=active&&!stale;
  assert.equal(delivered[0]?.type,'ict:background-scanned');
  assert.equal(delivered[0].detail.entries.length,eligible?1:0);
