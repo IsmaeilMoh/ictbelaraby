@@ -22,12 +22,14 @@ assert.match(status,/now-checked<=45\*60000/,'dashboard rejects stale observatio
 assert.match(html,/ict-execution-safety-708c5\.js/,'risk gate remains active');
 assert.doesNotMatch(script,/\b(placeOrder|executeTrade|submitOrder|createOrder)\s*\(/i,'status refresher must not issue orders');
 const decision=read('ict-decision-console-708a.js');
+assert.doesNotMatch(html,/dc-public-quote|tradingview-widget/,'charts stay outside the scan form');
+assert.match(html,/<div class="dc-actions" id="dc-scan-actions"><button id="dc-run"/,'scan controls appear in their original location');
+assert.match(html,/id="dc-monitor" type="button">تشغيل المراقبة أثناء فتح الصفحة/,'monitor retains its original label');
 assert.doesNotMatch(html,/id="dc-oanda-key"/,'public visitors never enter a dealer or service key');
 for(const group of ['metals','forex','indices','stocks','energy']){
  assert.ok(html.includes('value="'+group+'"'),'public market category: '+group);
 }
-assert.match(decision,/embed-widget-symbol-info\.js/,'display uses the official public widget');
-assert.match(decision,/if\(publicView\(\)\|\|busy/,'reference display never runs the ICT price scanner');
+assert.match(decision,/if\(publicView\(\)\|\|busy/,'unsupported instruments never run the ICT price scanner');
 const {inspect:inspectQuote}=require('./audit-public-markets.cjs');
 const quote={symbol:'EURUSD',status:'LIVE',bid:'1.08',ask:'1.09',time:'2026-11-25T12:00:00Z'};
 const sampledAt=Date.parse(quote.time)+1000;

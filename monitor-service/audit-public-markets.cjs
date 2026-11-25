@@ -51,11 +51,22 @@ async function main(){
  }
  console.log('');
  console.log('A matching quote symbol does not establish contract/venue equivalence. A fresh snapshot does not establish continuous monitoring.');
+ console.log('');
+ console.log('### Other free plans (documented limits)');
+ console.log('| Provider | Relevant coverage | Limitation for this public site |');
+ console.log('| --- | --- | --- |');
+ console.log('| [SiftingIO](https://sifting.io/pricing) | Forex, metals, energy, US equities | Free tier is for internal use |');
+ console.log('| [iTick](https://itick.io/en/pricing) | Forex, metals, indices, equities, energy futures | Free tier is for personal use |');
+ console.log('| [TraderMade](https://marketdata.tradermade.com/docs/restful-api/free-tier.pdf) | Forex and CFDs | Free live REST prices are midpoint; not live Bid/Ask |');
+ console.log('| [IEX Exchange](https://www.iex.io/products/equities/market-data-connectivity) | US equities | Public IEX API was retired; direct real-time feeds require separate connectivity |');
+ console.log('');
  try{
   const result=await fetch(page,{signal:AbortSignal.timeout(8000),cache:'no-store'});
   const html=result.ok?await result.text():'';
-  const deployed=html.includes('id="dc-public-quote"')&&!html.includes('id="dc-oanda-key"');
-  console.log('GitHub Pages public-price UI: '+(deployed?'verified on deployed HTML':'not verified (HTTP '+result.status+')'));
+  const hasScanControls=html.includes('id="dc-run"')&&html.includes('id="dc-monitor"');
+  const hasPublicChart=html.includes('id="dc-public-quote"');
+  const restored=hasScanControls&&!hasPublicChart&&!html.includes('id="dc-oanda-key"');
+  console.log('GitHub Pages scan form: '+(restored?'restored layout verified':hasPublicChart?'earlier layout with embedded quote still deployed':'not verified (HTTP '+result.status+')'));
  }catch(error){
   console.log('GitHub Pages public-price UI: not verified ('+(error.cause?.code||error.name)+')');
  }
