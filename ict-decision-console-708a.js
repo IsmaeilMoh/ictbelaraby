@@ -1,6 +1,6 @@
 /* ICT بالعربي 8A — user-invoked multi-market decision research center */
 (function(){'use strict';const root=document.getElementById('ict-decision-8a');if(!root)return;
-const $=id=>document.getElementById(id),market='crypto',symbol=$('dc-symbol'),frame=$('dc-frame'),roll=$('dc-roll'),run=$('dc-run'),monitor=$('dc-monitor'),status=$('dc-status'),output=$('dc-output'),archive=$('dc-archive');
+const $=id=>document.getElementById(id),market='crypto',symbol=$('dc-symbol'),frame=$('dc-frame'),modelPhase=$('dc-model-phase'),roll=$('dc-roll'),run=$('dc-run'),monitor=$('dc-monitor'),status=$('dc-status'),output=$('dc-output'),archive=$('dc-archive');
 const api=window.ICTDecisionEngine708A,live=window.ICTLiveFeed,structure=window.ICTStructureEngine,signal=window.ICTSignalEngine,context=window.ICTContextEngine,scenario=window.ICTScenarioEngine,econ=window.ICTEconomicLink706A;
 const cancelBatch=$('dc-cancel-batch');
 let batchController=null;
@@ -180,7 +180,7 @@ function show(res){clear(output);const info=block('حالة الفحص ومصا�
 node('p','آخر إغلاق ساعة مرجعي: '+(res.price==null?'غير متاح':money(res.price))+' | '+(res.priceAt?dual(res.priceAt+3600000):'بيانات الساعة متأخرة'),info);
  const ctx=block('السياق بنيويورك');const day=res.context.previousDay;node('p','PDH: '+money(day.high)+' | PDL: '+money(day.low),ctx);node('p',res.context.priorWeek?'PWH: '+money(res.context.priorWeek.high)+' | PWL: '+money(res.context.priorWeek.low):'الأسبوع السابق غير مكتمل',ctx);node('p','نظام اليوم: '+res.context.sourceDay,ctx);
  const safety=block('بوابات جودة البيانات والأخبار');const checks=[...res.blocks,...res.warnings];node('p',checks.length?'ملاحظات توقف اعتماد الخطة أو تحد من الوثوق:':'الفحوص العامة متاحة؛ كل نموذج يخضع أيضًا لشروطه الخاصة.',safety);if(checks.length){const ul=document.createElement('ul');safety.append(ul);checks.forEach(x=>node('li',x,ul))}if(res.nearbyNews.length){const ul=document.createElement('ul');safety.append(ul);res.nearbyNews.forEach(x=>node('li',x.title+' · '+dual(x.when),ul))}
- if(!res.opportunities.length){const empty=block('لم تتكوّن فرصة مستوفية');empty.classList.add('dc-wide');node('p','لا يوجد نموذج حديث مكتمل في فترة الشموع الحالية. لا نولّد BUY أو SELL لمجرد طلب الفحص.',empty)}
+ if(!res.opportunities.length){const empty=block('لا توجد نتائج مطابقة');empty.classList.add('dc-wide');node('p',modelPhase.value?'لا يوجد نموذج حديث بالحالة المختارة: '+phases[modelPhase.value]+'.':'لا يوجد نموذج حديث مكتمل في فترة الشموع الحالية.',empty)}
  for(const o of res.opportunities.slice(0,8))card(output,{
   ...o,frame:res.frame,source:res.source,marketType:'PERPETUAL',
   detectedAt:res.checkedAt,lastCompleteAt:res.lastCompleteAt
@@ -215,6 +215,7 @@ function inspectContract(contract,tf,{entryBars,hourly,higherCandles},news,batch
   newsCovered:econ.scheduleCovers(news.parts||[],now),eventFeedsLoaded:news.feedsLoaded,events:news.events,now,
   structureEngine:structure,signalEngine:signal,contextEngine:context,scenarioEngine:scenario});
  if(news.failures?.length)res.warnings.push('تعذر تحميل بعض الأجندات: '+news.failures.join('؛ '));
+ if(modelPhase.value)res.opportunities=res.opportunities.filter(plan=>plan.research?.phase===modelPhase.value);
  if(batch)for(const plan of res.opportunities)plan.blocks.push('الفحص الجماعي بحثي؛ افحص العقد منفردًا للتحقق من Bid/Ask والمراقبة اللحظية.');
  return res;
 }
@@ -230,7 +231,7 @@ async function scanBatch(){
  clearScan();
  clear(output);
  const results=block('نتائج الفحص الجماعي',output);
- node('p','نتائج بحثية لكل عقد وقت فحصه. اختر عقدًا منفردًا لمتابعة سعر الدخول.',results);
+ node('p','حالة النموذج: '+(phases[modelPhase.value]||'جميع الحالات')+' · اختر عقدًا منفردًا لمتابعة سعر الدخول.',results);
  let checked=0,failed=0,models=0,halted=false;
  try{
   setState('جارٍ تحميل الأجندة للفحص الجماعي…');
@@ -246,6 +247,7 @@ async function scanBatch(){
     models+=res.opportunities.length;
     const group=node('details','',results);
     node('summary',contract+' · '+res.opportunities.length+' نموذج · '+dual(res.checkedAt),group);
+    if(modelPhase.value&&!res.opportunities.length)node('p','لا يوجد نموذج حديث بالحالة المختارة.',group);
     for(const message of [...res.blocks,...res.warnings])node('p',message,group);
     for(const opportunity of res.opportunities)card(group,{
      ...opportunity,frame:tf,source:res.source,marketType:'PERPETUAL',detectedAt:res.checkedAt,lastCompleteAt:res.lastCompleteAt
@@ -299,7 +301,7 @@ function selectionChanged(){
  monitor.disabled=!symbol.value||symbol.value==='all';
  setState(symbol.value==='all'?'الفحص الجماعي يشمل جميع العقود المتاحة، حتى عند استخدام البحث.':'اختر الأصل واضغط فحص السوق.');
 }
-for(const field of [frame,symbol,roll])field.addEventListener('change',selectionChanged);
+for(const field of [frame,symbol,modelPhase,roll])field.addEventListener('change',selectionChanged);
 run.addEventListener('click',()=>symbol.value==='all'?scanBatch():scan(false));
 cancelBatch.addEventListener('click',cancelGroupedScan);
 monitor.addEventListener('click',()=>{if(active){stop();return}active=true;monitor.textContent='إيقاف المراقبة';monitor.setAttribute('aria-pressed','true');scan(false);timer=setInterval(()=>scan(true),60000)});
