@@ -40,7 +40,7 @@ jobs:
       - name: One-shot research scan (fail closed)
         env:
           ECONOMIC_FEED_URL: ${{ vars.ICT_ECONOMIC_FEED_URL }}
-          QUOTE_FEED_URL: ${{ vars.ICT_QUOTE_FEED_URL }}
+          MONITOR_TARGETS: crypto:BTCUSDT:15,crypto:BTCUSDT:5,crypto:ETHUSDT:15,crypto:ETHUSDT:5
           STORE_FILE: ${{ github.workspace }}/monitor-service/monitor-data.json
           PUBLIC_OUTPUT_DIR: ${{ runner.temp }}/ict-monitor-publish
         run: node monitor-service/github-run-once.cjs

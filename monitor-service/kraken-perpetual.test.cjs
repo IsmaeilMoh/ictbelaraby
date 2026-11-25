@@ -14,7 +14,7 @@ async function run() {
     ] }) };
   });
   assert.deepEqual([...instruments], [symbol]);
-  assert.equal(targets.length, 12);
+  assert.equal(targets.length, 4);
   assert.throws(() => parseTargets('kraken:BTCUSDT:5'), /UNSUPPORTED/);
   const now = Date.parse('2026-11-25T12:01:00Z');
 
@@ -55,10 +55,8 @@ async function run() {
         entry:100, stop:99, target:102, formedAt:current, detectedAt:nowIso, checkedAt:nowIso,
         research:{phase:'observed',at:current},evidence:{sweepAt:current-2*ms,mssAt:current-ms,fvgAt:current-ms}}]
     },now);
-    assert.equal(view.targets[id].marketType, 'PERPETUAL');
-    assert.equal(view.observations[0].source, kraken.SOURCE);
-    assert.equal(view.observations[0].symbol, symbol);
-    assert.equal(view.observations[0].executionApproved, false);
+    assert.equal(view.targets[id], undefined);
+    assert.equal(view.observations.length, 0);
   }
 
   await assert.rejects(() => kraken.fetchHistory('PF_ETHUSD','15',{now,instruments}), /NOT_VERIFIED/);

@@ -43,11 +43,13 @@ assert.equal(journal.advance(trigger,[bar(now,98,102),bar(now+ms,101,111,103)],n
 assert.equal(journal.advance(trigger,[bar(now+ms,101,111,103)],now+2*ms).state,'gap');
 assert.equal(journal.advance(trigger,[bar(now,98,102)],now+ms).barsExamined,0);
 assert.throws(()=>journal.createLiveEntry({...candidate,blocks:[]},now+7000,{at:now+1000,bid:99.8,ask:99.9}),/غير صالحة/);
+const bybit={id:'crypto:BTCUSDT:5',market:'crypto',symbol:'BTCUSDT',frame:'5',status:'blocked'};
+const bybitRecord={...activated,id:bybit.id+':test',market:bybit.market,symbol:bybit.symbol,source:'Bybit V5 USDT perpetual'};
 const payload=publicSnapshot({schema:'ict-research-monitor/1',readyForExecution:false,active:true,
- lastCycleAt:new Date(now+2*ms).toISOString(),targets:{[target.id]:{...target,frame:'5',status:'blocked'}},
- forward:{[target.id]:[{...activated,accountName:'private',unexpected:'private'}]}},now+2*ms);
+ lastCycleAt:new Date(now+2*ms).toISOString(),targets:{[target.id]:{...target,frame:'5',status:'blocked'},[bybit.id]:bybit},
+ forward:{[target.id]:[activated],[bybit.id]:[{...bybitRecord,accountName:'private',unexpected:'private'}]}},now+2*ms);
 assert.equal(payload.forward.counts.active,1);
-assert.equal(payload.forward.records[0].source,'Kraken Futures · USD perpetual');
+assert.equal(payload.forward.records[0].source,'Bybit V5 USDT perpetual');
 assert.equal(payload.forward.records[0].accountName,undefined);
 assert.equal(payload.forward.records[0].executionApproved,false);
 assert.equal(payload.observations.length,0);

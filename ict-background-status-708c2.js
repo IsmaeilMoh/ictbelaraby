@@ -2,6 +2,9 @@
 (function(){'use strict';
  const root=document.getElementById('dc-background-8c2');if(!root)return;
  const urlInput=document.getElementById('dc-bg-url'),save=document.getElementById('dc-bg-save'),check=document.getElementById('dc-bg-check'),status=document.getElementById('dc-bg-status'),results=document.getElementById('dc-bg-results');
+ const bybitTarget=/^crypto:[A-Z0-9]{1,31}USDT:(5|15)$/;
+ const bybitRow=row=>row?.market==='crypto'&&/^[A-Z0-9]{1,31}USDT$/.test(row.symbol);
+ const isProxy=item=>/SPOT/i.test(item?.marketType||'')||/Binance|Kraken/i.test(item?.source||'');
  const key='ict-background-service-url-v1';
  try{urlInput.value=localStorage.getItem(key)||''}catch(_){}
  function line(text){const p=document.createElement('p');p.textContent=text;results.append(p)}
@@ -95,13 +98,15 @@
  if(data.schema!=='ict-research-monitor/1'||data.readyForExecution!==false||typeof data.active!=='boolean')throw Error('استجابة خادم غير متوافقة');
  const heartbeat=Date.parse(data.lastCycleAt);if(!Number.isFinite(heartbeat))throw Error('الخادم لم ينجز أي دورة فحص بعد');
  const ms=Date.now()-heartbeat;if(ms< -120000||ms>Math.max(900000,(data.pollIntervalMs||300000)*3))throw Error('آخر فحص متأخر أو توقيت الخادم غير صحيح');
- const counts=data.marketSummary||{};const marketOk=data.marketDataReady===true;
- status.textContent=!data.active?'الخادم متصل، لكن دورة المراقبة متوقفة أو متأخرة':!marketOk?'الخادم متصل ويجري الفحص، لكن لا توجد شموع حديثة صالحة لأي أصل':data.allMarketDataReady?'الخادم متصل وبيانات جميع الأصول المحددة صالحة بحثيًا':'الخادم متصل لكن بعض الأصول معلقة؛ توجد شموع صالحة بحثيًا لأصول أخرى';status.dataset.bad=data.active&&marketOk?'0':'1';
- line('حالة البيانات: '+Number(counts.valid||0)+' صالح من '+Number(counts.configured||data.marketCount||0)+' · '+Number(counts.blocked||0)+' محجوب · '+Number(counts.unchecked||0)+' لم يفحص · '+Number(counts.stale||0)+' قديم/غير مؤكد');
+ const targets=Object.entries(data.targets||{}).filter(([id,item])=>bybitTarget.test(id)&&!isProxy(item)).slice(0,16);
+ const valid=targets.filter(([,item])=>item?.status==='research_data_valid'&&!item.stale).length;
+ const marketOk=valid>0;
+ status.textContent=!data.active?'الخادم متصل، لكن دورة المراقبة متوقفة أو متأخرة':!marketOk?'الخادم متصل ويجري الفحص، لكن لا توجد شموع حديثة صالحة لأي أصل':valid===targets.length?'الخادم متصل وبيانات جميع الأصول المحددة صالحة بحثيًا':'الخادم متصل لكن بعض الأصول معلقة؛ توجد شموع صالحة بحثيًا لأصول أخرى';status.dataset.bad=data.active&&marketOk?'0':'1';
+ line('عقود Bybit: '+valid+' صالحة من '+targets.length);
  if(data.cycleError)line('خطأ في دورة المراقبة: '+String(data.cycleError).slice(0,140));
  line('آخر دورة فحص — نيويورك: '+new Intl.DateTimeFormat('ar-EG',{timeZone:'America/New_York',dateStyle:'medium',timeStyle:'short'}).format(new Date(heartbeat))+' | فلسطين: '+new Intl.DateTimeFormat('ar-EG',{timeZone:'Asia/Gaza',dateStyle:'medium',timeStyle:'short'}).format(new Date(heartbeat)));
- line('عدد دورات الفحص: '+Number(data.cycleCount||0)+' · عدد الأصول: '+Number(data.marketCount||0));
- for(const [name,value] of Object.entries(data.targets||{}).slice(0,16)){
+ line('عدد دورات الفحص: '+Number(data.cycleCount||0)+' · عدد الأصول: '+targets.length);
+ for(const [name,value] of targets){
   const current=data.active&&value?.status==='research_data_valid'&&!value.stale;
   line(name+' — '+targetNote(value,current,data.active)+(current?' · '+hourlyNote(value,Date.now()):'')+ongoingDelay(value,Date.now())+
    (value?.lastRecoveredAt?' · آخر تعافٍ: '+value.lastRecoveredAt:'')+
@@ -114,7 +119,7 @@
  }catch(e){describeError(e)}finally{clearTimeout(timeout)}});
 
  // GitHub Actions free mode: a static research snapshot, not a live server.
- const publicMarkets=new Set(['crypto','spot','kraken']);
+
  const freeCheck=document.getElementById('dc-bg-free-check');
  function showIntegrated(entries,message){
   document.getElementById('ict-decision-8a')?.dispatchEvent(new CustomEvent('ict:background-scanned',{detail:{entries,message}}));
@@ -173,7 +178,7 @@
     const complete=Date.parse(item?.lastCompleteAt);
     return fresh&&item?.status==='research_data_valid'&&!item.stale&&complete<=now&&now-complete<=3*Number(frame)*60000;
    };
-   const targets=Object.entries(d.targets||{}).filter(([id])=>publicMarkets.has(id.split(':')[0])).slice(0,16);
+   const targets=Object.entries(d.targets||{}).filter(([id,item])=>bybitTarget.test(id)&&!isProxy(item)).slice(0,16);
    const validCount=targets.filter(([key,item])=>isCurrent(item,key.split(':')[2])).length;
    const valid=d.marketDataReady===true&&validCount>0;
    status.textContent=!fresh?'التقرير قديم أو لم يكتمل؛ المراقبة غير مؤكدة':!valid?'التقرير حديث، لكن لا توجد شموع بحثية صالحة':'آخر تقرير حديث: توجد بيانات بحثية صالحة لبعض الأسواق، دون اعتماد تنفيذ';
@@ -188,9 +193,9 @@
    }
    line('الأخبار: '+(d.safety?.economic?.ok?'تغذية متاحة':'غير مكتملة / معلقة')+' · Bid/Ask: غير متصل · المخاطرة: محلية فقط · الموافقة التنفيذية: غير متاحة');
    const entries=(valid&&Array.isArray(d.observations)?d.observations:[]).filter(x=>{
-    if(!x||!publicMarkets.has(x.market)||x.status!=='research_only_blocked'||x.executionApproved!==false||!['BUY','SELL'].includes(x.side))return false;
+    if(!x||!bybitRow(x)||x.status!=='research_only_blocked'||x.executionApproved!==false||!['BUY','SELL'].includes(x.side))return false;
     const item=d.targets?.[[x.market,x.symbol,x.frame].join(':')];
-    if(!isCurrent(item,x.frame)||item.marketType==='SPOT_RESEARCH_PROXY')return false;
+    if(!isCurrent(item,x.frame)||isProxy(item))return false;
     const checked=Date.parse(x.checkedAt||x.detectedAt),detected=Date.parse(x.detectedAt);
     return detected<=checked&&checked<=now&&now-checked<=45*60000&&[x.entry,x.stop,x.target,x.rr].every(v=>Number.isFinite(v)&&v>0)&&
      (x.side==='BUY'?x.stop<x.entry&&x.entry<x.target:x.target<x.entry&&x.entry<x.stop);
@@ -212,7 +217,7 @@
       'مخاطرة الحساب غير متحققة','أسعار Bid/Ask غير متحققة']};
    }),fresh?'لا توجد فرص للعرض في التقرير المجدول الحالي.':'التقرير المجدول قديم أو غير مكتمل.');
    if(Array.isArray(d.forward?.records)){
-    const records=d.forward.records.filter(row=>publicMarkets.has(row?.market));
+    const records=d.forward.records.filter(row=>bybitRow(row)&&!isProxy(row));
     const counts={};
     for(const row of records)counts[row.state]=(counts[row.state]||0)+1;
     showForward({records,counts:records.length===d.forward.records.length?d.forward.counts:counts});

@@ -4,7 +4,7 @@ const oanda=require('./oanda-practice.js');
 const origin='https://ismaeilmoh.github.io';
 const key='demo-test-service-key-123456789012345';
 Object.assign(process.env,{ALLOWED_ORIGIN:origin,OANDA_PRACTICE_TOKEN:'upstream-mock',
- OANDA_PRACTICE_ACCOUNT:'000-000-0000-001',OANDA_RESEARCH_KEY:key});
+ OANDA_PRACTICE_ACCOUNT:'000-000-0000-001',OANDA_RESEARCH_KEY:key,MONITOR_TARGETS:'crypto:BTCUSDT:15,metals:XAUUSD:15'});
 const now=Date.parse('2026-11-25T12:00:00Z');
 const iso=n=>new Date(n).toISOString();
 const tick={type:'PRICE',instrument:'XAU_USD',status:'tradeable',time:iso(now),

@@ -4,8 +4,10 @@ const engine=window.ICTOpportunityLifecycle708B,storeKey='ict-8b-opportunities-v
 function elem(tag,text,parent,cls){const e=document.createElement(tag);if(cls)e.className=cls;if(text!=null)e.textContent=text;parent.append(e);return e}
 function local(t){if(!Number.isFinite(t))return '—';const f=zone=>new Intl.DateTimeFormat('ar-EG',{timeZone:zone,month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',hourCycle:'h23'}).format(new Date(t));return 'نيويورك '+f('America/New_York')+' · فلسطين '+f('Asia/Gaza')}
 function number(x){return Number.isFinite(x)?Number(x).toLocaleString('en-US',{maximumFractionDigits:6}):'—'}
-function load(){try{const arr=JSON.parse(localStorage.getItem(storeKey)||'[]');return Array.isArray(arr)?arr.filter(engine.valid).slice(0,cap):[]}catch{return []}}
-function save(rows){try{localStorage.setItem(storeKey,JSON.stringify(rows.slice(0,cap)));return true}catch(e){status.textContent='تعذر حفظ السجل محليًا: '+e.message;return false}}
+function stored(){try{const arr=JSON.parse(localStorage.getItem(storeKey)||'[]');return Array.isArray(arr)?arr:[]}catch{return []}}
+const bybit=row=>row?.market==='crypto'&&/^[A-Z0-9]{1,31}USDT$/.test(row.symbol);
+function load(){return stored().filter(row=>bybit(row)&&engine.valid(row)).slice(0,cap)}
+function save(rows){try{localStorage.setItem(storeKey,JSON.stringify([...rows.slice(0,cap),...stored().filter(row=>!bybit(row))]));return true}catch(e){status.textContent='تعذر حفظ السجل محليًا: '+e.message;return false}}
 function announce(v){status.textContent=v}
 const label={waiting:'بانتظار الدخول',active:'لامس الدخول — قيد المتابعة',won:'وصل الهدف الافتراضي',lost:'وصل الوقف الافتراضي',invalidated:'أُلغي قبل الدخول',ambiguous:'غير حاسم',expired:'انتهت المدة',blocked:'معلق وقت الرصد',gap:'توقف — فجوة بيانات'};
 function refresh(){const rows=load(),s=engine.stats(rows);statsEl.textContent='المحفوظة: '+s.total+' · انتظار: '+s.waiting+' · متابعة: '+s.active+' · معلّقة: '+s.blocked+' · محسومة حسابيًا: '+s.settled+' · غير حاسمة/ناقصة: '+(s.ambiguous+s.gap)+' · النتيجة النظرية للمحسوم: '+number(s.totalR)+'R';records.replaceChildren();if(!rows.length){elem('p','لا توجد فرص محفوظة. افحص السوق ثم اختر حفظ فرصة من القائمة أعلاه.',records);return}
@@ -30,6 +32,6 @@ root.addEventListener('ict:live-entry',event=>{
 root.addEventListener('ict:decision-scanned',onScan);
 root.addEventListener('ict:decision-cleared',()=>candidates.replaceChildren());
 exportBtn.addEventListener('click',()=>{const rows=load(),json=JSON.stringify({schema:'ict-8b-lifecycle-v1',exportedAt:new Date().toISOString(),note:'نتائج بحثية معتمدة على OHLC وليست عمليات تداول منفذة',records:rows},null,2);const url=URL.createObjectURL(new Blob([json],{type:'application/json'}));const a=document.createElement('a');a.href=url;a.download='ICT_8B_Opportunity_Journal_'+new Date().toISOString().slice(0,10)+'.json';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000)});
-clearBtn.addEventListener('click',()=>{if(!confirm('مسح سجل فرص 8B المحلي فقط؟ لن تُحذف الصفقات أو الحسابات.'))return;localStorage.removeItem(storeKey);refresh();announce('تم مسح سجل فرص 8B فقط.')});
+clearBtn.addEventListener('click',()=>{if(!confirm('مسح سجل فرص 8B المحلي فقط؟ لن تُحذف الصفقات أو الحسابات.'))return;if(save([])){refresh();announce('تم مسح فرص Bybit المحفوظة.')}});
 refresh();announce('سجل المتابعة محلي. افحص السوق ثم احفظ فرصة للمراقبة، وأعد الفحص بعد اكتمال شموع جديدة.');
 })();
