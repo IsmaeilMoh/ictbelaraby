@@ -100,7 +100,6 @@ async function testOpportunities() {
     contextEngine: { build: () => ({ priorWeek: null }) },
     scenarioEngine: { build: () => ({ qualified: true, scenarios: [{ direction: 'bear', score: 2, evidence: ['MSS', 'FVG'] }] }) },
     candles60: bars.map((b, i) => ({ ...b, start: now - (bars.length - i) * hour })),
-    account: { currency: 'USD' }, riskAmount: 10, accountEngine: { evaluate: () => ({ ok: true }) },
     newsChecked: true, newsCovered: true
   };
   assert.equal(decision.inspect(inputs).opportunities[0].blocks.length, 0);
@@ -129,7 +128,7 @@ async function testOpportunities() {
     assert.ok(stale.blocks.includes('شموع إطار الدخول قديمة أو مفقودة'));
   }
   const highImpact = [{ when: now + minute, currency: 'USD', title: 'Scheduled release' }];
-  for (const override of [{ newsCovered: false }, { account: null }, { riskAmount: 0 }, { events: highImpact },
+  for (const override of [{ newsCovered: false }, { events: highImpact },
     { now: now + 3 * interval }]) {
     assert.ok(decision.inspect({ ...inputs, ...override }).opportunities[0].blocks.length > 0);
   }

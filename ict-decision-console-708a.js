@@ -1,7 +1,7 @@
 /* ICT بالعربي 8A — user-invoked multi-market decision research center */
 (function(){'use strict';const root=document.getElementById('ict-decision-8a');if(!root)return;
-const $=id=>document.getElementById(id),market='crypto',symbol=$('dc-symbol'),frame=$('dc-frame'),roll=$('dc-roll'),account=$('dc-account'),risk=$('dc-risk'),run=$('dc-run'),monitor=$('dc-monitor'),status=$('dc-status'),output=$('dc-output'),archive=$('dc-archive');
-const api=window.ICTDecisionEngine708A,live=window.ICTLiveFeed,acc=window.ICTAccounts7A,structure=window.ICTStructureEngine,signal=window.ICTSignalEngine,context=window.ICTContextEngine,scenario=window.ICTScenarioEngine,econ=window.ICTEconomicLink706A;
+const $=id=>document.getElementById(id),market='crypto',symbol=$('dc-symbol'),frame=$('dc-frame'),roll=$('dc-roll'),run=$('dc-run'),monitor=$('dc-monitor'),status=$('dc-status'),output=$('dc-output'),archive=$('dc-archive');
+const api=window.ICTDecisionEngine708A,live=window.ICTLiveFeed,structure=window.ICTStructureEngine,signal=window.ICTSignalEngine,context=window.ICTContextEngine,scenario=window.ICTScenarioEngine,econ=window.ICTEconomicLink706A;
 const cancelBatch=$('dc-cancel-batch');
 let batchController=null;
 const bybitSearch=$('dc-bybit-search'),bybitStatus=$('dc-bybit-status');
@@ -126,7 +126,6 @@ async function loadBybitCatalog(preselected){
 }
 bybitSearch.addEventListener('input',()=>displayBybitSymbols(symbol.value));
 
-function accountsChanged(){const previous=account.value,items=acc?.list()||[];clear(account);const neutral=document.createElement('option');neutral.value='';neutral.textContent='بدون حساب — فحص بحثي فقط';account.append(neutral);for(const a of items){const o=document.createElement('option');o.value=a.id;o.textContent=a.name+' — '+(a.type==='funded'?'ممول':'شخصي')+' — '+a.currency;account.append(o)}const preferred=items.some(x=>x.id===previous)?previous:acc?.selected();if(items.some(x=>x.id===preferred))account.value=preferred||''}
 function strip(res){return {market:res.market,symbol:res.symbol,frame:res.frame,checkedAt:res.checkedAt,source:res.source,opportunities:res.opportunities.map(o=>({id:o.id,side:o.side,formedAt:o.formedAt,status:o.status,entry:o.entry,stop:o.stop,target:o.target,blocks:o.blocks})),warnings:res.warnings,blocks:res.blocks}}
 function archiveRows(){try{const x=JSON.parse(localStorage.getItem(STORAGE)||'[]');return Array.isArray(x)?x:[]}catch{return []}}
 const bybitRow=row=>row?.market===market&&/^[A-Z0-9]{1,31}USDT$/.test(row.symbol);
@@ -180,7 +179,7 @@ function show(res){clear(output);const info=block('حالة الفحص ومصا�
  }
 node('p','آخر إغلاق ساعة مرجعي: '+(res.price==null?'غير متاح':money(res.price))+' | '+(res.priceAt?dual(res.priceAt+3600000):'بيانات الساعة متأخرة'),info);
  const ctx=block('السياق بنيويورك');const day=res.context.previousDay;node('p','PDH: '+money(day.high)+' | PDL: '+money(day.low),ctx);node('p',res.context.priorWeek?'PWH: '+money(res.context.priorWeek.high)+' | PWL: '+money(res.context.priorWeek.low):'الأسبوع السابق غير مكتمل',ctx);node('p','نظام اليوم: '+res.context.sourceDay,ctx);
- const safety=block('بوابات الجودة والأخبار والمخاطرة');const checks=[...res.blocks,...res.warnings];node('p',checks.length?'ملاحظات توقف اعتماد الخطة أو تحد من الوثوق:':'الفحوص العامة متاحة؛ كل نموذج يخضع أيضًا لشروطه الخاصة.',safety);if(checks.length){const ul=document.createElement('ul');safety.append(ul);checks.forEach(x=>node('li',x,ul))}node('p',res.accountName?'الحساب: '+res.accountName+' | '+(res.risk?.message||'المخاطرة غير متحققة'):'لم يُختر حساب — لا يمكن اعتماد المخاطرة',safety);if(res.nearbyNews.length){const ul=document.createElement('ul');safety.append(ul);res.nearbyNews.forEach(x=>node('li',x.title+' · '+dual(x.when),ul))}
+ const safety=block('بوابات جودة البيانات والأخبار');const checks=[...res.blocks,...res.warnings];node('p',checks.length?'ملاحظات توقف اعتماد الخطة أو تحد من الوثوق:':'الفحوص العامة متاحة؛ كل نموذج يخضع أيضًا لشروطه الخاصة.',safety);if(checks.length){const ul=document.createElement('ul');safety.append(ul);checks.forEach(x=>node('li',x,ul))}if(res.nearbyNews.length){const ul=document.createElement('ul');safety.append(ul);res.nearbyNews.forEach(x=>node('li',x.title+' · '+dual(x.when),ul))}
  if(!res.opportunities.length){const empty=block('لم تتكوّن فرصة مستوفية');empty.classList.add('dc-wide');node('p','لا يوجد نموذج حديث مكتمل في فترة الشموع الحالية. لا نولّد BUY أو SELL لمجرد طلب الفحص.',empty)}
  for(const o of res.opportunities.slice(0,8))card(output,{
   ...o,frame:res.frame,source:res.source,marketType:'PERPETUAL',
@@ -211,9 +210,8 @@ async function getCandles(contract,tf,signal){
 }
 function inspectContract(contract,tf,{entryBars,hourly,higherCandles},news,batch=false){
  const now=Date.now();
- const accountInfo=(acc.list()||[]).find(item=>item.id===account.value)||null;
  const res=api.inspect({market,symbol:contract,frame:tf,candles15:entryBars,candles60:hourly,higherCandles,
-  rollHour:Number(roll.value),account:accountInfo,accountEngine:acc,riskAmount:risk.value,newsChecked:news.feedsLoaded>0,
+  rollHour:Number(roll.value),newsChecked:news.feedsLoaded>0,
   newsCovered:econ.scheduleCovers(news.parts||[],now),eventFeedsLoaded:news.feedsLoaded,events:news.events,now,
   structureEngine:structure,signalEngine:signal,contextEngine:context,scenarioEngine:scenario});
  if(news.failures?.length)res.warnings.push('تعذر تحميل بعض الأجندات: '+news.failures.join('؛ '));
@@ -270,14 +268,14 @@ async function scanBatch(){
   run.disabled=!symbol.value;
  }
 }
-async function scan(auto=false){if(busy||symbol.value==='all'||auto&&document.hidden)return;if(!api||!live||!acc||!structure||!signal||!context||!scenario||!econ){setState('بعض محركات المراحل السابقة غير محمّلة. تأكد من رفع ملفات 2A–7A.',true);return}if(!symbol.value){setState('اختر أصلًا متاحًا.',true);return}
- const id=++generation,selection=[symbol.value,frame.value,roll.value,account.value,risk.value].join('|');busy=true;run.disabled=true;clearScan();setState('جارٍ جلب شموع إطار التداول والسياق، وفحص الأجندة، ثم ربط الأدلة…');
+async function scan(auto=false){if(busy||symbol.value==='all'||auto&&document.hidden)return;if(!api||!live||!structure||!signal||!context||!scenario||!econ){setState('بعض محركات المراحل السابقة غير محمّلة. تأكد من رفع ملفات 2A–7A.',true);return}if(!symbol.value){setState('اختر أصلًا متاحًا.',true);return}
+ const id=++generation,selection=[symbol.value,frame.value,roll.value].join('|');busy=true;run.disabled=true;clearScan();setState('جارٍ جلب شموع إطار التداول والسياق، وفحص الأجندة، ثم ربط الأدلة…');
  try{
   const contract=symbol.value;
   const [data,news,book]=await Promise.all([
    getCandles(contract,frame.value),loadNews(),live.fetchBook(contract).catch(()=>null)
   ]);
-  if(id!==generation||selection!==[symbol.value,frame.value,roll.value,account.value,risk.value].join('|'))return;
+  if(id!==generation||selection!==[symbol.value,frame.value,roll.value].join('|'))return;
   const res=inspectContract(contract,frame.value,data,news);
   const {entryBars}=data,now=res.checkedAt;
   res.book=book;
@@ -301,14 +299,12 @@ function selectionChanged(){
  monitor.disabled=!symbol.value||symbol.value==='all';
  setState(symbol.value==='all'?'الفحص الجماعي يشمل جميع العقود المتاحة، حتى عند استخدام البحث.':'اختر الأصل واضغط فحص السوق.');
 }
-for(const field of [frame,symbol,roll,account])field.addEventListener('change',selectionChanged);
-risk.addEventListener('input',selectionChanged);
+for(const field of [frame,symbol,roll])field.addEventListener('change',selectionChanged);
 run.addEventListener('click',()=>symbol.value==='all'?scanBatch():scan(false));
 cancelBatch.addEventListener('click',cancelGroupedScan);
 monitor.addEventListener('click',()=>{if(active){stop();return}active=true;monitor.textContent='إيقاف المراقبة';monitor.setAttribute('aria-pressed','true');scan(false);timer=setInterval(()=>scan(true),60000)});
 document.addEventListener('visibilitychange',()=>{if(document.hidden){stop();cancelGroupedScan()}});
 window.addEventListener('pagehide',()=>{stop();cancelGroupedScan()});
-window.addEventListener('ict:accounts-changed',()=>{accountsChanged();selectionChanged()});
 if(window.ICTSharedIcons){
  for(const link of root.querySelectorAll('[data-dc-icon]')){
   link.prepend(window.ICTSharedIcons.makeIcon(link.dataset.dcIcon));
@@ -317,7 +313,7 @@ if(window.ICTSharedIcons){
 const advanced=$('dc-advanced');
 const advancedStatus=$('dc-advanced-loading');
 const advancedRetry=$('dc-advanced-retry');
-const advancedButtons=['dc-audit-run','dc-exec-check-risk','dc-exec-check-quote'].map($);
+const advancedButtons=['dc-audit-run','dc-exec-check-quote'].map($);
 const advancedScripts=new Map();
 function loadAdvancedScript(src){
  if(advancedScripts.has(src))return advancedScripts.get(src);
@@ -339,8 +335,8 @@ async function loadAdvanced(){
  advancedStatus.textContent='جارٍ تحميل أدوات الفحص المتقدمة…';
  try{
   await Promise.all([
-   loadAdvancedScript('ict-readiness-core-708c.js?v=7.0.22').then(()=>loadAdvancedScript('ict-readiness-console-708c.js?v=7.0.22')),
-   loadAdvancedScript('ict-execution-safety-708c5.js?v=7.0.8c5')
+   loadAdvancedScript('ict-readiness-core-708c.js?v=7.0.22').then(()=>loadAdvancedScript('ict-readiness-console-708c.js?v=7.0.23-research')),
+   loadAdvancedScript('ict-execution-safety-708c5.js?v=7.0.23-research')
   ]);
   advancedReady=true;
   advancedButtons.forEach(button=>{button.disabled=false});
@@ -368,7 +364,6 @@ const params=new URLSearchParams(window.location.search);
 const requestedMarket=params.get('market');
 const requestedSymbol=params.get('symbol');
 const validSelection=(!requestedMarket||requestedMarket===market)&&/^[A-Z0-9]{1,31}USDT$/.test(requestedSymbol??'');
-accountsChanged();
 initCatalog(validSelection?requestedSymbol:undefined);
 showArchive();
 window.addEventListener('hashchange',openLinkedDetails);
