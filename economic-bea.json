@@ -1,5 +1,19 @@
 {
   "source": "BEA",
-  "status": "pending",
-  "events": []
+  "status": "ok",
+  "updatedAt": "2026-11-25T14:46:06.879029+00:00",
+  "events": [
+    {
+      "indicator": "core-pce-mom",
+      "title": "Core PCE Price Index m/m",
+      "currency": "USD",
+      "period": "2026-10",
+      "releaseAt": "2026-11-25T13:30:00+00:00",
+      "actual": 0.3,
+      "previous": 0.3,
+      "unit": "%",
+      "source": "BEA",
+      "sourceUrl": "https://www.bea.gov/news/2026/personal-income-and-outlays-october-2026"
+    }
+  ]
 }
