@@ -13,7 +13,7 @@ function build(context,structure,opts={}){
  const dataOK=fresh&&eligible;
  const lastAt=structure.last||0;
  // An event counts as recent only if its candle is within 24 completed hourly bars of the latest candle.
- const firstAt=lastAt-(structure.usableBars-1)*HOUR;
+ const firstAt=Number.isFinite(structure.first)?structure.first:lastAt-(structure.usableBars-1)*HOUR;
  const events=(Array.isArray(structure.events)?structure.events:[]).filter(e=>e&&e.type&&['BOS','MSS','SWEEP'].includes(e.type)&&['bull','bear'].includes(e.direction)&&Number.isFinite(e.at)&&e.at>=firstAt&&e.at<=lastAt&&lastAt-e.at<=24*HOUR);
  const zones=(Array.isArray(structure.zones)?structure.zones:[]).filter(z=>z&&z.type==='FVG'&&['bull','bear'].includes(z.direction)&&finite(z.low)&&finite(z.high)&&z.low<z.high&&z.mitigated!==true&&Number.isFinite(z.at)&&z.at>=firstAt&&z.at<=lastAt&&lastAt-z.at<=24*HOUR);
  const upper=context.priorWeek&&finite(context.priorWeek.high)?context.priorWeek.high:null;

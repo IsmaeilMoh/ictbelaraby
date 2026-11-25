@@ -115,7 +115,7 @@ async function cycle(){if(inCycle||stopping)return;inCycle=true;try{
   if(!hourly.has(key)){
    const cutoff=Date.now();
    hourly.set(key,fetchBars({...target,tf:'60'},cutoff,getKrakenInstruments)
-    .then(bars=>inspectHourly(bars,target.market,cutoff))
+    .then(bars=>inspectHourly(bars,target.market,cutoff,target.symbol))
     .catch(()=>({status:'unavailable'})));
   }
   return hourly.get(key);
