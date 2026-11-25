@@ -1,5 +1,5 @@
 {
-  "updatedAt": "2026-11-25T10:26:16.326374Z",
+  "updatedAt": "2026-11-25T13:42:16.728985Z",
   "weekStart": "2026-11-23",
   "source": "Forex Factory",
   "sourceUrl": "https://www.forexfactory.com/calendar",
@@ -376,9 +376,9 @@
       "actual": "—"
     },
     {
-      "id": "2026-11-25T10:42:00+00:00-EUR-German 10-y Bond Auction",
+      "id": "2026-11-25T10:32:00+00:00-EUR-German 10-y Bond Auction",
       "title": "German 10-y Bond Auction",
-      "date": "2026-11-25T10:42:00Z",
+      "date": "2026-11-25T10:32:00Z",
       "country": "EUR",
       "impact": "Low",
       "forecast": "—",
