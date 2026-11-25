@@ -8,8 +8,7 @@ const spot=require('./crypto-spot-backup.js');
 const phases=new Set(['observed','awaiting_confirmation','confirmed_research','invalidated','expired']);
 const OUT=path.resolve(process.env.PUBLIC_OUTPUT_DIR||path.join(__dirname,'..','_monitor_publish'));
 const OUTFILE=path.join(OUT,'monitor-status.json');
-const reasons=new Set(['stale_candles','candle_gap','not_enough_candles','provider_access_denied',
- 'provider_rate_limited','provider_unavailable','invalid_candles','session_history_missing','instrument_mismatch','unknown']);
+const reasons=runner.DATA_REASONS;
 function publicHour(context,now){
  const last=context?.lastCompleteAt;
  if(context?.status==='ready'&&Number.isSafeInteger(last)&&last<=now&&now-last<=3*3600000){
@@ -48,6 +47,7 @@ function publicSnapshot(data,now=Date.now()){
     (val.stale||!Number.isFinite(last)||last>now||now-last>3*Number(frame)*60000?'stale_candles':null),
    error:legacyProxy?'LEGACY_SPOT_PROXY':null,
    hourlyContext:publicHour(val.hourlyContext,now),
+   sourceHistory:legacyProxy?[]:runner.sourceHistory(val.sourceHistory,now),
    newsGate:val.newsGate||null,executionQuoteGate:'not_verified',accountRiskGate:'not_verified'};
  }
  // Only expose recent, observed research setups with internally consistent levels.
@@ -98,7 +98,7 @@ async function main(){
   for(const [id,t] of Object.entries(payload.targets)){
    const diagnostics=snapshot.targets[id]?.hourlyContext?.diagnostics;
    const coverage=diagnostics?' hourlyCoverage='+JSON.stringify(diagnostics):'';
-   process.stdout.write(id+' '+(snapshot.targets[id]?.error||t.error||t.source)+' reason='+(t.reason||'none')+' hourly='+t.hourlyContext.status+coverage+' '+JSON.stringify(t.patternCounts)+'\n');
+   process.stdout.write(id+' '+(snapshot.targets[id]?.error||t.error||t.source)+' reason='+(t.reason||'none')+' sourceChanges='+t.sourceHistory.length+' hourly='+t.hourlyContext.status+coverage+' '+JSON.stringify(t.patternCounts)+'\n');
   }
   process.stdout.write('Public research observations: '+payload.observations.length+'\n');
   if(!payload.marketDataReady)process.stdout.write('WARNING: no verified current market data; status remains blocked\n');

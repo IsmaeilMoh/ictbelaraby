@@ -40,6 +40,30 @@ let quoteFeed={ok:false,reason:'QUOTE_FEED_NOT_CONFIGURED',quotes:new Map()};
 const maxStopDistancePct=Math.max(0.01,Math.min(100,Number(process.env.MAX_STOP_DISTANCE_PCT)||5));
 let economic={ok:false,reason:'NOT_CHECKED'};
 function safeError(e){return String(e?.message||e||'خطأ').slice(0,180)}
+const DATA_REASONS=new Set(['stale_candles','candle_gap','not_enough_candles','provider_access_denied',
+ 'provider_rate_limited','provider_unavailable','invalid_candles','session_history_missing','instrument_mismatch','unknown']);
+const HISTORY_LIMIT=8;
+function sourceHistory(events,now){
+ if(!Array.isArray(events))return [];
+ return events.slice(0,HISTORY_LIMIT).flatMap(event=>{
+  const at=typeof event?.at==='string'?Date.parse(event.at):NaN;
+  if(!Number.isFinite(at)||at>now||!['blocked','reason_changed','recovered'].includes(event.kind))return [];
+  const entry={kind:event.kind,at:new Date(at).toISOString()};
+  if(event.kind!=='recovered')entry.reason=DATA_REASONS.has(event.reason)?event.reason:'unknown';
+  return [entry];
+ }).sort((a,b)=>Date.parse(b.at)-Date.parse(a.at));
+}
+function recordSourceHistory(previous,current,now){
+ const history=sourceHistory(previous.sourceHistory,now),last=history[0];
+ const healthy=current.status==='research_data_valid';
+ let kind;
+ if(healthy){
+  if(last?last.kind!=='recovered':previous.status==='blocked')kind='recovered';
+ }else if(!last||last.kind==='recovered')kind='blocked';
+ else if(last.reason!==current.reason)kind='reason_changed';
+ if(kind)history.unshift({kind,at:new Date(now).toISOString(),...(healthy?{}:{reason:current.reason})});
+ return history.slice(0,HISTORY_LIMIT);
+}
 function dataReason(error){
  const code=String(error?.message||error||'');
  if(code==='KRAKEN_PERPETUAL_NOT_VERIFIED'||code==='BYBIT_SYMBOL_MISMATCH'||/الاستجابة لا يطابق/.test(code))return 'instrument_mismatch';
@@ -99,6 +123,7 @@ async function check(target,draft,calendar,getKrakenInstruments,getHourly){const
  meta.consecutiveFailures=healthy?0:Math.min(1000000,(Number(previous.consecutiveFailures)||0)+1);
  meta.lastHealthyAt=healthy?meta.lastCompleteAt:(previous.lastHealthyAt||null);
  meta.lastRecoveredAt=healthy&&Number(previous.consecutiveFailures)>0?new Date(now).toISOString():(previous.lastRecoveredAt||null);
+ meta.sourceHistory=recordSourceHistory(previous,meta,now);
  draft.targets[target.id]=meta;draft.observations=draft.observations.filter(x=>now-x.formedAt<=13*Number(x.frame)*60000)
   .sort((a,b)=>b.formedAt-a.formedAt).slice(0,100);}
 async function restore(){
@@ -173,4 +198,4 @@ function start(options={}){const httpServer=http.createServer(api);if(!options.n
  if(!options.noSchedule){restore().then(run).catch(e=>process.stderr.write(safeError(e)+'\n'));timer=setInterval(run,intervalMs)}
  return {httpServer,cycle,stop:async()=>{stopping=true;clearInterval(timer);if(httpServer.listening)await new Promise(r=>httpServer.close(r))},snapshot};}
 if(require.main===module){const app=start();for(const sig of ['SIGTERM','SIGINT'])process.on(sig,()=>app.stop().then(()=>process.exit(0)));}
-module.exports={dataReason,parseTargets,validBars,start,snapshot,cycle,restore,targets};
+module.exports={DATA_REASONS,sourceHistory,dataReason,parseTargets,validBars,start,snapshot,cycle,restore,targets};

@@ -18,6 +18,29 @@
  };
  function time(value){return typeof value==='number'?value:Date.parse(value)}
  function reasonLabel(reason,fallback){return Object.hasOwn(reasons,reason)?reasons[reason]:fallback}
+ function showSourceHistory(name,item,now){
+  const rows=Array.isArray(item?.sourceHistory)?item.sourceHistory.slice(0,8):[];
+  const details=document.createElement('details');
+  const summary=document.createElement('summary');
+  summary.textContent='سجل تغيّر حالة المصدر · '+name;
+  const list=document.createElement('ul');
+  for(const event of rows){
+   const at=time(event?.at);
+   if(!Number.isFinite(at)||at>now)continue;
+   const reason=reasonLabel(event.reason,'السبب غير محدد');
+   const message=event.kind==='recovered'?'عادت الشموع الحديثة':
+    event.kind==='blocked'?'رُصد التعليق: '+reason:
+    event.kind==='reason_changed'?'تغيّر سبب التعليق: '+reason:null;
+   if(!message)continue;
+   const entry=document.createElement('li');
+   entry.textContent=window.ICTMarketTimes.format(at)+' · '+message;
+   list.append(entry);
+  }
+  if(list.childElementCount){
+   details.append(summary,list);
+   results.append(details);
+  }
+ }
  function targetNote(item,current,fresh){
   if(!fresh)return 'التقرير قديم أو دورة الفحص غير مكتملة';
   if(item?.status==='not_checked')return 'لم تُفحص الأداة بعد';
@@ -65,6 +88,7 @@
   line(name+' — '+targetNote(value,current,data.active)+(current?' · '+hourlyNote(value,Date.now()):'')+
    (value?.lastRecoveredAt?' · آخر تعافٍ: '+value.lastRecoveredAt:'')+
    (value?.consecutiveFailures?' · فشل متتالٍ: '+value.consecutiveFailures:''));
+  showSourceHistory(name,value,Date.now());
  }
  const gate=data.safety||{};const news=gate.economic||{};
  line('بوابة الأخبار على الخادم: '+(news.ok?'تم جلب أجندة زمنية ('+Number(news.eventCount||0)+' حدثًا)':'غير مكتملة / معلقة: '+(news.reason||'لا توجد بيانات')));
@@ -103,6 +127,7 @@
     const current=isCurrent(item,key.split(':')[2]);
     line(key+' — '+targetNote(item,current,fresh)+(current?' · '+hourlyNote(item,now):'')+
      (item?.source?' · المصدر: '+String(item.source).slice(0,70):''));
+    showSourceHistory(key,item,now);
    }
    line('الأخبار: '+(d.safety?.economic?.ok?'تغذية متاحة':'غير مكتملة / معلقة')+' · Bid/Ask: غير متصل · المخاطرة: محلية فقط · الموافقة التنفيذية: غير متاحة');
    const entries=(valid&&Array.isArray(d.observations)?d.observations:[]).filter(x=>{
