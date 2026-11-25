@@ -85,10 +85,14 @@ async function main(){
  await fs.mkdir(OUT,{recursive:true});
  // Failure of a data source MUST NOT result in a misleading success payload.
  const monitor=runner.start({noHttp:true,noSchedule:true});
- try{await runner.restore();await runner.cycle();const payload=publicSnapshot(runner.snapshot());
+ try{await runner.restore();await runner.cycle();const snapshot=runner.snapshot();const payload=publicSnapshot(snapshot);
   await fs.writeFile(OUTFILE,JSON.stringify(payload,null,2)+'\n','utf8');
   process.stdout.write('One-shot market scan: '+payload.marketSummary.valid+'/'+payload.marketCount+' fresh sources; approval=false\n');
-  for(const [id,t] of Object.entries(payload.targets))process.stdout.write(id+' '+(t.error||t.source)+' hourly='+t.hourlyContext.status+' '+JSON.stringify(t.patternCounts)+'\n');
+  for(const [id,t] of Object.entries(payload.targets)){
+   const diagnostics=snapshot.targets[id]?.hourlyContext?.diagnostics;
+   const coverage=diagnostics?' hourlyCoverage='+JSON.stringify(diagnostics):'';
+   process.stdout.write(id+' '+(t.error||t.source)+' hourly='+t.hourlyContext.status+coverage+' '+JSON.stringify(t.patternCounts)+'\n');
+  }
   process.stdout.write('Public research observations: '+payload.observations.length+'\n');
   if(!payload.marketDataReady)process.stdout.write('WARNING: no verified current market data; status remains blocked\n');
  }finally{await monitor.stop()}

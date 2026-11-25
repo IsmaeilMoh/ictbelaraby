@@ -26,6 +26,29 @@ assert.equal(inspectHourly(hourly, 'spot', now + 4 * hour).status, 'stale');
 assert.equal(inspectHourly(hourly.filter((_, i) => i !== 178), 'spot', now).status, 'insufficient');
 assert.equal(inspectHourly([...hourly,hourly[0]], 'spot', now).status, 'insufficient');
 
+for (const [start, reopen] of [
+  ['2026-11-23T23:00:00Z', '2026-11-24T23:00:00Z'],
+  ['2026-07-06T22:00:00Z', '2026-07-07T22:00:00Z']
+]) {
+  const startAt = Date.parse(start);
+  const reopenAt = Date.parse(reopen);
+  const cutoff = reopenAt + 11 * hour;
+  const closed = hourly.slice(0,23).map((bar,i) => ({...bar,start:startAt+i*hour}));
+  const active = hourly.slice(23,34).map((bar,i) => ({...bar,start:reopenAt+i*hour}));
+  const gold = [...closed,...active];
+  assert.equal(inspectHourly(gold,'metals',cutoff,'XAUUSD').status,'ready');
+  assert.equal(inspectHourly(gold,'metals',cutoff,'XAGUSD').status,'insufficient');
+  assert.equal(inspectHourly(gold.filter((_,i)=>i!==5),'metals',cutoff,'XAUUSD').status,'insufficient');
+  assert.equal(inspectHourly(gold.filter((_,i)=>i!==26),'metals',cutoff,'XAUUSD').status,'insufficient');
+  assert.equal(inspectHourly(gold, 'metals', cutoff+4*hour, 'XAUUSD').status,'stale');
+
+  const shifted = [...closed,...active.map(bar=>({...bar,start:bar.start+hour}))];
+  assert.equal(inspectHourly(shifted,'metals',cutoff+hour,'XAUUSD').status,'insufficient');
+}
+const friday = hourly.slice(0,23).map((bar,i) => ({...bar,start:Date.parse('2026-11-19T23:00:00Z')+i*hour}));
+const sunday = hourly.slice(23,34).map((bar,i) => ({...bar,start:Date.parse('2026-11-22T23:00:00Z')+i*hour}));
+assert.equal(inspectHourly([...friday,...sunday],'metals',sunday.at(-1).start+hour,'XAUUSD').status,'insufficient');
+
 async function run() {
   process.env.MONITOR_TARGETS='spot:BTCUSDT:5,spot:BTCUSDT:15,spot:ETHUSDT:15';
   const dir=await fs.mkdtemp(path.join(os.tmpdir(),'ict-hourly-'));
