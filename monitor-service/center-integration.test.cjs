@@ -28,6 +28,8 @@ for(let i=1;i<sections.length;i++) {
 assert.match(html,/href="#dc-lifecycle"/,'results link to opportunity tracking');
 assert.match(read('app.js'),/id="home-tools-grid"><a class="tool-card" href="decision-center.html"/,'homepage links to the scan directly');
 assert.match(read('asset.js'),/decision-center\.html\?['"]\+new URLSearchParams/,'asset link carries the selected instrument');
+assert.doesNotMatch(read('index.html'),/widgets\.tradingview-widget\.com\/w\/en\/tv-(forex-table|economic-calendar)\.js/,'route widgets stay off the initial page');
+assert.match(read('app.js'),/routeWidgets=\{agenda:'tv-economic-calendar',markets:'tv-forex-table'\}/,'the widgets remain available in their own sections');
 const decision=read('ict-decision-console-708a.js');
 assert.doesNotMatch(html,/dc-public-quote|tradingview-widget/,'charts stay outside the scan form');
 assert.match(html,/<div class="dc-actions" id="dc-scan-actions"><button id="dc-run"/,'scan controls appear in their original location');
