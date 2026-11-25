@@ -1,7 +1,7 @@
 /* ICT بالعربي 6.9.19.11 — one header/footer DOM for internal pages.
    Keeps the existing trading tools, mobile dock and theme controller intact. */
 (()=>{'use strict';
- const HOME='./';
+ const HOME=new URL('./',document.currentScript.src).href;
  const warning='تنبيه المخاطر: المواد المنشورة تعليمية ومعلوماتية وليست نصيحة استثمارية أو ضمانًا للنتائج. التداول بالرافعة المالية ينطوي على مخاطر عالية وقد تخسر رأس مالك. تحقّق من مصادر البيانات وتوقيتها قبل أي قرار.';
  const escIcon=(name)=>name==='light'?'☀':name==='dark'?'☾':'◐';
  function build(){

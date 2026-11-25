@@ -163,9 +163,13 @@
     if(h.includes('#calculators'))return 'guardian';
     return 'dashboard';
   };
-  const app=document.getElementById('app');
+  const app=document.getElementById('app')||document.querySelector('html[data-ict-unified] main');
   function hydrateApp(){
     if(!app)return;
+    app.querySelectorAll('[data-ict-icon]').forEach(element=>{
+      const name=element.dataset.ictIcon;
+      if(Object.hasOwn(ICONS,name))prependOnce(element,'uii-actionmark',boxed(name,'uii-actionmark'));
+    });
     app.querySelectorAll('.ict-center-group').forEach(group=>{
       const title=(group.querySelector('summary strong')?.textContent||'').trim();
       let key='more';
