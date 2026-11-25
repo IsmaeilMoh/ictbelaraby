@@ -9,6 +9,11 @@ on:
     # Offset avoids the most congested minute-0 schedule, cadence best effort.
     - cron: '7,17,27,37,47,57 * * * *'
   workflow_dispatch:
+    inputs:
+      publish:
+        description: Publish to ict-monitor-feed (leave off for a dry run)
+        type: boolean
+        default: false
 permissions:
   contents: write
 concurrency:
@@ -32,6 +37,7 @@ jobs:
           npm test
           npm run test:actions
       - name: Restore prior research-only state from publication branch
+        if: github.event_name != 'workflow_dispatch' || inputs.publish
         shell: bash
         run: |
           git fetch --no-tags origin '+refs/heads/ict-monitor-feed:refs/remotes/origin/ict-monitor-feed' || true
@@ -42,10 +48,32 @@ jobs:
         env:
           ECONOMIC_FEED_URL: ${{ vars.ICT_ECONOMIC_FEED_URL }}
           MONITOR_TARGETS: crypto:BTCUSDT:15,crypto:BTCUSDT:5,crypto:ETHUSDT:15,crypto:ETHUSDT:5
-          STORE_FILE: ${{ github.workspace }}/monitor-service/monitor-data.json
+          STORE_FILE: ${{ github.event_name == 'workflow_dispatch' && !inputs.publish && format('{0}/ict-bybit-{1}-{2}/state.json', runner.temp, github.run_id, github.run_attempt) || format('{0}/monitor-service/monitor-data.json', github.workspace) }}
           PUBLIC_OUTPUT_DIR: ${{ runner.temp }}/ict-monitor-publish
         run: node monitor-service/github-run-once.cjs
+      - name: Verify Bybit candles without publishing
+        shell: bash
+        if: github.event_name == 'workflow_dispatch' && !inputs.publish
+        env:
+          PUBLIC_OUTPUT_DIR: ${{ runner.temp }}/ict-monitor-publish
+        run: |
+          node <<'JS' | tee -a "$GITHUB_STEP_SUMMARY"
+          const assert = require('node:assert/strict');
+          const path = require('node:path');
+          const status = require(path.join(process.env.PUBLIC_OUTPUT_DIR, 'monitor-status.json'));
+          const expected = ['crypto:BTCUSDT:15','crypto:BTCUSDT:5','crypto:ETHUSDT:15','crypto:ETHUSDT:5'];
+          assert.deepEqual(Object.keys(status.targets).sort(), expected.toSorted());
+          assert.equal(status.readyForExecution, false);
+          assert.equal(status.safety.executionApproved, false);
+          const fresh = expected.filter(id => {
+            const row = status.targets[id];
+            console.log(id + ': ' + (row.reason || row.status) + ' · latest close ' + (row.lastCompleteAt || 'unavailable'));
+            return row.status === 'research_data_valid' && !row.stale && row.hourlyContext?.status === 'ready';
+          });
+          assert.equal(fresh.length, expected.length, 'Fresh entry candles and hourly context required for all four targets');
+          JS
       - name: Publish research-only status to dedicated branch
+        if: github.ref == 'refs/heads/main' && (github.event_name != 'workflow_dispatch' || inputs.publish)
         env:
           GH_TOKEN: ${{ github.token }}
           GITHUB_REPOSITORY: ${{ github.repository }}
