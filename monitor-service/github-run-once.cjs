@@ -34,7 +34,7 @@ function publicForward(data,targets,now){
     closedAt:Number.isFinite(closedAt)&&closedAt>=observedAt&&closedAt<=updatedAt?closedAt:null,
     modelEvidence:Array.isArray(row.modelEvidence)?row.modelEvidence.slice(0,3).filter(at=>Number.isSafeInteger(at)&&at>0&&at<formedAt):[],
     originBlocks:Array.isArray(row.originBlocks)?row.originBlocks.filter(x=>[
-     'بوابة الأخبار معلّقة','اتجاه الساعة غير مؤكد','سعر التنفيذ ومخاطرة الحساب غير متحقق منهما'
+     'بوابة الأخبار معلّقة','اتجاه الساعة غير مؤكد','سعر التنفيذ ومخاطرة الحساب غير متحقق منهما','سعر التنفيذ غير متحقق منه'
     ].includes(x)).slice(0,3):[],executionApproved:false});
   }
  }

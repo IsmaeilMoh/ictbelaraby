@@ -115,7 +115,7 @@
  }
  const gate=data.safety||{};const news=gate.economic||{};
  line('بوابة الأخبار على الخادم: '+(news.ok?'تم جلب أجندة زمنية ('+Number(news.eventCount||0)+' حدثًا)':'غير مكتملة / معلقة: '+(news.reason||'لا توجد بيانات')));
- line('مخاطرة الحساب: غير متحقق منها على الخادم. عرض سعر Bid/Ask: '+(gate.bidAsk?.connected?'المزود متصل (تحقق من حالة كل أصل)':'غير متاح: '+(gate.bidAsk?.reason||'لم يربط بعد'))+'. لا توجد موافقة تنفيذية.');
+ line('عرض سعر Bid/Ask: '+(gate.bidAsk?.connected?'المزود متصل (تحقق من حالة كل أصل)':'غير متاح: '+(gate.bidAsk?.reason||'لم يربط بعد'))+'. لا توجد موافقة تنفيذية.');
  }catch(e){describeError(e)}finally{clearTimeout(timeout)}});
 
  // GitHub Actions free mode: a static research snapshot, not a live server.
@@ -156,7 +156,7 @@
    if(evidence.textContent)detail.append(evidence);
    if(Array.isArray(row.originBlocks)&&row.originBlocks.length){
     const limits=document.createElement('p');
-    limits.textContent='وقت الرصد: '+row.originBlocks.slice(0,3).join(' · ');
+    limits.textContent='وقت الرصد: '+row.originBlocks.slice(0,3).map(reason=>reason==='سعر التنفيذ ومخاطرة الحساب غير متحقق منهما'?'سعر التنفيذ غير متحقق منه':reason).join(' · ');
     detail.append(limits);
    }
    container.append(detail);
@@ -191,7 +191,7 @@
      (item?.source?' · المصدر: '+String(item.source).slice(0,70):''));
     showSourceHistory(key,item,now);
    }
-   line('الأخبار: '+(d.safety?.economic?.ok?'تغذية متاحة':'غير مكتملة / معلقة')+' · Bid/Ask: غير متصل · المخاطرة: محلية فقط · الموافقة التنفيذية: غير متاحة');
+   line('الأخبار: '+(d.safety?.economic?.ok?'تغذية متاحة':'غير مكتملة / معلقة')+' · Bid/Ask: غير متصل · الموافقة التنفيذية: غير متاحة');
    const entries=(valid&&Array.isArray(d.observations)?d.observations:[]).filter(x=>{
     if(!x||!bybitRow(x)||x.status!=='research_only_blocked'||x.executionApproved!==false||!['BUY','SELL'].includes(x.side))return false;
     const item=d.targets?.[[x.market,x.symbol,x.frame].join(':')];
@@ -214,7 +214,7 @@
      modelEvidence:['sweepAt','mssAt','fvgAt'].map(key=>Date.parse(x.evidence?.[key])),
      blocks:[x.newsGate==='clear_research_only'?'فحص الأخبار البحثي متاح':'تغطية الأخبار غير مؤكدة أو يوجد مانع',
       hourlyNote(item,now,x.side),
-      'مخاطرة الحساب غير متحققة','أسعار Bid/Ask غير متحققة']};
+      'أسعار Bid/Ask غير متحققة']};
    }),fresh?'لا توجد فرص للعرض في التقرير المجدول الحالي.':'التقرير المجدول قديم أو غير مكتمل.');
    if(Array.isArray(d.forward?.records)){
     const records=d.forward.records.filter(row=>bybitRow(row)&&!isProxy(row));

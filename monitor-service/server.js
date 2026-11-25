@@ -32,7 +32,7 @@ function parseTargets(str){const parsed=[];for(const raw of str.split(',')){
  const id=[market,symbol,tf].join(':');if(!parsed.some(x=>x.id===id))parsed.push({id,market,symbol,tf});
  }if(!parsed.length||parsed.length>16)throw Error('TARGET_COUNT_MUST_BE_1_TO_16');return parsed}
 const targets=parseTargets(process.env.MONITOR_TARGETS||DEFAULT);
-let state={schema:'ict-research-monitor/1',startedAt:new Date(started).toISOString(),lastCycleAt:null,targets:{},observations:[],forward:{},cycleCount:0,readyForExecution:false,limitations:['لا توجد تغذية Bid/Ask تنفيذية','بوابة الأخبار اختيارية وتفشل بالإغلاق عند نقص التغطية','مخاطرة الحساب الشخصي غير مرتبطة بالخادم','لا تُرسل إشعارات Push','نتائج بحثية وليست صفقات أو توصيات معتمدة']};
+let state={schema:'ict-research-monitor/1',startedAt:new Date(started).toISOString(),lastCycleAt:null,targets:{},observations:[],forward:{},cycleCount:0,readyForExecution:false,limitations:['لا توجد تغذية Bid/Ask تنفيذية','بوابة الأخبار اختيارية وتفشل بالإغلاق عند نقص التغطية','لا تُرسل إشعارات Push','نتائج بحثية وليست صفقات أو توصيات معتمدة']};
 let stopping=false,inCycle=false,timer=null;
 let lastCycleError=null;
 const economicUrl=process.env.ECONOMIC_FEED_URL||'';
@@ -123,7 +123,7 @@ function validBars(bars,tf,now){
  const raw=new Map(bars.filter(b=>b.confirmed===true).map(b=>[Number(b.start),b]));
  return consecutive.map(b=>raw.get(b.start));
 }
-function recentObservation(m,target,now,news,structureGate,previous){return {id:target.id+':'+String(m.id),market:target.market,symbol:target.symbol,frame:target.tf,formedAt:m.formedAt,detectedAt:previous?.detectedAt||new Date(now).toISOString(),checkedAt:new Date(now).toISOString(),research:m.research,status:'research_only_blocked',reason:'غير معتمدة للتنفيذ: لا توجد مراجعة مخاطرة حساب أو أسعار Bid/Ask',newsGate:news,structureGate,accountRiskGate:'not_verified',side:m.direction==='bull'?'BUY':'SELL',entry:m.entry,stop:m.stop,target:m.target,model:'Sweep → MSS → FVG',zone:{low:m.zone.low,high:m.zone.high},evidence:{sweepAt:m.sweepAt,mssAt:m.mssAt,fvgAt:m.fvgAt},reasonCodes:['ACCOUNT_RISK_NOT_VERIFIED','EXECUTION_QUOTE_NOT_VERIFIED']};}
+function recentObservation(m,target,now,news,structureGate,previous){return {id:target.id+':'+String(m.id),market:target.market,symbol:target.symbol,frame:target.tf,formedAt:m.formedAt,detectedAt:previous?.detectedAt||new Date(now).toISOString(),checkedAt:new Date(now).toISOString(),research:m.research,status:'research_only_blocked',reason:'بحثية؛ أسعار Bid/Ask غير متحققة',newsGate:news,structureGate,accountRiskGate:'not_verified',side:m.direction==='bull'?'BUY':'SELL',entry:m.entry,stop:m.stop,target:m.target,model:'Sweep → MSS → FVG',zone:{low:m.zone.low,high:m.zone.high},evidence:{sweepAt:m.sweepAt,mssAt:m.mssAt,fvgAt:m.fvgAt},reasonCodes:['EXECUTION_QUOTE_NOT_VERIFIED']};}
 // Keep records separated by venue, instrument and timeframe, including after a restart.
 function updateForward(previous,target,bars,observations,now){
  const ms=lifecycle.FRAME[target.tf];
@@ -136,7 +136,7 @@ function updateForward(previous,target,bars,observations,now){
   const row=lifecycle.create({...o,evidence:[],blocks:[
    ...(o.newsGate.status==='clear_research_only'?[]:['بوابة الأخبار معلّقة']),
    ...(o.hourlyAligned?[]:['اتجاه الساعة غير مؤكد']),
-   'سعر التنفيذ ومخاطرة الحساب غير متحقق منهما'
+   'سعر التنفيذ غير متحقق منه'
   ],modelEvidence:[o.evidence.sweepAt,o.evidence.mssAt,o.evidence.fvgAt]},now,{researchOnly:true});
   advanced.unshift(row);
   known.add(o.id);
