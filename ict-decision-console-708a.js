@@ -350,7 +350,7 @@ for(const field of [frame,symbol,modelType,modelPhase,roll])field.addEventListen
 run.addEventListener('click',()=>symbol.value==='all'?scanBatch():scan(false));
 cancelBatch.addEventListener('click',cancelGroupedScan);
 monitor.addEventListener('click',()=>{if(active){stop();return}active=true;monitor.textContent='إيقاف المراقبة';monitor.setAttribute('aria-pressed','true');scan(false);timer=setInterval(()=>scan(true),60000)});
-document.addEventListener('visibilitychange',()=>{if(document.hidden){stop();cancelGroupedScan()}});
+document.addEventListener('visibilitychange',()=>{if(document.hidden)stop()});
 window.addEventListener('pagehide',()=>{stop();cancelGroupedScan()});
 if(window.ICTSharedIcons){
  for(const link of root.querySelectorAll('[data-dc-icon]')){
