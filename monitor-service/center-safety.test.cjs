@@ -104,6 +104,7 @@ async function testOpportunities() {
     newsChecked: true, newsCovered: true
   };
   assert.equal(decision.inspect(inputs).opportunities[0].blocks.length, 0);
+  assert.equal(decision.inspect(inputs).entryFreshUntil, now + interval);
   const highImpact = [{ when: now + minute, currency: 'USD', title: 'Scheduled release' }];
   for (const override of [{ newsCovered: false }, { account: null }, { riskAmount: 0 }, { events: highImpact },
     { now: now + 3 * interval }]) {
@@ -145,7 +146,7 @@ async function testMonitor(bars) {
   try {
     await monitor.cycle();
     const fresh = monitor.snapshot();
-    assert.equal(fresh.marketDataReady, true);
+    assert.equal(fresh.marketDataReady, true, fresh.targets[id].error);
     assert.equal(fresh.targets[id].executionQuoteGate, 'verified_research_quote');
     assert.ok(fresh.observations.some(o=>o.research.phase==='observed'));
     const first = fresh.observations[0];

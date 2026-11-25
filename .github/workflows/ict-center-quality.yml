@@ -46,6 +46,23 @@ jobs:
           STORE_FILE: ${{ runner.temp }}/ict-live-probe/state.json
         run: |
           node monitor-service/github-run-once.cjs
+          node <<'JS'
+          const origin = 'https://ismaeilmoh.github.io';
+          process.env.ALLOWED_ORIGIN = origin;
+          const monitor = require('./monitor-service/server.js').start({noHttp:true,noSchedule:true});
+          monitor.httpServer.listen(0,'127.0.0.1',async()=>{
+            try {
+              const base = 'http://127.0.0.1:'+monitor.httpServer.address().port;
+              const r = await fetch(base+'/market-research?symbol=PF_XBTUSD&frame=5',{headers:{Origin:origin}});
+              const d = await r.json();
+              console.log('On-demand Kraken:',r.status,'CORS='+r.headers.get('access-control-allow-origin'),
+                'entry='+String(d.entry?.length),'hourly='+String(d.hourly?.length),
+                'latestTrade='+(d.lastTrade?new Date(d.lastTrade.at).toISOString():'unavailable'));
+            } finally {
+              await monitor.stop();
+            }
+          });
+          JS
           node <<'JS' >> "$GITHUB_STEP_SUMMARY"
           const assert = require('node:assert/strict');
           const path = require('node:path');
