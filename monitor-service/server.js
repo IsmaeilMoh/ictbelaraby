@@ -4,6 +4,7 @@ const http=require('node:http');
 const fs=require('node:fs/promises');
 const path=require('node:path');
 const live=require('./ict-live-feed-702a.js');
+const kraken=require('./kraken-perpetual.js');
 const cryptoSpotBackup=require('./crypto-spot-backup.js');
 const traditional=require('./ict-public-markets-702c2.js');
 const structure=require('./ict_phase2d/ict-structure-engine-702d.js');
@@ -17,16 +18,17 @@ const host=process.env.HOST||'127.0.0.1';
 const origin=process.env.ALLOWED_ORIGIN||'';
 const storage=path.resolve(process.env.STORE_FILE||path.join(__dirname,'monitor-data.json'));
 const DEFAULT=[
- 'crypto:BTCUSDT','crypto:ETHUSDT','spot:BTCUSDT','spot:ETHUSDT','metals:XAUUSD','forex:EURUSD'
+ 'crypto:BTCUSDT','crypto:ETHUSDT','spot:BTCUSDT','spot:ETHUSDT','metals:XAUUSD','forex:EURUSD','kraken:PF_XBTUSD','kraken:PF_ETHUSD'
 ].flatMap(target=>['15','5'].map(frame=>target+':'+frame)).join(',');
 function parseTargets(str){const parsed=[];for(const raw of str.split(',')){
  const parts=raw.trim().split(':');if(parts.length!==3)throw Error('INVALID_TARGET '+raw);
  const [market,symbol,tf]=parts;if(!['5','15'].includes(tf))throw Error('UNSUPPORTED_FRAME '+tf);
  if(market==='crypto'){if(!live.SYMBOLS.includes(symbol))throw Error('UNSUPPORTED_CRYPTO '+symbol)}
+ else if(market==='kraken'){if(!kraken.SYMBOLS.includes(symbol))throw Error('UNSUPPORTED_KRAKEN_PERPETUAL '+symbol)}
  else if(market==='spot'){if(!cryptoSpotBackup.PAIRS.includes(symbol))throw Error('UNSUPPORTED_SPOT '+symbol)}
  else {if(!traditional.MARKETS[market]||!traditional.MARKETS[market].some(x=>x[0]===symbol))throw Error('UNSUPPORTED_MARKET_SYMBOL '+raw)}
  const id=[market,symbol,tf].join(':');if(!parsed.some(x=>x.id===id))parsed.push({id,market,symbol,tf});
- }if(!parsed.length||parsed.length>12)throw Error('TARGET_COUNT_MUST_BE_1_TO_12');return parsed}
+ }if(!parsed.length||parsed.length>16)throw Error('TARGET_COUNT_MUST_BE_1_TO_16');return parsed}
 const targets=parseTargets(process.env.MONITOR_TARGETS||DEFAULT);
 let state={schema:'ict-research-monitor/1',startedAt:new Date(started).toISOString(),lastCycleAt:null,targets:{},observations:[],cycleCount:0,readyForExecution:false,limitations:['لا توجد تغذية Bid/Ask تنفيذية','بوابة الأخبار اختيارية وتفشل بالإغلاق عند نقص التغطية','مخاطرة الحساب الشخصي غير مرتبطة بالخادم','لا تُرسل إشعارات Push','نتائج بحثية وليست صفقات أو توصيات معتمدة']};
 let stopping=false,inCycle=false,timer=null;
@@ -37,7 +39,8 @@ let quoteFeed={ok:false,reason:'QUOTE_FEED_NOT_CONFIGURED',quotes:new Map()};
 const maxStopDistancePct=Math.max(0.01,Math.min(100,Number(process.env.MAX_STOP_DISTANCE_PCT)||5));
 let economic={ok:false,reason:'NOT_CHECKED'};
 function safeError(e){return String(e?.message||e||'خطأ').slice(0,180)}
-async function fetchBars(target,now){
+async function fetchBars(target,now,getKrakenInstruments){
+ if(target.market==='kraken')return kraken.fetchHistory(target.symbol,target.tf,{now,instruments:await getKrakenInstruments()});
  if(target.market==='crypto')return live.fetchHistory({symbol:target.symbol,interval:target.tf,limit:200,now});
  if(target.market==='spot')return cryptoSpotBackup.fetchHistory(target.symbol,target.tf,{now});
  const ins=traditional.resolve(target.market,target.symbol);
@@ -53,11 +56,11 @@ function validBars(bars,tf,now){
  return consecutive.map(b=>raw.get(b.start));
 }
 function recentObservation(m,target,now,news,structureGate,previous){return {id:target.id+':'+String(m.id),market:target.market,symbol:target.symbol,frame:target.tf,formedAt:m.formedAt,detectedAt:previous?.detectedAt||new Date(now).toISOString(),checkedAt:new Date(now).toISOString(),research:m.research,status:'research_only_blocked',reason:'غير معتمدة للتنفيذ: لا توجد مراجعة مخاطرة حساب أو أسعار Bid/Ask',newsGate:news,structureGate,accountRiskGate:'not_verified',side:m.direction==='bull'?'BUY':'SELL',entry:m.entry,stop:m.stop,target:m.target,model:'Sweep → MSS → FVG',zone:{low:m.zone.low,high:m.zone.high},evidence:{sweepAt:m.sweepAt,mssAt:m.mssAt,fvgAt:m.fvgAt},reasonCodes:['ACCOUNT_RISK_NOT_VERIFIED','EXECUTION_QUOTE_NOT_VERIFIED']};}
-async function check(target,draft,calendar){const now=Date.now();
+async function check(target,draft,calendar,getKrakenInstruments){const now=Date.now();
  const previousModels=new Map(draft.observations.filter(x=>x.id.startsWith(target.id+':')).map(x=>[x.id,x]));
- const previous=draft.targets[target.id]||{};const meta={market:target.market,symbol:target.symbol,frame:target.tf,lastAttempt:new Date(now).toISOString(),source:target.market==='crypto'?'Bybit V5 USDT':target.market==='spot'?cryptoSpotBackup.SOURCE:'Biquote independent feed',status:'unavailable',lastCompleteAt:null,modelCount:0};
- try {const bars=validBars(await fetchBars(target,now),target.tf,now);const last=bars.at(-1);
- meta.source=last.source||meta.source;meta.marketType=target.market==='spot'?'SPOT_RESEARCH':target.market==='crypto'?'PERPETUAL':'PROVIDER_NATIVE';meta.lastCompleteAt=new Date(last.start+Number(target.tf)*60000).toISOString();meta.status='research_data_valid';
+ const previous=draft.targets[target.id]||{};const meta={market:target.market,symbol:target.symbol,frame:target.tf,lastAttempt:new Date(now).toISOString(),source:target.market==='crypto'?'Bybit V5 USDT':target.market==='spot'?cryptoSpotBackup.SOURCE:target.market==='kraken'?kraken.SOURCE:'Biquote independent feed',status:'unavailable',lastCompleteAt:null,modelCount:0};
+ try {const bars=validBars(await fetchBars(target,now,getKrakenInstruments),target.tf,now);const last=bars.at(-1);
+ meta.source=last.source||meta.source;meta.marketType=target.market==='spot'?'SPOT_RESEARCH':['crypto','kraken'].includes(target.market)?'PERPETUAL':'PROVIDER_NATIVE';meta.lastCompleteAt=new Date(last.start+Number(target.tf)*60000).toISOString();meta.status='research_data_valid';
  const result=signals.evaluate(bars,target.tf,{now,market:target.market,symbol:target.symbol});
  const news=gates.checkNews(calendar.ok?calendar.feed:null,target,now);
  const observations=[];
@@ -102,7 +105,9 @@ async function cycle(){if(inCycle||stopping)return;inCycle=true;try{
  const calendar=await gates.fetchEconomic(economicUrl,Date.now());
  const quotes=await quotesGuard.fetchQuotes(quoteUrl,Date.now());
  const draft={...state,targets:{...state.targets}};
- for(const t of targets){if(stopping)return;await check(t,draft,calendar)}
+ let krakenInstruments;
+ const getKrakenInstruments=()=>krakenInstruments??=kraken.fetchInstruments();
+ for(const t of targets){if(stopping)return;await check(t,draft,calendar,getKrakenInstruments)}
  draft.lastCycleAt=new Date(Date.now()).toISOString();
  draft.cycleCount++;
  await persist(draft);

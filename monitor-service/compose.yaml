@@ -11,7 +11,7 @@ services:
       PORT: "8787"
       STORE_FILE: /data/monitor-data.json
       POLL_MS: ${POLL_MS:-300000}
-      MONITOR_TARGETS: ${MONITOR_TARGETS:-crypto:BTCUSDT:15,crypto:ETHUSDT:15,metals:XAUUSD:15,forex:EURUSD:15}
+      MONITOR_TARGETS: ${MONITOR_TARGETS:-}
       ALLOWED_ORIGIN: https://ismaeilmoh.github.io
       ECONOMIC_FEED_URL: ${ECONOMIC_FEED_URL:-}
       MAX_STOP_DISTANCE_PCT: ${MAX_STOP_DISTANCE_PCT:-5}
