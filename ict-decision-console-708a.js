@@ -197,6 +197,7 @@ function block(title,parent=output){const c=document.createElement('section');c.
 const phases={observed:'مرصودة',awaiting_confirmation:'بانتظار التأكيد',confirmed_research:'مؤكدة بحثيًا',invalidated:'ملغاة',expired:'منتهية الصلاحية'};
 const types={SPOT_RESEARCH:'Spot · سوق فوري',SPOT_RESEARCH_PROXY:'Spot · سوق فوري',PERPETUAL:'عقد دائم',PROVIDER_NATIVE:'أداة المزود'};
 function matchingModels(plan,bars,index,tf,pivots){
+ if(plan.modelType==='turtle-soup')return [{type:'turtle-soup',label:'Turtle Soup',evidence:'استرداد المستوى '+money(plan.entry)+' ثم إغلاق MSS'}];
  const matches=[{type:'composite',label:'Sweep → MSS → FVG'}];
  const [sweepAt,mssAt,fvgAt]=plan.modelEvidence;
  const si=index.get(sweepAt),mi=index.get(mssAt);
@@ -234,14 +235,14 @@ function card(parent,o,origin){
  if(o.research)node('p','وقت الحالة: '+dual(o.research.at)+' | تكوّن: '+dual(o.formedAt),c);
  if(o.research?.phase==='confirmed_research')node('p','عاد السعر إلى FVG بعد تكوّن النموذج، وأكّد إغلاق لاحق الاتجاه البحثي. التنفيذ يتطلب تحققًا مستقلًا.',c);
  const levels=node('div','',c,'dc-levels');
- for(const [name,value] of [['منطقة FVG',o.zone?money(o.zone.low)+' — '+money(o.zone.high):'غير متاحة'],['دخول مرجعي',money(o.entry)],['إبطال/وقف افتراضي',money(o.stop)],[o.liquidity?'هدف السيولة · '+o.rr.toFixed(2)+'R':'هدف افتراضي',money(o.target)]]){
+ for(const [name,value] of [[o.modelType==='turtle-soup'?'المستوى المسترد':'منطقة FVG',o.modelType==='turtle-soup'?money(o.entry):o.zone?money(o.zone.low)+' — '+money(o.zone.high):'غير متاحة'],['دخول مرجعي',money(o.entry)],['إبطال/وقف افتراضي',money(o.stop)],[o.liquidity?'هدف السيولة · '+o.rr.toFixed(2)+'R':'هدف افتراضي',money(o.target)]]){
   const el=node('div','',levels);node('small',name,el);node('strong',value,el);
  }
 
  if(o.liquidity)node('p',
   (o.side==='BUY'?'سيولة فوق قمة مؤكدة':'سيولة تحت قاع مؤكد')+' · '+(o.liquidity.frame==='D'?'يومي':o.liquidity.frame+' د')+
    ' · '+dual(o.liquidity.at)+' | منتصف النطاق '+money(o.midpoint)+' · '+(o.side==='BUY'?'Discount':'Premium'),c);
- if(o.dealingRange)node('p','نطاق حركة السحب والإزاحة '+money(o.dealingRange.low)+' — '+money(o.dealingRange.high)+' · إغلاق الإزاحة '+dual(o.dealingRange.displacementAt+structure.FRAME_MS[o.frame]),c);
+ if(o.dealingRange)node('p',(o.modelType==='turtle-soup'?'نطاق السحب إلى MSS ':'نطاق حركة السحب والإزاحة ')+money(o.dealingRange.low)+' — '+money(o.dealingRange.high)+' · إغلاق MSS '+dual(o.dealingRange.displacementAt+structure.FRAME_MS[o.frame]),c);
  if(o.interveningLiquidity)node('p','سيولة أقرب قبل الهدف: '+money(o.interveningLiquidity.level)+' · '+o.interveningLiquidity.rr.toFixed(2)+'R',c);
  const evidence=(o.modelEvidence||[]).map((at,i)=>Number.isFinite(at)?['سحب السيولة','MSS','FVG'][i]+' · '+dual(at):null).filter(Boolean);
  if(evidence.length)node('p',evidence.join(' | '),c);
@@ -325,7 +326,7 @@ async function getCandles(market,contract,tf,signal,requests=new Map()){
 function inspectContract(market,contract,tf,{entryBars,hourly,higherCandles},news,batch=false){
  const now=Date.now();
  const res=api.inspect({market,symbol:contract,frame:tf,candles15:entryBars,candles60:hourly,higherCandles,
-  rollHour:Number(roll.value),newsChecked:news.feedsLoaded>0,
+  rollHour:Number(roll.value),includeTurtleSoup:modelType.value==='turtle-soup',newsChecked:news.feedsLoaded>0,
   newsCovered:econ.scheduleCovers(news.parts||[],now),eventFeedsLoaded:news.feedsLoaded,events:news.events,now,
   structureEngine:structure,signalEngine:signal,contextEngine:context,scenarioEngine:scenario});
  if(news.failures?.length)res.warnings.push('تعذر تحميل بعض الأجندات: '+news.failures.join('؛ '));
@@ -337,6 +338,7 @@ function inspectContract(market,contract,tf,{entryBars,hourly,higherCandles},new
   const pivots=structure.analyze(entryBars,tf,{now}).pivots;
   for(const plan of res.opportunities)plan.modelMatches=matchingModels(plan,bars,index,tf,pivots);
   if(modelType.value)res.opportunities=res.opportunities.filter(plan=>plan.modelMatches.some(match=>match.type===modelType.value));
+  if(modelType.value==='turtle-soup')for(const plan of res.opportunities)plan.blocks.push('Turtle Soup قيد التحقق التاريخي؛ للعرض البحثي فقط.');
   // OTE is an additional research level; the existing entry stream tracks the composite midpoint.
   if(modelType.value==='breaker')for(const plan of res.opportunities)plan.blocks.push('إعادة اختبار Breaker معروضة كدليل بحثي. مستويات البطاقة تخص النموذج المركب.');
   if(modelType.value==='ote')for(const plan of res.opportunities)plan.blocks.push('مستوى OTE للبحث. الدخول المعروض للبطاقة هو الدخول المرجعي للنموذج المركب.');

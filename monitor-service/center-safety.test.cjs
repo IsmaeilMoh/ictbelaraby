@@ -135,6 +135,23 @@ function testLiquidityPlan() {
     pivots.map(pivot => ({ ...pivot, type: 'swing-low', level: 250-pivot.level })));
   assert.equal(short.target, 128);
 }
+function testTurtleSoup() {
+  const bars = [
+    {start: 0, low: 90, high: 110},
+    {start: 1, low: 101, high: 114}
+  ];
+  const sweep = {type: 'SWEEP', direction: 'bull', at: 0, level: 100};
+  const shift = {type: 'MSS', direction: 'bull', at: 1};
+  const detect = (rows, events) => decision.turtleSoup(rows, new Map(rows.map((bar,i)=>[bar.start,i])), events, 1, 'forex','EURUSD','15');
+  assert.deepEqual(detect(bars.slice(0,1), [sweep]), []);
+  const [plan] = detect(bars, [sweep,shift]);
+  assert.equal(plan.formedAt, 2);
+  assert.equal(plan.entry, 100);
+  assert.equal(plan.stop, 90);
+  assert.equal(plan.status, 'watching');
+  assert.equal(detect([...bars,{start:2,low:99,high:111}], [sweep,shift])[0].status, 'retested');
+  assert.deepEqual(detect([bars[0],{...bars[1],low:89}], [sweep,shift]), []);
+}
 function testSessions() {
   for (const [day, start, next, hours, roll] of [
     ['2026-03-08', '2026-03-08T05:00:00Z', '2026-03-09T04:00:00Z', 23, '2026-03-08T21:00:00Z'],
@@ -313,6 +330,7 @@ async function testMonitor(bars) {
 
 (async () => {
   testSessions();
+  testTurtleSoup();
   testLiquidityPlan();
   testDisplacementRange();
   await testCalendar();
