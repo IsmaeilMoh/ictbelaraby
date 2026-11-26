@@ -100,3 +100,21 @@ assert.throws(()=>book.parseBook(orderbook,'BTCUSDT',now-1),/STALE/);
  }
  console.log('Forward research and direct market data: activation, stop, target, ambiguous, expiration, gaps, identity and freshness PASS');
 })().catch(error=>{console.error(error);process.exitCode=1});
+
+{
+ const {refine}=require('./ifvg-finer-replay.cjs');
+ const fine=300000,start=Date.parse('2026-11-25T14:00:00Z');
+ const bars=[
+  {start,open:101,high:103,low:98,close:99,confirmed:true},
+  {start:start+fine,open:99,high:100,low:94,close:96,confirmed:true},
+  {start:start+2*fine,open:96,high:111,low:96,close:109,confirmed:true}
+ ];
+ const parent={start,open:101,high:111,low:94,close:109,confirmed:true};
+ const before={side:'BUY',entry:100,stop:95,target:110,formedAt:start,observedAt:start,frame:'15',
+  state:'waiting',lastProcessedStart:null,maxBars:24,barsExamined:0,events:[]};
+ const item={start,ms:3*fine,frame:'15',parent,before,bars:[parent]};
+ const indexed=new Map(bars.map(bar=>[bar.start,bar]));
+ assert.equal(refine(item,indexed,'5').state,'lost');
+ assert.equal(refine(item,new Map(bars.slice(0,2).map(bar=>[bar.start,bar])),'5').state,'missing');
+ assert.equal(refine({...item,parent:{...parent,high:112}},indexed,'5').state,'mismatch');
+}

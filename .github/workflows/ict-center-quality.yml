@@ -25,6 +25,11 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
+      - name: Resolve IFVG research using licensed five-minute candles
+        if: github.event_name == 'pull_request' && github.head_ref == 'dev/ifvg-finer-replay' && github.event.pull_request.head.repo.full_name == github.repository
+        env:
+          TWELVEDATA_API_KEY: ${{ secrets.TWELVEDATA_API_KEY }}
+        run: node monitor-service/ifvg-finer-replay.cjs | tee -a "$GITHUB_STEP_SUMMARY"
       - name: Test monitor, safety gates and market data parsers
         working-directory: monitor-service
         run: npm test
