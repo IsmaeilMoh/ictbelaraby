@@ -8,7 +8,7 @@ const date=s=>{const d=Date.parse(s);return Number.isFinite(d)?new Date(d).toLoc
 const age=s=>{const t=Date.parse(s);return Number.isFinite(t)?Math.max(0,Date.now()-t)/60000:Infinity};
 const finite=v=>v!==null&&v!==undefined&&v!==''&&Number.isFinite(Number(v))?Number(v):null;
 const same=(a,b)=>a&&b&&a.date===b.date;
-const SAFE_LINKS={XAUUSD:'OANDA:XAUUSD',XAGUSD:'OANDA:XAGUSD',EURUSD:'FX:EURUSD',GBPUSD:'FX:GBPUSD',USDJPY:'FX:USDJPY',USDCHF:'FX:USDCHF',NAS100:'NASDAQ:NDX',SP500:'SP:SPX',DJ30:'DJ:DJI',BTCUSD:'BITSTAMP:BTCUSD',ETHUSD:'BITSTAMP:ETHUSD',DXY:'TVC:DXY',US10Y:'TVC:US10Y',WTI:'TVC:USOIL'};
+const SAFE_LINKS={XAUUSD:'FOREXCOM:XAUUSD',XAGUSD:'FOREXCOM:XAGUSD',EURUSD:'FX:EURUSD',GBPUSD:'FX:GBPUSD',USDJPY:'FX:USDJPY',USDCHF:'FX:USDCHF',NAS100:'NASDAQ:NDX',SP500:'SP:SPX',DJ30:'DJ:DJI',BTCUSD:'BITSTAMP:BTCUSD',ETHUSD:'BITSTAMP:ETHUSD',DXY:'TVC:DXY',US10Y:'TVC:US10Y',WTI:'TVC:USOIL'};
 const state={radar:null,movers:null,xray:null,calendar:null,next:null,active:'XAUUSD',win:15,compare:'XAUUSD',events:[],updated:0};
 const tracks={XAUUSD:['USD'],XAGUSD:['USD'],NAS100:['USD'],SP500:['USD'],DJ30:['USD'],BTCUSD:['USD'],ETHUSD:['USD'],WTI:['USD'],EURUSD:['EUR','USD'],GBPUSD:['GBP','USD'],USDJPY:['USD','JPY'],USDCHF:['USD','CHF']};
 const regimes={XAUUSD:['DXY','US10Y','XAUUSD'],NAS100:['NAS100','SP500','US10Y'],EURUSD:['EURUSD','DXY','GBPUSD'],BTCUSD:['BTCUSD','NAS100','ETHUSD']};

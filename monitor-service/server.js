@@ -4,7 +4,6 @@ const http=require('node:http');
 const fs=require('node:fs/promises');
 const path=require('node:path');
 const live=require('./ict-live-feed-702a.js');
-const oanda=require('./oanda-practice.js');
 const kraken=require('./kraken-perpetual.js');
 const traditional=require('../ict-public-markets-702c2.js');
 const structure=require('./ict_phase2d/ict-structure-engine-702d.js');
@@ -93,7 +92,6 @@ function recordSourceHistory(previous,current,now){
 function dataReason(error){
  const code=String(error?.message||error||'');
  if(code==='KRAKEN_PERPETUAL_NOT_VERIFIED'||code==='BYBIT_SYMBOL_MISMATCH'||/الاستجابة لا يطابق/.test(code))return 'instrument_mismatch';
- if(code==='OANDA_PRIVATE_RESEARCH_REQUIRED')return 'provider_access_denied';
  if(code==='STALE_CANDLES')return 'stale_candles';
  if(code==='LATEST_SEGMENT_TOO_SHORT')return 'candle_gap';
  if(code==='NOT_ENOUGH_CONFIRMED_CANDLES'||code==='NO_CANDLES')return 'not_enough_candles';
@@ -106,10 +104,8 @@ function dataReason(error){
 async function fetchBars(target,now,getKrakenInstruments){
  if(target.market==='kraken')return kraken.fetchHistory(target.symbol,target.tf,{now,instruments:await getKrakenInstruments()});
  if(target.market==='crypto')return live.fetchHistory({symbol:target.symbol,interval:target.tf,limit:200,now});
- const settings=oanda.config();
- if(!settings)throw Error('OANDA_PRIVATE_RESEARCH_REQUIRED');
  const ins=traditional.resolve(target.market,target.symbol);
- return oanda.fetchCandles(ins.providerSymbol,target.tf,settings,{now});}
+ return traditional.get(ins,traditional.FRAME_BY_MINUTES[target.tf],{now,limit:200});}
 function validBars(bars,tf,now){
  const normalized=structure.normalize(bars,tf,now);
  if(normalized.rejected||normalized.duplicates)throw Error('INVALID_OR_DUPLICATE_CANDLES');
@@ -262,62 +258,14 @@ async function directKraken(symbol,frame){
  directScans.set(key,scan);
  return scan.task;
 }
-let oandaStreams=0;
-async function oandaResearch(req,res,url){
- const settings=oanda.config(),symbol=url.searchParams.get('symbol'),frame=url.searchParams.get('frame');
- const end=(code,value)=>{res.writeHead(code);res.end(JSON.stringify(value))};
- if(!settings||!oanda.authorized(req.headers.authorization,settings.key))return end(401,{error:'OANDA_ACCESS_REQUIRED'});
- const validFrame=url.pathname==='/oanda-candles'?Object.hasOwn(oanda.FRAMES,frame):['5','15'].includes(frame);
- if(!oanda.SYMBOLS.includes(symbol)||!validFrame)return end(400,{error:'INVALID_RESEARCH_TARGET'});
- if(url.pathname==='/oanda-candles'){
-  try{
-   const bars=await oanda.fetchCandles(symbol,frame,settings);
-   return end(200,{schema:'ict-oanda-candles/1',symbol,frame,bars});
-  }catch{return end(503,{error:'OANDA_DATA_UNAVAILABLE'})}
- }
- if(url.pathname==='/oanda-research'){
-  try{
-   const now=Date.now();
-   const [entry,hourly]=await Promise.all([oanda.fetchCandles(symbol,frame,settings,{now}),oanda.fetchCandles(symbol,'60',settings,{now})]);
-   return end(200,{schema:'ict-oanda-practice/1',symbol,frame,entry,hourly,readyForExecution:false});
-  }catch{return end(503,{error:'OANDA_DATA_UNAVAILABLE'})}
- }
- if(oandaStreams>=4)return end(429,{error:'OANDA_STREAM_LIMIT'});
- const controller=new AbortController();
- res.on('close',()=>controller.abort());
- oandaStreams++;
- const decoder=new TextDecoder();
- let buffer='';
- try{
-  const body=await oanda.pricing(symbol,settings,AbortSignal.any([controller.signal,AbortSignal.timeout(65000)]));
-  res.setHeader('Content-Type','application/x-ndjson; charset=utf-8');
-  res.writeHead(200);
-  res.flushHeaders();
-  for await(const chunk of body){
-   buffer+=decoder.decode(chunk,{stream:true});
-   if(buffer.length>65536)break;
-   let newline;
-   while((newline=buffer.indexOf('\n'))>=0){
-    const line=buffer.slice(0,newline);
-    buffer=buffer.slice(newline+1);
-    if(!line.trim())continue;
-    const tick=oanda.quote(JSON.parse(line),symbol);
-    if(tick&&!res.write(JSON.stringify(tick)+'\n'))return;
-   }
-  }
- }catch{if(!res.headersSent&&!res.destroyed)end(503,{error:'OANDA_STREAM_UNAVAILABLE'})}
- finally{controller.abort();oandaStreams--;if(!res.writableEnded&&!res.destroyed)res.end()}
-}
 async function api(req,res){const url=new URL(req.url,'http://127.0.0.1');
- const practice=['/oanda-research','/oanda-quotes','/oanda-candles'].includes(url.pathname);
- if((practice||['/health','/snapshot'].includes(url.pathname))&&req.method==='OPTIONS'&&origin&&req.headers.origin===origin){
-  res.writeHead(204,{'Access-Control-Allow-Origin':origin,'Access-Control-Allow-Methods':'GET','Access-Control-Allow-Headers':'Authorization',Vary:'Origin'});
+ if(['/health','/snapshot'].includes(url.pathname)&&req.method==='OPTIONS'&&origin&&req.headers.origin===origin){
+  res.writeHead(204,{'Access-Control-Allow-Origin':origin,'Access-Control-Allow-Methods':'GET',Vary:'Origin'});
   res.end();return;
  }
- if(req.method!=='GET'||!['/health','/snapshot','/market-research','/oanda-research','/oanda-quotes','/oanda-candles'].includes(url.pathname)){res.writeHead(404);res.end('Not found');return}
+ if(req.method!=='GET'||!['/health','/snapshot','/market-research'].includes(url.pathname)){res.writeHead(404);res.end('Not found');return}
  if(origin&&req.headers.origin===origin){res.setHeader('Access-Control-Allow-Origin',origin);res.setHeader('Vary','Origin')}
  res.setHeader('Cache-Control','no-store');res.setHeader('Content-Type','application/json; charset=utf-8');res.setHeader('X-Content-Type-Options','nosniff');
- if(practice){await oandaResearch(req,res,url);return}
  if(url.pathname==='/market-research'){
   const symbol=url.searchParams.get('symbol'),frame=url.searchParams.get('frame');
   if(!kraken.SYMBOLS.includes(symbol)||!['5','15'].includes(frame)){
@@ -327,8 +275,7 @@ async function api(req,res){const url=new URL(req.url,'http://127.0.0.1');
   catch{res.writeHead(503);res.end(JSON.stringify({error:'KRAKEN_SOURCE_UNAVAILABLE'}))}
   return;
  }
- const settings=oanda.config();
- const view=snapshot({publicOnly:!settings||!oanda.authorized(req.headers.authorization,settings.key)});const route=url.pathname;
+ const view=snapshot();const route=url.pathname;
  const payload=route==='/health'?{schema:view.schema,active:view.active,lastCycleAt:view.lastCycleAt,serverTime:view.serverTime,uptimeSeconds:view.uptimeSeconds,cycleCount:view.cycleCount,pollIntervalMs:view.pollIntervalMs,readyForExecution:false,safety:view.safety,marketCount:Object.keys(view.targets).length,marketDataReady:view.marketDataReady,allMarketDataReady:view.allMarketDataReady,marketSummary:view.marketSummary,failingTargets:view.failingTargets,cycleError:view.cycleError,targets:view.targets}:view;
  res.writeHead(200);res.end(JSON.stringify(payload));}
 function start(options={}){const httpServer=http.createServer(api);if(!options.noHttp)httpServer.listen(port,host,()=>process.stdout.write('Research monitor listening on '+host+':'+port+'\n'));

@@ -1,29 +1,48 @@
 'use strict';
 const assert=require('node:assert/strict');
-const source=require('../ict-public-markets-702c2.js')
-const {candles}=require('./oanda-practice.js');;
+const source=require('../ict-public-markets-702c2.js');
 const bybit=require('./ict-live-feed-702a.js');
 const now=Date.parse('2026-11-24T12:42:00Z');
 const ms=900000,start=Math.floor(now/ms)*ms-35*ms;
-const rows=Array.from({length:36},(_,i)=>({time:new Date(start+i*ms).toISOString(),mid:{o:'1.08',h:'1.10',l:'1.07',c:'1.09'},complete:i!==35}));
+const bars=Array.from({length:36},(_,i)=>({openTime:new Date(start+i*ms).toISOString(),open:1.08,high:1.10,low:1.07,close:1.09,isOpen:i===35}));
 const ins=source.resolve('forex','EURUSD');
-const parsed=candles({instrument:ins.providerSymbol,granularity:'M15',candles:rows},ins.providerSymbol,'15',now);
-assert.equal(parsed.length,35);assert.equal(parsed[0].confirmed,true);
-assert.throws(()=>candles({instrument:'XAU_USD',granularity:'M15',candles:rows},ins.providerSymbol,'15',now),/IDENTITY/);
-assert.throws(()=>candles({instrument:'EUR_USD',granularity:'M15',candles:[rows[0],rows[0]]},ins.providerSymbol,'15',now),/INVALID_CANDLE/);
-const daily={instrument:'EUR_USD',granularity:'D',candles:[{...rows[0],time:'2026-03-07T22:00:00Z'}]};
-assert.equal(candles(daily,'EUR_USD','1440',Date.parse('2026-03-08T21:00:00Z')).length,1);
-assert.throws(()=>candles(daily,'EUR_USD','1440',Date.parse('2026-03-08T20:59:00Z')),/INVALID_CANDLE/);
-daily.candles[0].time='2026-10-31T21:00:00Z';
-assert.equal(candles(daily,'EUR_USD','1440',Date.parse('2026-11-01T22:00:00Z')).length,1);
+const payload={symbol:'EURUSD',interval:'15m',bars};
+const parsed=source.parse(payload,ins,'15min',now);
+assert.equal(parsed.length,36);
+assert.equal(parsed[0].confirmed,true);
+assert.equal(parsed.at(-1).confirmed,false);
+assert.throws(()=>source.parse({...payload,symbol:'XAUUSD'},ins,'15min',now),/لا يطابق/);
+assert.throws(()=>source.parse({...payload,interval:'5m'},ins,'15min',now),/لا يطابق/);
+assert.throws(()=>source.parse({...payload,bars:[bars[0],bars[0]]},ins,'15min',now),/مكررة/);
+const tick={symbol:'EURUSD',bid:1.08,ask:1.09,timestamp:new Date(now).toISOString(),marketState:'open',stale:false,quoteAgeSeconds:0};
+assert.deepEqual(source.parseQuote(tick,ins,now),{bid:1.08,ask:1.09,at:now});
+for(const change of [{stale:true},{quoteAgeSeconds:16},{marketState:'closed'},{bid:1.10},{symbol:'XAUUSD'}]){
+ assert.equal(source.parseQuote({...tick,...change},ins,now),null);
+}
+assert.equal(source.parseQuote(tick,ins,now+15001),null);
+assert.equal(source.parseQuote(tick,ins,now-1),null);
+assert.equal(source.resolve('metals','XAUUSD').quote,'USD');
+assert.equal(source.resolve('indices','NAS100').providerSymbol,'USTEC');
+assert.equal(source.resolve('energy','USOIL').providerSymbol,'USOIL');
+assert.equal(source.resolve('energy','UKOIL').providerSymbol,'UKOIL');
 const b=bybit.parseHistory({retCode:0,result:{symbol:'BTCUSDT',list:[
  [start+34*ms,'100','103','99','102','25','20'],[start+33*ms,'100','104','98','101','30','20']
 ]}},'BTCUSDT','15',now);
 assert.equal(b.length,2);assert.equal(b[0].confirmed,true);
-assert.equal(source.resolve('metals','XAUUSD').quote,'USD');
-console.log('Traditional and Bybit candle connector fixtures: PASS');
 
 (async()=>{
+ const mockFetch=async(url,opts)=>{
+  assert.equal(opts.headers.Authorization,undefined);
+  assert.equal(opts.cache,'no-store');
+  if(url==='https://biquote.io/api/EURUSD?allowStale=false')return {ok:true,json:async()=>tick};
+  assert.equal(url,'https://biquote.io/api/EURUSD/ohlc?interval=15m&limit=1000');
+  return {ok:true,json:async()=>payload};
+ };
+ assert.deepEqual(await source.get(ins,'15min',{fetch:mockFetch,now,limit:2000}),parsed);
+ assert.deepEqual(await source.getQuote(ins,{fetch:mockFetch,now}),source.parseQuote(tick,ins,now));
+ await assert.rejects(source.get(ins,'15min',{fetch:async()=>({ok:false,status:503})}),/503/);
+ console.log('Biquote candle identity, quote freshness, request routing and outage: PASS');
+
  const live=require('../ict-live-feed-702a.js');
  const stream=require('../ict-entry-stream.js');
  const sample=(symbol,extra={})=>({symbol,contractType:'LinearPerpetual',settleCoin:'USDT',quoteCoin:'USDT',status:'Trading',...extra});

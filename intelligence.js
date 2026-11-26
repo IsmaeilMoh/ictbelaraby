@@ -1,7 +1,7 @@
 'use strict';
 const $=id=>document.getElementById(id), esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const allowed=['XAUUSD','XAGUSD','EURUSD','GBPUSD','USDJPY','USDCHF','USDCAD','AUDUSD','NZDUSD','NAS100','SP500','DJ30','WTI','BTCUSD','ETHUSD'];
-const tv={XAUUSD:'OANDA:XAUUSD',XAGUSD:'OANDA:XAGUSD',EURUSD:'FX:EURUSD',GBPUSD:'FX:GBPUSD',USDJPY:'FX:USDJPY',USDCHF:'FX:USDCHF',USDCAD:'FX:USDCAD',AUDUSD:'FX:AUDUSD',NZDUSD:'FX:NZDUSD',NAS100:'FOREXCOM:NSXUSD',SP500:'FOREXCOM:SPXUSD',DJ30:'FOREXCOM:DJI',WTI:'TVC:USOIL',BTCUSD:'BITSTAMP:BTCUSD',ETHUSD:'BITSTAMP:ETHUSD'};
+const tv={XAUUSD:'FOREXCOM:XAUUSD',XAGUSD:'FOREXCOM:XAGUSD',EURUSD:'FX:EURUSD',GBPUSD:'FX:GBPUSD',USDJPY:'FX:USDJPY',USDCHF:'FX:USDCHF',USDCAD:'FX:USDCAD',AUDUSD:'FX:AUDUSD',NZDUSD:'FX:NZDUSD',NAS100:'FOREXCOM:NSXUSD',SP500:'FOREXCOM:SPXUSD',DJ30:'FOREXCOM:DJI',WTI:'TVC:USOIL',BTCUSD:'BITSTAMP:BTCUSD',ETHUSD:'BITSTAMP:ETHUSD'};
 const sets={
  gold:{title:'الذهب والدولار والعوائد',symbols:['XAUUSD','EURUSD','USDJPY'],extras:[{symbol:'DXY',tv:'TVC:DXY'},{symbol:'US02Y',tv:'TVC:US02Y'},{symbol:'US10Y',tv:'TVC:US10Y'}],note:'قارن الذهب بقوة الدولار وعائد السنتين والعشر سنوات؛ الارتباط قد يضعف أو ينعكس.',questions:['هل تحرك الذهب بسبب خبر محدد أم بسبب العوائد؟','هل يتفق اتجاه DXY والعوائد مع حركة الذهب؟','هل مستوى السيولة على الذهب متوافق مع السياق؟']},
  risk:{title:'المؤشرات والمخاطرة',symbols:['NAS100','SP500','BTCUSD','ETHUSD'],extras:[],note:'تابع شهية المخاطرة عبر مؤشرات الأسهم والعملات الرقمية مع مراعاة اختلاف ساعات التداول.',questions:['هل تتفق NAS100 وSP500 في الاتجاه؟','هل تحرك BTC مستقل أم يتبع المخاطرة العامة؟','هل الحركة حدثت خلال جلسة عالية السيولة؟']},

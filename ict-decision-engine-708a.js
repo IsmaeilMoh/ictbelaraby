@@ -2,9 +2,8 @@
 (function(root,factory){'use strict';const api=factory(typeof module==='object'&&module.exports?require('./ict-public-markets-702c2.js'):root.ICTPublicMarkets);if(typeof module==='object'&&module.exports)module.exports=api;if(root)root.ICTDecisionEngine708A=api})(typeof globalThis!=='undefined'?globalThis:null,function(traditional){
 'use strict';
 const MIN=60000;
-const knownMarkets=new Set(['crypto','kraken','oanda','forex','metals','indices','stocks','energy']);
-function oandaGroup(symbol){return Object.entries(traditional?.MARKETS||{}).find(([,rows])=>rows.some(row=>row[1]===symbol))?.[0]}
-function nearNews(events,market,symbol,now){const relevant=market==='oanda'?oandaGroup(symbol)==='forex'?symbol.split('_'):['USD']:market==='forex'?[symbol.slice(0,3),symbol.slice(3,6)]:market==='crypto'?['USD']:['USD'];return (events||[]).filter(e=>e&&Number.isFinite(e.when)&&relevant.includes(e.currency)&&Math.abs(e.when-now)<=30*MIN).sort((a,b)=>Math.abs(a.when-now)-Math.abs(b.when-now)).slice(0,8)}
+const knownMarkets=new Set(['crypto','kraken','forex','metals','indices','stocks','energy']);
+function nearNews(events,market,symbol,now){const relevant=market==='forex'?[symbol.slice(0,3),symbol.slice(3,6)]:market==='crypto'?['USD']:['USD'];return (events||[]).filter(e=>e&&Number.isFinite(e.when)&&relevant.includes(e.currency)&&Math.abs(e.when-now)<=30*MIN).sort((a,b)=>Math.abs(a.when-now)-Math.abs(b.when-now)).slice(0,8)}
 const contextFrame=frame=>({'60':'240','240':'D'}[String(frame)]||'60');
 function rangePlan(model,bars,pivots,ms){
  const bullish=model.direction==='bull';
@@ -34,10 +33,10 @@ function rangePlan(model,bars,pivots,ms){
 }
 function inspect(input){
  const {market,symbol,frame='15',candles15=[],candles60=[],higherCandles,events=[],eventFeedsLoaded=0,newsChecked=false,newsCovered=false,now=Date.now(),rollHour=0,structureEngine,signalEngine,contextEngine,scenarioEngine}=input;
- if(!knownMarkets.has(market)||!symbol||!['5','15',...(market==='crypto'?['60','240']:[])].includes(String(frame)))throw Error('السوق أو الإطار المختار غير مدعوم');
+ if(!knownMarkets.has(market)||!symbol||!['5','15',...(market==='kraken'?[]:['60','240'])].includes(String(frame)))throw Error('السوق أو الإطار المختار غير مدعوم');
  if(!structureEngine||!signalEngine||!contextEngine||!scenarioEngine)throw Error('محرك تحليلي أساسي مفقود');
  const warnings=[],blocks=[];
- const context=contextEngine.build([],candles60,{market:market==='kraken'?'crypto':market==='oanda'?(oandaGroup(symbol)||'forex'):market,rollHour,now,sources:market==='crypto'?'Bybit V5':market==='kraken'?'Kraken Futures':'OANDA Practice'});
+ const context=contextEngine.build([],candles60,{market:market==='kraken'?'crypto':market,rollHour,now,sources:market==='crypto'?'Bybit V5':market==='kraken'?'Kraken Futures':traditional.SOURCE});
  const higher=contextFrame(frame);
  const higherStructure=structureEngine.analyze(higher==='60'?candles60:(higherCandles||[]),higher,{now,pivot:2});
  const scenarios=scenarioEngine.build(context,higherStructure,{now,frame:higher});
@@ -69,7 +68,7 @@ function inspect(input){
   return [{id:m.id,symbol,market,direction:m.direction,side,formedAt:m.formedAt,research:m.research,status,entry,stop:m.stop,...plan,zone:m.zone,model:m.confirmation,blocks:localBlocks,waiting:['عودة السعر إلى منطقة FVG دون إبطال','التحقق من سعر Bid/Ask والسبريد عند التنفيذ','تأكيد عدم تغيّر الهيكل بعد آخر شمعة'],evidence:matched?.evidence||[],modelEvidence:[m.sweepAt,m.mssAt,m.fvgAt],contextScore:matched?.score||0,ageBars:m.ageBars,referenceClose:price}];
  }).sort((a,b)=>b.formedAt-a.formedAt);
  if(!opportunities.length)warnings.push('لا توجد خطة تحقق شروط النطاق والتصحيح والهدف عند سوينج مؤكد بعائد 2R على الأقل');
- return {symbol,market,frame,checkedAt:now,source:market==='crypto'?'Bybit V5 · عقد دائم · USDT':market==='kraken'?'Kraken Futures · USD perpetual':'OANDA Practice · شموع المنتصف',sourceBars:evaluation.analysis.sourceBars,lastCompleteAt:Number.isFinite(latest)?latest+ms:null,entryFreshUntil:Number.isFinite(latest)?latest+2*ms:null,context,scenarios,opportunities,warnings,blocks,nearbyNews:nearby,newsChecked,newsCovered,eventFeedsLoaded,priceAt:context.priceAt,price:context.price,disclaimer:'هذه فرص بحثية مشروطة مستخرجة من إغلاقات شموع، وليست أسعار Bid/Ask لحظية أو أوامر تنفيذ. لا تعتمد الربحية ولا الملاءمة المالية ولا تتضمن سبريدًا أو انزلاقًا أو حجم عقد. تتوقف المراقبة بإغلاق الصفحة.'};
+ return {symbol,market,frame,checkedAt:now,source:market==='crypto'?'Bybit V5 · عقد دائم · USDT':market==='kraken'?'Kraken Futures · USD perpetual':traditional.SOURCE,sourceBars:evaluation.analysis.sourceBars,lastCompleteAt:Number.isFinite(latest)?latest+ms:null,entryFreshUntil:Number.isFinite(latest)?latest+2*ms:null,context,scenarios,opportunities,warnings,blocks,nearbyNews:nearby,newsChecked,newsCovered,eventFeedsLoaded,priceAt:context.priceAt,price:context.price,disclaimer:'هذه فرص بحثية مشروطة مستخرجة من إغلاقات شموع، وليست أسعار Bid/Ask لحظية أو أوامر تنفيذ. لا تعتمد الربحية ولا الملاءمة المالية ولا تتضمن سبريدًا أو انزلاقًا أو حجم عقد. تتوقف المراقبة بإغلاق الصفحة.'};
 }
 return Object.freeze({inspect,nearNews,contextFrame,rangePlan});
 });
