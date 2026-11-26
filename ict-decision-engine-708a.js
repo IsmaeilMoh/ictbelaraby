@@ -28,19 +28,24 @@ function liquidityPlan(model,bars,structures,range){
  const risk=Math.abs(model.entry-model.stop),side=bullish?1:-1;
  const type=bullish?'swing-high':'swing-low';
  const touches=(bar,level)=>bullish?bar.high>=level:bar.low<=level;
- let best=null;
+ let best=null,interveningLiquidity=null;
  for(const {pivots,ms,frame} of structures){
   for(const pivot of pivots){
    // Verify the entire post-pivot price path using the contiguous entry candles.
    if(pivot.type!==type||pivot.start<bars[0].start||pivot.confirmedAt+ms>model.formedAt)continue;
    const rr=side*(pivot.level-model.entry)/risk;
-   if(!Number.isFinite(rr)||rr<2||(best&&rr>=best.rr))continue;
+   if(!Number.isFinite(rr)||rr<=0)continue;
    if(bars.some(bar=>bar.start>=pivot.start+ms&&bar.start<model.formedAt&&touches(bar,pivot.level)))continue;
-   best={target:pivot.level,rr,liquidity:{type,frame,at:pivot.start}};
+   const liquidity={type,frame,at:pivot.start};
+   if(rr<2){
+    if(!interveningLiquidity||rr<interveningLiquidity.rr)interveningLiquidity={level:pivot.level,rr,...liquidity};
+   }else if(!best||rr<best.rr){
+    best={target:pivot.level,rr,liquidity};
+   }
   }
  }
  if(!best)return null;
- return {...best,range,targetTouched:bars.some(bar=>bar.start>=model.formedAt&&touches(bar,best.target))};
+ return {...best,range,interveningLiquidity,targetTouched:bars.some(bar=>bar.start>=model.formedAt&&touches(bar,best.target))};
 }
 function inspect(input){
  const {market,symbol,frame='15',candles15=[],candles60=[],higherCandles,events=[],eventFeedsLoaded=0,newsChecked=false,newsCovered=false,now=Date.now(),rollHour=0,structureEngine,signalEngine,contextEngine,scenarioEngine}=input;
@@ -83,10 +88,13 @@ function inspect(input){
   const side=m.direction==='bull'?'BUY':'SELL';
   // Never conflate a last-hour close with a live bid/ask or an executable quote.
   const status=localBlocks.length?'مراقبة فقط':'نموذج بحثي — ينتظر إعادة اختبار السعر';
-  return [{id:m.id,symbol,market,direction:m.direction,side,formedAt:m.formedAt,research:m.research,status,entry,stop:m.stop,target:plan.target,rr:plan.rr,liquidity:plan.liquidity,midpoint:plan.range.midpoint,dealingRange:plan.range,zone:m.zone,model:m.confirmation,blocks:localBlocks,waiting:['عودة السعر إلى منطقة FVG دون إبطال','التحقق من سعر Bid/Ask والسبريد عند التنفيذ','تأكيد عدم تغيّر الهيكل بعد آخر شمعة'],evidence:matched?.evidence||[],modelEvidence:[m.sweepAt,m.mssAt,m.fvgAt],contextScore:matched?.score||0,ageBars:m.ageBars,referenceClose:price}];
+  return [{id:m.id,symbol,market,direction:m.direction,side,formedAt:m.formedAt,research:m.research,status,entry,stop:m.stop,target:plan.target,rr:plan.rr,liquidity:plan.liquidity,interveningLiquidity:plan.interveningLiquidity,midpoint:plan.range.midpoint,dealingRange:plan.range,zone:m.zone,model:m.confirmation,blocks:localBlocks,waiting:['عودة السعر إلى منطقة FVG دون إبطال','التحقق من سعر Bid/Ask والسبريد عند التنفيذ','تأكيد عدم تغيّر الهيكل بعد آخر شمعة'],evidence:matched?.evidence||[],modelEvidence:[m.sweepAt,m.mssAt,m.fvgAt],contextScore:matched?.score||0,ageBars:m.ageBars,referenceClose:price}];
  }).sort((a,b)=>b.formedAt-a.formedAt);
  if(!opportunities.length)warnings.push('لم يظهر نموذج حديث يجمع بين إزاحة مؤكدة وPremium/Discount وهدف سيولة يؤمّن 2R على الأقل');
  return {symbol,market,frame,checkedAt:now,source:market==='crypto'?'Bybit V5 · عقد دائم · USDT':market==='kraken'?'Kraken Futures · USD perpetual':traditional.SOURCE,sourceBars:evaluation.analysis.sourceBars,lastCompleteAt:Number.isFinite(latest)?latest+ms:null,entryFreshUntil:Number.isFinite(latest)?latest+2*ms:null,context,scenarios,opportunities,warnings,blocks,nearbyNews:nearby,newsChecked,newsCovered,eventFeedsLoaded,priceAt:context.priceAt,price:context.price,disclaimer:'هذه فرص بحثية مشروطة مستخرجة من إغلاقات شموع، وليست أسعار Bid/Ask لحظية أو أوامر تنفيذ. لا تعتمد الربحية ولا الملاءمة المالية ولا تتضمن سبريدًا أو انزلاقًا أو حجم عقد. تتوقف المراقبة بإغلاق الصفحة.'};
 }
-return Object.freeze({inspect,nearNews,contextFrame,liquidityPlan,displacementRange});
+function qualifiesFocused(plan){
+ return plan.research?.phase==='observed'&&!plan.blocks.length&&!plan.interveningLiquidity;
+}
+return Object.freeze({qualifiesFocused,inspect,nearNews,contextFrame,liquidityPlan,displacementRange});
 });

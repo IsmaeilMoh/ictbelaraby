@@ -234,6 +234,7 @@ function card(parent,o,origin){
   (o.side==='BUY'?'سيولة فوق قمة مؤكدة':'سيولة تحت قاع مؤكد')+' · '+(o.liquidity.frame==='D'?'يومي':o.liquidity.frame+' د')+
    ' · '+dual(o.liquidity.at)+' | منتصف النطاق '+money(o.midpoint)+' · '+(o.side==='BUY'?'Discount':'Premium'),c);
  if(o.dealingRange)node('p','نطاق حركة السحب والإزاحة '+money(o.dealingRange.low)+' — '+money(o.dealingRange.high)+' · إغلاق الإزاحة '+dual(o.dealingRange.displacementAt+structure.FRAME_MS[o.frame]),c);
+ if(o.interveningLiquidity)node('p','سيولة أقرب قبل الهدف: '+money(o.interveningLiquidity.level)+' · '+o.interveningLiquidity.rr.toFixed(2)+'R',c);
  const evidence=(o.modelEvidence||[]).map((at,i)=>Number.isFinite(at)?['سحب السيولة','MSS','FVG'][i]+' · '+dual(at):null).filter(Boolean);
  if(evidence.length)node('p',evidence.join(' | '),c);
  if(o.modelMatches?.length){
@@ -331,6 +332,7 @@ function inspectContract(market,contract,tf,{entryBars,hourly,higherCandles},new
   if(modelType.value==='breaker')for(const plan of res.opportunities)plan.blocks.push('إعادة اختبار Breaker معروضة كدليل بحثي. مستويات البطاقة تخص النموذج المركب.');
   if(modelType.value==='ote')for(const plan of res.opportunities)plan.blocks.push('مستوى OTE للبحث. الدخول المعروض للبطاقة هو الدخول المرجعي للنموذج المركب.');
  }
+ if($('dc-quality').value==='focused')res.opportunities=res.opportunities.filter(api.qualifiesFocused);
  if(batch)for(const plan of res.opportunities)plan.blocks.push('الفحص الجماعي بحثي؛ افحص الأصل منفردًا للتحقق من قراءة Bid/Ask ومتابعة السعر.');
  return res;
 }
@@ -434,7 +436,7 @@ function selectionChanged(){
  setState(symbol.value==='all'?(selectedMarket()==='crypto'?'الفحص الجماعي يشمل جميع العقود المتاحة، حتى عند استخدام البحث.':'الفحص الجماعي يشمل جميع أصول الفئة المختارة.'):'اختر الأصل واضغط فحص السوق.');
 }
 marketSelect.addEventListener('change',()=>initCatalog());
-for(const field of [frame,symbol,modelType,modelPhase,roll])field.addEventListener('change',selectionChanged);
+for(const field of [frame,symbol,modelType,modelPhase,roll,$('dc-quality')])field.addEventListener('change',selectionChanged);
 run.addEventListener('click',()=>symbol.value==='all'||frame.value==='all'?scanBatch():scan(false));
 cancelBatch.addEventListener('click',cancelGroupedScan);
 monitor.addEventListener('click',()=>{if(active){stop();return}active=true;monitor.textContent='إيقاف المراقبة';monitor.setAttribute('aria-pressed','true');scan(false);timer=setInterval(()=>scan(true),60000)});

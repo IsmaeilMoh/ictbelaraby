@@ -113,7 +113,18 @@ function testLiquidityPlan() {
   ];
   const plan = (entry, candles, levels) =>
     decision.liquidityPlan(entry, candles, [{ pivots: levels, ms: 1, frame: '5' }], {midpoint:125-(entry.direction==='bull'?20:-20)});
-  assert.equal(plan(model, bars, pivots).target, 122, 'nearest confirmed untouched liquidity above 2R');
+  const clear = plan(model, bars, pivots);
+  assert.equal(clear.target, 122, 'nearest confirmed untouched liquidity above 2R');
+  assert.equal(clear.interveningLiquidity, null);
+  const obstacle = {type: 'swing-high', start: 2, confirmedAt: 3, level: 121};
+  const crowded = plan({...model, stop: 89}, bars, [...pivots, obstacle]);
+  assert.equal(crowded.target, 122);
+  assert.equal(crowded.interveningLiquidity.level, 121);
+  const observed = {research: {phase: 'observed'}, blocks: []};
+  assert.equal(decision.qualifiesFocused({...clear, ...observed}), true);
+  assert.equal(decision.qualifiesFocused({...crowded, ...observed}), false);
+  assert.equal(decision.qualifiesFocused({...clear, ...observed, blocks: ['stale candles']}), false);
+  assert.equal(decision.qualifiesFocused({...clear, ...observed, research: {phase: 'confirmed_research'}}), false);
   assert.equal(plan({ ...model, entry: 105 }, bars, pivots), null, 'equilibrium does not qualify');
   assert.equal(plan(model, bars, pivots.slice(-2)), null, 'further confirmation and insufficient reward cannot supply a target');
   const later = plan(model, [...bars, {start: 4, low: 111, high: 122}], pivots);
