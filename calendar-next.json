@@ -1,5 +1,5 @@
 {
-  "updatedAt": "2026-11-26T16:23:42.211233Z",
+  "updatedAt": "2026-11-26T19:22:10.944989Z",
   "weekStart": "2026-11-30",
   "source": "Forex Factory",
   "sourceUrl": "https://www.forexfactory.com/calendar?week=nov30.2026",
@@ -983,6 +983,17 @@
       "actual": "—",
       "forecast": "—",
       "previous": "3.7%"
+    },
+    {
+      "id": "2026-12-04T15:30:00Z-EUR-German Buba President Nagel Speaks",
+      "date": "2026-12-04T15:30:00Z",
+      "ffEventId": "157099",
+      "country": "EUR",
+      "title": "German Buba President Nagel Speaks",
+      "impact": "Low",
+      "actual": "—",
+      "forecast": "—",
+      "previous": "—"
     }
   ]
 }
