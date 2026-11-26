@@ -8,7 +8,8 @@ const data=require('../historical-multi-market.json');
 
 const DAY=86400000;
 const displayed=process.env.IFVG_DISPLAYED==='1';
-const compare=process.env.IFVG_COMPARE_COMPOSITE==='1';
+const comparePhases=process.env.ICT_COMPARE_PHASES==='1';
+const compare=comparePhases||process.env.IFVG_COMPARE_COMPOSITE==='1';
 const holdout=compare||process.env.IFVG_HOLDOUT==='1';
 const extended=process.env.IFVG_EXTENDED==='1';
 const matched=holdout||extended||process.env.IFVG_MATCHED==='1';
@@ -24,6 +25,7 @@ const iso=time=>new Date(time).toISOString();
 const utc=time=>iso(time).slice(0,19).replace('T',' ');
 const rows=series=>series.map(([time,open,high,low,close])=>({start:Date.parse(time),open,high,low,close,confirmed:true}));
 const fields=['open','high','low','close'];
+let lastRequestAt=0;
 
 function browserSignals(){
  const fs=require('node:fs');
@@ -32,11 +34,26 @@ function browserSignals(){
  vm.runInNewContext(fs.readFileSync(require.resolve('../ict-signal-engine-702e.js'),'utf8'),browser);
  return browser.ICTSignalEngine;
 }
-const bucket=(kind,frame)=>compare?kind+' '+frame:frame;
+const bucket=(kind,frame,phase)=>comparePhases?kind+' '+phase+' '+frame:compare?kind+' '+frame:frame;
+
+function confirmationTime(engine,model,bars,formedIndex,ms){
+ for(let i=formedIndex+1;i<bars.length&&i<=formedIndex+engine.CONFIG.maxSignalAgeBars;i++){
+  if(bars[i].start!==bars[i-1].start+ms)return null;
+  const state=engine.researchState(bars.slice(formedIndex,i+1),0,model.direction,model.zone,model.stop,ms);
+  if(state.phase==='confirmed_research')return state.at;
+  if(state.phase==='invalidated'||state.phase==='expired')return null;
+ }
+ return null;
+}
+
 function ambiguousCases(assets){
  const kinds=compare?['IFVG','Composite']:['IFVG'];
  const composite=compare?browserSignals():null;
- const cases=[],settled=Object.fromEntries(kinds.flatMap(kind=>['15','60'].map(frame=>[bucket(kind,frame),[]]))),coverage={'15':{scans:0},'60':{scans:0}};
+ const phases=comparePhases?['observed','confirmed']:['observed'];
+ const keys=kinds.flatMap(kind=>phases.flatMap(phase=>['15','60'].map(frame=>bucket(kind,frame,phase))));
+ const cases=[],settled=Object.fromEntries(keys.map(key=>[key,[]]));
+ const enrolled=Object.fromEntries(keys.map(key=>[key,0]));
+ const coverage={'15':{scans:0},'60':{scans:0}};
  for(const [symbol,series] of Object.entries(assets)){
   if(matched&&!matchedSymbols.includes(symbol))continue;
   for(const [frame,key] of [['15','15m'],['60','1h']]){
@@ -60,19 +77,28 @@ function ambiguousCases(assets){
      const plan=rules.liquidityPlan(model,segment,pivots,model.range,{focused:!displayed});
      if(!plan||plan.interveningLiquidity)continue;
      const side=model.direction==='bull'?'BUY':'SELL';
-     const record=lifecycle.create({...model,market:'forex',symbol,frame,side,target:plan.target},now,{researchOnly:true});
-     const result=lifecycle.advance(record,bars,bars.at(-1).start+ms);
-     if(Number.isFinite(result.outcomeR))settled[bucket(kind,frame)].push(result.outcomeR);
-     if(result.state!=='ambiguous')continue;
-     const start=result.lastProcessedStart;
-     const parent=bars.find(bar=>bar.start===start);
-     const before=lifecycle.advance(record,bars,start);
-     cases.push({symbol,kind,frame,start,ms,parent,before,bars});
+     const starts=[['observed',now]];
+     if(comparePhases){
+      const at=confirmationTime(composite,model,bars,n-1,ms);
+      if(at!==null)starts.push(['confirmed',at]);
+     }
+     for(const [phase,at] of starts){
+      const key=bucket(kind,frame,phase);
+      enrolled[key]++;
+      const record=lifecycle.create({...model,market:'forex',symbol,frame,side,target:plan.target},at,{researchOnly:true});
+      const result=lifecycle.advance(record,bars,bars.at(-1).start+ms);
+      if(Number.isFinite(result.outcomeR))settled[key].push(result.outcomeR);
+      if(result.state!=='ambiguous')continue;
+      const start=result.lastProcessedStart;
+      const parent=bars.find(bar=>bar.start===start);
+      const before=lifecycle.advance(record,bars,start);
+      cases.push({symbol,kind,frame,key,start,ms,parent,before,bars});
+     }
     }
    }
   }
  }
- return {cases,settled,coverage};
+ return {cases,settled,enrolled,coverage};
 }
 
 function refine(item,fine,frame){
@@ -94,6 +120,9 @@ function refine(item,fine,frame){
 }
 
 async function getHistory(symbol,start,key,frame=fineFrame,duration=windowMs){
+ const remaining=8500-(Date.now()-lastRequestAt);
+ if(remaining>0)await new Promise(resolve=>setTimeout(resolve,remaining));
+ lastRequestAt=Date.now();
  const step=lifecycle.FRAME[frame];
  const interval=frame==='60'?'1h':frame+'min';
  const query=new URLSearchParams({
@@ -155,7 +184,7 @@ async function main(){
    assets[symbol]=marketHistory;
   }
  }
- const {cases,settled,coverage}=ambiguousCases(assets),requests=new Map(),summary={};
+ const {cases,settled,enrolled,coverage}=ambiguousCases(assets),requests=new Map(),summary={};
  console.log('Mode:',displayed?'nearest liquidity on entry frame':'focused','Fine frame:',fineFrame);
  console.log('Source:',data.source,holdout?'holdout fetched directly':'archive '+data.updatedAt,'ambiguous cases:',cases.length);
  if(independent){
@@ -169,8 +198,8 @@ async function main(){
  for(const item of cases){
   const prior=item.frame==='60'?refine(item,archived.get(item.symbol),'15'):null;
   if(prior&&['won','lost','invalidated'].includes(prior.state)){
-   if(Number.isFinite(prior.outcomeR))settled[bucket(item.kind,item.frame)].push(prior.outcomeR);
-   const id='archive '+(independent?bucket(item.kind,item.frame)+'m ':'')+prior.state;
+   if(Number.isFinite(prior.outcomeR))settled[item.key].push(prior.outcomeR);
+   const id='archive '+(independent?item.key+'m ':'')+prior.state;
    summary[id]=(summary[id]||0)+1;
    continue;
   }
@@ -182,7 +211,6 @@ async function main(){
  if(!key&&pending.length)console.log('Fine history unavailable: TWELVEDATA_API_KEY is not configured.');
  const batches=new Map();
  if(key)for(const [id,{symbol,day}] of requests){
-  if(batches.size)await new Promise(resolve=>setTimeout(resolve,8500));
   const result=await getHistory(symbol,day,key);
   batches.set(id,result);
   if(result.reason)console.log(symbol,iso(day).slice(0,10),result.reason);
@@ -192,14 +220,15 @@ async function main(){
  for(const item of pending){
   const batch=batches.get(item.symbol+':'+windowStart(item.start));
   const result=batch?.bars?refine(item,batch.bars,fineFrame):{state:batch?.reason||'unavailable'};
-  const id=bucket(item.kind,item.frame)+'m '+result.state;
+  const id=item.key+'m '+result.state;
   summary[id]=(summary[id]||0)+1;
-  if(Number.isFinite(result.outcomeR)){netR+=result.outcomeR;settled[bucket(item.kind,item.frame)].push(result.outcomeR);}
+  if(Number.isFinite(result.outcomeR)){netR+=result.outcomeR;settled[item.key].push(result.outcomeR);}
  }
  console.log('IFVG refinement:',JSON.stringify(summary));
  if([...batches.values()].some(batch=>batch.bars))console.log('Net R from newly resolved '+fineFrame+'m cases:',netR.toFixed(2));
+ if(comparePhases)console.log('Phase cohort sizes:',JSON.stringify(enrolled));
  if(independent)for(const [frame,outcomes] of Object.entries(settled))logSettled('Settled '+frame+'m:',outcomes);
- logSettled(compare?'Settled combined:':'Settled IFVG:',Object.values(settled).flat());
+ if(!comparePhases)logSettled(compare?'Settled combined:':'Settled IFVG:',Object.values(settled).flat());
 }
 
 function logSettled(label,settled){
@@ -208,4 +237,4 @@ function logSettled(label,settled){
   netR:Number(total.toFixed(2)),largestWinR:Number(largest.toFixed(2)),withoutLargestR:Number((total-largest).toFixed(2))}));
 }
 if(require.main===module)main().catch(error=>{console.error('IFVG refinement failed:',error.message);process.exitCode=1});
-module.exports={refine};
+module.exports={refine,confirmationTime};
