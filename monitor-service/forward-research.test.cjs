@@ -125,3 +125,17 @@ assert.throws(()=>book.parseBook(orderbook,'BTCUSDT',now-1),/STALE/);
  minuteIndex.delete(start+60000);
  assert.equal(refine(item,minuteIndex,'1').state,'missing');
 }
+
+{
+ const {session,summarize}=require('./ict-session-replay.cjs');
+ assert.equal(session(Date.parse('2026-07-10T11:00:00Z')),'NY AM 07–11');
+ assert.equal(session(Date.parse('2026-11-10T12:00:00Z')),'NY AM 07–11');
+ assert.equal(session(Date.parse('2026-11-10T11:59:00Z')),'Other');
+ const summary=summarize([
+  {state:'won',activationAt:1,outcomeR:2.5},
+  {state:'lost',activationAt:2,outcomeR:-1},
+  {state:'ambiguous',activationAt:3,outcomeR:null}
+ ]);
+ assert.deepEqual(summary,{models:3,touched:3,targets:1,stops:1,ambiguous:1,
+  targetRate:50,netR:1.3,withoutLargestR:-1.1});
+}
