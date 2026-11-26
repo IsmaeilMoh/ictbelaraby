@@ -33,7 +33,10 @@ function normalize(rows,ms,now=Date.now()){
 function aggregate(rows){return {high:Math.max(...rows.map(x=>x.high)),low:Math.min(...rows.map(x=>x.low)),open:rows[0].open,close:rows.at(-1).close,count:rows.length,from:rows[0].start,to:rows.at(-1).start}}
 function build(unusedDaily,hourly,opts={}){
  const now=Number.isFinite(opts.now)?opts.now:Date.now(),market=opts.market||'forex',crypto=market==='crypto',rollHour=opts.rollHour===17?17:0;
- const h=normalize(hourly,HOUR,now),bars=h.rows; if(!bars.length)throw Error('لا توجد شموع ساعة مكتملة؛ لا يمكن حساب حدود نيويورك');
+ const h=normalize(hourly,HOUR,now),bars=h.rows; if(!bars.length){
+  if(opts.allowUnavailable)return null;
+  throw Error('لا توجد شموع ساعة مكتملة؛ لا يمكن حساب حدود نيويورك');
+ }
  const currentDay=nyDay(now,rollHour),lastWeekKey=shiftDay(nyWeek(currentDay),-7),byDay=new Map();
  for(const b of bars){const k=nyDay(b.start,rollHour);if(!byDay.has(k))byDay.set(k,[]);byDay.get(k).push(b)}
  const dayEntries=[...byDay.entries()].sort((a,b)=>a[0].localeCompare(b[0]));
@@ -50,7 +53,10 @@ function build(unusedDaily,hourly,opts={}){
   return true;
  }
  const priorCandidates=dayEntries.filter(([k,list])=>dayValid(k,list));const prev=priorCandidates.at(-1);
- if(!prev)throw Error('لا توجد جلسة يوم نيويورك مكتملة بالشموع الساعية. يلزم تاريخ إضافي أو مصدر مختلف.');
+ if(!prev){
+  if(opts.allowUnavailable)return null;
+  throw Error('لا توجد جلسة يوم نيويورك مكتملة بالشموع الساعية. يلزم تاريخ إضافي أو مصدر مختلف.');
+ }
  const previousDay={...aggregate(prev[1]),start:sessionStart(prev[0],rollHour),key:prev[0],midpoint:(Math.max(...prev[1].map(x=>x.high))+Math.min(...prev[1].map(x=>x.low)))/2};
  const req=crypto?[0,1,2,3,4,5,6]:[0,1,2,3,4];const weekDays=req.map(i=>shiftDay(lastWeekKey,i));
  let priorWeek=null,weekWarning='';

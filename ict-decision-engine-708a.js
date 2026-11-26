@@ -29,9 +29,9 @@ function displacementRange(model,bars,index,events,maxFvgLag=1,minFvgLag=0){
  if(mss==null||fvg==null||fvg-mss<minFvgLag||fvg-mss>maxFvgLag)return null;
  return displacementLeg(model,bars,index,events);
 }
-function liquidityPlan(model,bars,structures,range){
+function liquidityPlan(model,bars,structures,range,{focused=true}={}){
  const bullish=model.direction==='bull';
- if(!range||(bullish?model.entry>=range.midpoint:model.entry<=range.midpoint))return null;
+ if(focused&&(!range||(bullish?model.entry>=range.midpoint:model.entry<=range.midpoint)))return null;
 
  const risk=Math.abs(model.entry-model.stop),side=bullish?1:-1;
  const type=bullish?'swing-high':'swing-low';
@@ -45,7 +45,7 @@ function liquidityPlan(model,bars,structures,range){
    if(!Number.isFinite(rr)||rr<=0)continue;
    if(bars.some(bar=>bar.start>=pivot.start+ms&&bar.start<model.formedAt&&touches(bar,pivot.level)))continue;
    const liquidity={type,frame,at:pivot.start};
-   if(rr<2){
+   if(focused&&rr<2){
     if(!interveningLiquidity||rr<interveningLiquidity.rr)interveningLiquidity={level:pivot.level,rr,...liquidity};
    }else if(!best||rr<best.rr){
     best={target:pivot.level,rr,liquidity};
@@ -147,25 +147,74 @@ function continuationCandidates(bars,index,analysis,ms,market,symbol,frame){
  }
  return candidates;
 }
+// OTE, AMD and Breaker have their own entry zones. None requires an FVG.
+function structureModels(bars,index,analysis,ms,market,symbol,frame,signalEngine,advanced){
+ if(!advanced)return [];
+ const candidates=[];
+ const shifts=analysis.events.filter(event=>event.type==='MSS');
+ const sweeps=analysis.events.filter(event=>event.type==='SWEEP');
+ for(const shift of shifts){
+  const mi=index.get(shift.at);
+  const sweep=sweeps.findLast(event=>event.direction===shift.direction&&event.at<shift.at&&
+   index.has(event.at)&&mi-index.get(event.at)<=signalEngine.CONFIG.maxSweepToMSS);
+  if(mi==null||!sweep)continue;
+  const si=index.get(sweep.at),bullish=shift.direction==='bull';
+  const leg=bars.slice(si,mi+1);
+  const origin=bullish?bars[si].low:bars[si].high;
+  const extreme=bullish?Math.max(...leg.map(b=>b.high)):Math.min(...leg.map(b=>b.low));
+  if(bullish?extreme<=origin:extreme>=origin)continue;
+  if(leg.slice(1).some(b=>bullish?b.low<=origin:b.high>=origin))continue;
+  const low=Math.min(origin,extreme),high=Math.max(origin,extreme);
+  const range={low,high,midpoint:(low+high)/2,displacementAt:shift.at};
+  const evidence={direction:shift.direction,sweepAt:sweep.at,mssAt:shift.at};
+  const add=(modelType,zone,entry,stop,formation,confirmation,research)=>{
+   if(bars.length-1-formation>12||(bullish?stop>=entry:stop<=entry))return;
+   const formedAt=bars[formation].start+ms;
+   const state=research||signalEngine.researchState(bars,formation,shift.direction,zone,stop,ms);
+   candidates.push({...evidence,modelType,entry,stop,zone,formedAt,range,confirmation,
+    id:[market,symbol,frame,modelType,sweep.at,shift.at].join('|'),
+    ageBars:bars.length-1-formation,status:state.phase==='observed'?'watching':state.phase,research:state});
+  };
+  const retrace=ratio=>extreme+(origin-extreme)*ratio;
+  add('ote',{low:Math.min(retrace(.62),retrace(.79)),high:Math.max(retrace(.62),retrace(.79))},
+   retrace(.705),origin,mi,'منطقة تصحيح 62–79% من حركة السحب إلى MSS · مرجع 70.5%');
+  const accumulation=advanced.amdRange({...evidence,fvgAt:shift.at},bars,si,frame);
+  if(accumulation){
+   const edge=bullish?accumulation.accumulationLow:accumulation.accumulationHigh;
+   if(bullish?bars[mi].close>edge:bars[mi].close<edge)
+    add('amd',{low:edge,high:edge},edge,origin,mi,'تراكم نيويورك 00–05 ثم سحب نطاقه وإغلاق MSS عائد إلى النطاق');
+  }
+  const breaker=advanced.breakerEvidence(evidence,bars,index,analysis.pivots,{trackInvalidation:true});
+  if(breaker){
+   const formation=index.get(breaker.retestAt),entry=bullish?breaker.high:breaker.low;
+   const stop=bullish?breaker.low:breaker.high;
+   const research=breaker.invalidatedAt==null?{phase:'confirmed_research',at:breaker.retestAt+ms}:
+    {phase:'invalidated',at:breaker.invalidatedAt+ms};
+   add('breaker',{low:breaker.low,high:breaker.high},entry,stop,formation,
+    'إغلاق يتجاوز كتلة عند سوينج مؤكد، ثم إعادة اختبار وإغلاق يؤكد تبدّل دورها',research);
+  }
+ }
+ return candidates;
+}
 function inspect(input){
- const {market,symbol,frame='15',candles15=[],candles60=[],higherCandles,events=[],eventFeedsLoaded=0,newsChecked=false,newsCovered=false,now=Date.now(),rollHour=0,includeTurtleSoup=false,includeIfvg=false,allowDelayedFvgForResearch=false,allowEarlyFvgForResearch=false,includeContinuationForResearch=false,structureEngine,signalEngine,contextEngine,scenarioEngine}=input;
+ const {market,symbol,frame='15',candles15=[],candles60=[],higherCandles,events=[],eventFeedsLoaded=0,newsChecked=false,newsCovered=false,now=Date.now(),rollHour=0,displayCompleteModels=false,includeTurtleSoup=false,includeIfvg=false,allowDelayedFvgForResearch=false,allowEarlyFvgForResearch=false,includeContinuationForResearch=false,structureEngine,signalEngine,contextEngine,scenarioEngine,advancedEngine}=input;
  if(!knownMarkets.has(market)||!symbol||!['5','15',...(market==='kraken'?[]:['60','240'])].includes(String(frame)))throw Error('السوق أو الإطار المختار غير مدعوم');
  if(!structureEngine||!signalEngine||!contextEngine||!scenarioEngine)throw Error('محرك تحليلي أساسي مفقود');
  const warnings=[],blocks=[];
- const context=contextEngine.build([],candles60,{market:market==='kraken'?'crypto':market,rollHour,now,sources:market==='crypto'?'Bybit V5':market==='kraken'?'Kraken Futures':traditional.SOURCE});
+ const context=contextEngine.build([],candles60,{market:market==='kraken'?'crypto':market,rollHour,now,allowUnavailable:displayCompleteModels,sources:market==='crypto'?'Bybit V5':market==='kraken'?'Kraken Futures':traditional.SOURCE});
  const higher=contextFrame(frame);
- const higherStructure=structureEngine.analyze(higher==='60'?candles60:(higherCandles||[]),higher,{now,pivot:2});
- const scenarios=scenarioEngine.build(context,higherStructure,{now,frame:higher});
- const evaluation=signalEngine.evaluate(candles15,String(frame),{now,market,symbol});
+ const higherStructure=structureEngine.analyze(higher==='60'?candles60:(higherCandles||[]),higher,{now,pivot:2,allowInsufficient:displayCompleteModels});
+ const scenarios=context?scenarioEngine.build(context,higherStructure,{now,frame:higher}):{qualified:false,scenarios:[]};
+ const evaluation=signalEngine.evaluate(candles15,String(frame),{now,market,symbol,displayCompleteModels});
  const latest=evaluation.analysis.last,ms=structureEngine.FRAME_MS[String(frame)],age=latest==null?Infinity:now-(latest+ms);
  if(!Number.isFinite(age)||age<0||latest+ms!==Math.floor(now/ms)*ms)blocks.push('شموع إطار الدخول قديمة أو مفقودة');
  if(!scenarios.qualified)blocks.push('سياق الإطار الأعلى أو شموع الساعة غير مكتملة أو غير حديثة');
- if(context.priorWeek==null)warnings.push('الأسبوع المرجعي السابق غير مكتمل؛ لا توجد مستويات PWH/PWL موثوقة');
+ if(context?.priorWeek==null)warnings.push('الأسبوع المرجعي السابق غير مكتمل؛ لا توجد مستويات PWH/PWL موثوقة');
  if(!newsChecked||!newsCovered)blocks.push('الأجندة المجدولة قديمة أو ناقصة في نافذة الفحص؛ يُمنع اعتماد الخطة');
  const nearby=nearNews(events,market,symbol,now);
  if(nearby.length)blocks.push('خبر اقتصادي قريب ضمن 30 دقيقة قبل الإعلان أو بعده');
  const models=evaluation.models||[];
- const recent=models.filter(m=>m&&m.ageBars<=12&&m.research&&(m.direction==='bull'||m.direction==='bear')&&[m.entry,m.stop,m.target,m.zone?.low,m.zone?.high].every(v=>Number.isFinite(v)&&v>0)&&(m.direction==='bull'?m.stop<m.entry&&m.entry<m.target:m.target<m.entry&&m.entry<m.stop));
+ const recent=models.filter(m=>m&&m.ageBars<=12&&m.research&&(m.direction==='bull'||m.direction==='bear')&&[m.entry,m.stop,...(displayCompleteModels?[]:[m.target]),m.zone?.low,m.zone?.high].every(v=>Number.isFinite(v)&&v>0)&&(m.direction==='bull'?m.stop<m.entry&&(displayCompleteModels||m.entry<m.target):m.entry<m.stop&&(displayCompleteModels||m.target<m.entry)));
  const bars=structureEngine.normalize(candles15,String(frame),now).segments.at(-1)||[];
  const index=new Map(bars.map((bar,i)=>[bar.start,i]));
  const targetStructures=[
@@ -176,26 +225,35 @@ function inspect(input){
  const inversions=includeIfvg&&evaluation.analysis.eligible?inversionFvg(bars,index,evaluation.analysis,ms,market,symbol,frame):[];
  const continuations=includeContinuationForResearch&&evaluation.analysis.eligible
   ?continuationCandidates(bars,index,evaluation.analysis,ms,market,symbol,frame):[];
- const opportunities=[...recent,...reversals,...inversions,...continuations].flatMap(m=>{
+ const independent=displayCompleteModels&&evaluation.analysis.eligible
+  ?structureModels(bars,index,evaluation.analysis,ms,market,symbol,frame,signalEngine,advancedEngine):[];
+ const opportunities=[...recent,...reversals,...inversions,...continuations,...independent].flatMap(m=>{
   const range=m.range||displacementRange(m,bars,index,evaluation.analysis.events,allowDelayedFvgForResearch?2:1,allowEarlyFvgForResearch?-1:0);
-  const plan=liquidityPlan(m,bars,targetStructures,range);
-  if(!plan)return [];
+  const focusedPlan=liquidityPlan(m,bars,targetStructures,range);
+  if(!displayCompleteModels&&!focusedPlan)return [];
+  const plan=displayCompleteModels?liquidityPlan(m,bars,targetStructures,range,{focused:false}):focusedPlan;
 
   const matched=scenarios.scenarios.find(s=>s.direction===m.direction),alignment=Boolean(matched&&matched.score>=2&&matched.evidence.some(v=>/MSS|BOS/.test(v)));
   const localBlocks=[...blocks];
-  if(plan.targetTouched)localBlocks.push('السعر وصل إلى سيولة الهدف بعد تكوّن النموذج');
+  if(displayCompleteModels&&(!focusedPlan||focusedPlan.interveningLiquidity||plan?.target!==focusedPlan.target))localBlocks.push('أهلية تنبيه الدخول معلّقة وفق شروط المراقبة اللحظية');
+  if(displayCompleteModels&&['turtle-soup','ifvg'].includes(m.modelType)){
+   const zone=m.zone||{low:m.entry,high:m.entry};
+   m.research=signalEngine.researchState(bars,index.get(m.formedAt-ms),m.direction,zone,m.stop,ms);
+  }
+  if(displayCompleteModels&&m.modelType)localBlocks.push('هذا النوع معروض للبحث');
+  if(plan?.targetTouched)localBlocks.push('السعر وصل إلى سيولة الهدف بعد تكوّن النموذج');
   if(!alignment)localBlocks.push('سيناريو الإطار الأعلى غير مؤكد في اتجاه النموذج');
   if(m.status==='retested')localBlocks.push('عادت الأسعار إلى المنطقة بالفعل؛ لا نفترض تفعيلًا أو سعر تنفيذ');
   if(['invalidated','expired'].includes(m.research.phase))localBlocks.push('النموذج انتهى أو لامس مستوى الإبطال');
   if(m.status!=='watching')localBlocks.push('النموذج ليس في وضع انتظار دخول جديد');
-  const price=context.price;const entry=m.entry;
+  const price=context?.price;const entry=m.entry;
   const side=m.direction==='bull'?'BUY':'SELL';
   // Never conflate a last-hour close with a live bid/ask or an executable quote.
   const status=localBlocks.length?'مراقبة فقط':'نموذج بحثي — ينتظر إعادة اختبار السعر';
-  return [{id:m.id,symbol,market,direction:m.direction,modelType:m.modelType,side,formedAt:m.formedAt,research:m.research,status,entry,stop:m.stop,target:plan.target,rr:plan.rr,liquidity:plan.liquidity,interveningLiquidity:plan.interveningLiquidity,midpoint:plan.range.midpoint,dealingRange:plan.range,zone:m.zone,model:m.confirmation,blocks:localBlocks,waiting:[m.modelType==='turtle-soup'?'إعادة اختبار المستوى المسترد دون إبطال':m.modelType==='ifvg'?'إعادة اختبار الفجوة المقلوبة دون إبطال':'عودة السعر إلى منطقة FVG دون إبطال','التحقق من سعر Bid/Ask والسبريد عند التنفيذ','تأكيد عدم تغيّر الهيكل بعد آخر شمعة'],evidence:matched?.evidence||[],modelEvidence:[m.sweepAt,m.mssAt,m.fvgAt],contextScore:matched?.score||0,ageBars:m.ageBars,referenceClose:price}];
+  return [{id:m.id,symbol,market,direction:m.direction,modelType:m.modelType,side,formedAt:m.formedAt,research:m.research,status,entry,stop:m.stop,target:plan?.target??null,rr:plan?.rr??null,liquidity:plan?.liquidity??null,interveningLiquidity:plan?.interveningLiquidity??null,midpoint:range?.midpoint,dealingRange:range,zone:m.zone,model:m.confirmation,blocks:localBlocks,waiting:[m.modelType==='turtle-soup'?'إعادة اختبار المستوى المسترد دون إبطال':m.modelType==='ifvg'?'إعادة اختبار الفجوة المقلوبة دون إبطال':m.modelType==='ote'?'إعادة اختبار منطقة OTE':m.modelType==='amd'?'مراقبة حد نطاق التراكم':m.modelType==='breaker'?'مراجعة استمرار تبدّل دور الكتلة':'عودة السعر إلى منطقة FVG دون إبطال','التحقق من سعر Bid/Ask والسبريد عند التنفيذ','تأكيد عدم تغيّر الهيكل بعد آخر شمعة'],evidence:matched?.evidence||[],modelEvidence:[m.sweepAt,m.mssAt,m.fvgAt],contextScore:matched?.score||0,ageBars:m.ageBars,referenceClose:price}];
  }).sort((a,b)=>b.formedAt-a.formedAt);
- if(!opportunities.length)warnings.push('لم يظهر نموذج حديث مع Premium/Discount وهدف سيولة يؤمّن 2R على الأقل');
- return {symbol,market,frame,checkedAt:now,source:market==='crypto'?'Bybit V5 · عقد دائم · USDT':market==='kraken'?'Kraken Futures · USD perpetual':traditional.SOURCE,sourceBars:evaluation.analysis.sourceBars,lastCompleteAt:Number.isFinite(latest)?latest+ms:null,entryFreshUntil:Number.isFinite(latest)?latest+2*ms:null,context,scenarios,opportunities,warnings,blocks,nearbyNews:nearby,newsChecked,newsCovered,eventFeedsLoaded,priceAt:context.priceAt,price:context.price,disclaimer:'هذه فرص بحثية مشروطة مستخرجة من إغلاقات شموع، وليست أسعار Bid/Ask لحظية أو أوامر تنفيذ. لا تعتمد الربحية ولا الملاءمة المالية ولا تتضمن سبريدًا أو انزلاقًا أو حجم عقد. تتوقف المراقبة بإغلاق الصفحة.'};
+ if(!opportunities.length)warnings.push(displayCompleteModels?'لم يظهر نموذج مكتمل في عينة الشموع المتصلة':'لم يظهر نموذج حديث مع Premium/Discount وهدف سيولة يؤمّن 2R على الأقل');
+ return {symbol,market,frame,checkedAt:now,source:market==='crypto'?'Bybit V5 · عقد دائم · USDT':market==='kraken'?'Kraken Futures · USD perpetual':traditional.SOURCE,sourceBars:evaluation.analysis.sourceBars,lastCompleteAt:Number.isFinite(latest)?latest+ms:null,entryFreshUntil:Number.isFinite(latest)?latest+2*ms:null,context,scenarios,opportunities,warnings,blocks,nearbyNews:nearby,newsChecked,newsCovered,eventFeedsLoaded,priceAt:context?.priceAt,price:context?.price,disclaimer:'هذه فرص بحثية مشروطة مستخرجة من إغلاقات شموع، وليست أسعار Bid/Ask لحظية أو أوامر تنفيذ. لا تعتمد الربحية ولا الملاءمة المالية ولا تتضمن سبريدًا أو انزلاقًا أو حجم عقد. تتوقف المراقبة بإغلاق الصفحة.'};
 }
 function qualifiesFocused(plan){
  return plan.research?.phase==='observed'&&!plan.blocks.length&&!plan.interveningLiquidity;

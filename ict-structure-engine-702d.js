@@ -21,7 +21,7 @@ function normalize(candles,frame,now=Date.now()){
 function analyze(candles,frame,opts={}){
  const pivot=Number(opts.pivot??2),now=Number.isFinite(opts.now)?opts.now:Date.now();if(!Number.isInteger(pivot)||pivot<2||pivot>5)throw Error('نافذة القمم غير صالحة');
  const input=normalize(candles,frame,now),minBars=Math.max(18,pivot*4+7);
- if(input.rows.length<minBars)throw Error('بيانات غير كافية: نحتاج '+minBars+' شمعة مكتملة على الأقل');
+ if(input.rows.length<minBars&&!opts.allowInsufficient)throw Error('بيانات غير كافية: نحتاج '+minBars+' شمعة مكتملة على الأقل');
  const latest=input.segments.at(-1)||[],events=[],zones=[],pivots=[];
  // A break must be decided against a previously confirmed pivot (never future candles).
  for(const segment of input.segments){if(segment.length<minBars)continue;const localHighs=[],localLows=[];let previousBreak=null;let lastBrokenHigh=-1,lastBrokenLow=-1;

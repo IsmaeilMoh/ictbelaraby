@@ -36,7 +36,7 @@ function amdRange(candidate,bars,si,frame){
 }
 // Month 04 Breaker Block: https://www.youtube.com/watch?v=UrS-mtGHtAA
 // This implementation uses the swing candle's full range and a closed retest.
-function breakerEvidence(candidate,bars,index,pivots){
+function breakerEvidence(candidate,bars,index,pivots,{trackInvalidation=false}={}){
  const bullish=candidate.direction==='bull',sweep=index.get(candidate.sweepAt),mss=index.get(candidate.mssAt);
  if(sweep==null||mss==null||sweep>=mss)return null;
  const pivot=pivots.findLast(p=>p.type===(bullish?'swing-high':'swing-low')&&
@@ -50,7 +50,9 @@ function breakerEvidence(candidate,bars,index,pivots){
  const breachIndex=index.get(breach.start);
  let retestAt=null;
  for(const bar of bars.slice(breachIndex+1)){
-  if(bullish?bar.low<=block.low:bar.high>=block.high)return null;
+  if(bullish?bar.low<=block.low:bar.high>=block.high){
+   return trackInvalidation&&retestAt!==null?{blockAt:block.start,breakAt:breach.start,retestAt,low:block.low,high:block.high,invalidatedAt:bar.start}:null;
+  }
   if(retestAt===null&&bar.low<=block.high&&bar.high>=block.low&&crossed(bar))retestAt=bar.start;
  }
  return retestAt===null?null:{blockAt:block.start,breakAt:breach.start,retestAt,low:block.low,high:block.high};

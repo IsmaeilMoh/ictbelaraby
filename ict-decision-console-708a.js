@@ -80,7 +80,7 @@ function showEntryStream(res,news){
  streamPanel.hidden=false;
  $('dc-live-entry-title').textContent='مراقبة شرط الدخول لحظيًا';
  const keyFor=plan=>[res.market,res.symbol,res.frame,plan.id].join(':');
- const plans=res.opportunities.filter(plan=>!plan.blocks.length&&!reported.has(keyFor(plan)));
+ const plans=res.opportunities.filter(plan=>api.qualifiesFocused(plan)&&!reported.has(keyFor(plan)));
  if(!(res.entryFreshUntil>res.checkedAt)){
   closeStream('الشمعة المطلوبة غير حديثة؛ أعد الفحص قبل بدء تنبيه الدخول.');
   return;
@@ -196,28 +196,26 @@ function showArchive(){clear(archive);const arr=saved().slice(0,8);if(!arr.lengt
 function block(title,parent=output){const c=document.createElement('section');c.className='dc-card';node('h3',title,c);parent.append(c);return c}
 const phases={observed:'مرصودة',awaiting_confirmation:'بانتظار التأكيد',confirmed_research:'مؤكدة بحثيًا',invalidated:'ملغاة',expired:'منتهية الصلاحية'};
 const types={SPOT_RESEARCH:'Spot · سوق فوري',SPOT_RESEARCH_PROXY:'Spot · سوق فوري',PERPETUAL:'عقد دائم',PROVIDER_NATIVE:'أداة المزود'};
-function matchingModels(plan,bars,index,tf,pivots){
- if(plan.modelType==='ifvg')return [{type:'ifvg',label:'IFVG',evidence:'إغلاق انقلاب الفجوة وتأكيد MSS · '+dual(plan.formedAt)}];
- if(plan.modelType==='turtle-soup')return [{type:'turtle-soup',label:'Turtle Soup',evidence:'استرداد المستوى '+money(plan.entry)+' ثم إغلاق MSS'}];
- const matches=[{type:'composite',label:'Sweep → MSS → FVG'}];
- const [sweepAt,mssAt,fvgAt]=plan.modelEvidence;
- const si=index.get(sweepAt),mi=index.get(mssAt);
- const rules=window.ICTModelValidation4C3,advanced=window.ICTAdvancedValidation4C4;
- if(si==null||mi==null||!index.has(fvgAt)||!rules||!advanced)return matches;
- const candidate={direction:plan.direction,sweepAt,mssAt,fvgAt,gapLow:plan.zone.low,gapHigh:plan.zone.high};
- if(rules.silverBulletMatch(candidate)){
-  const hour=rules.nyParts(sweepAt).h;
-  matches.push({type:'silver-bullet',label:'Silver Bullet',evidence:'نافذة نيويورك '+hour+':00–'+(hour+1)+':00'});
+const modelLabels={composite:'Sweep → MSS → FVG',ifvg:'IFVG','turtle-soup':'Turtle Soup',
+ ote:'OTE',amd:'Power of Three (AMD)',breaker:'Breaker Block'};
+function matchingModels(plan,bars,index,tf){
+ if(plan.modelType)return [{type:plan.modelType,label:modelLabels[plan.modelType],evidence:plan.model}];
+ const matches=[{type:'composite',label:modelLabels.composite, evidence:plan.model}];
+ const [,mssAt,fvgAt]=plan.modelEvidence;
+ const rules=window.ICTModelValidation4C3;
+ const gap=index.get(fvgAt),displacement=bars[gap-1];
+ if(!rules||!displacement||!['5','15'].includes(tf)||fvgAt<mssAt)return matches;
+ const bullish=plan.direction==='bull';
+ if(!(bullish?displacement.close>displacement.open:displacement.close<displacement.open))return matches;
+ const hour=rules.nyParts(fvgAt).h;
+ const lastMinute=fvgAt+structure.FRAME_MS[tf]-1;
+ if(rules.RULES.silverBulletWindows.some(([start])=>start===hour)&&
+    rules.nyParts(mssAt).h===hour&&rules.nyParts(lastMinute).h===hour){
+  matches.push({type:'silver-bullet',label:'Silver Bullet',evidence:'MSS وFVG في نافذة نيويورك '+hour+':00–'+(hour+1)+':00'});
  }
- const displacement=rules.displacementEvidence(candidate,bars,index);
- if(displacement.pass)matches.push({type:'2022',label:'2022 Model',evidence:'شمعة الإزاحة · '+dual(displacement.at)});
- const ote=advanced.oteEntry(candidate,bars,si,mi);
- if(ote!==null)matches.push({type:'ote',label:'OTE',evidence:'تصحيح 70.5% داخل FVG · '+money(ote)});
- const range=advanced.amdRange(candidate,bars,si,tf);
- if(range)matches.push({type:'amd',label:'Power of Three (AMD)',evidence:'نطاق تراكم نيويورك 00–05 · '+money(range.accumulationLow)+' — '+money(range.accumulationHigh)});
- const breaker=advanced.breakerEvidence(candidate,bars,index,pivots);
- if(breaker)matches.push({type:'breaker',label:'Breaker Block',evidence:'الكتلة '+money(breaker.low)+' — '+money(breaker.high)+
-  ' · شمعة الكتلة '+dual(breaker.blockAt)+' · الكسر '+dual(breaker.breakAt)+' · إعادة الاختبار '+dual(breaker.retestAt)});
+ if(((hour>=3&&hour<5)||(hour>=8&&hour<11))&&rules.nyParts(mssAt).h===hour){
+  matches.push({type:'2022',label:'2022 Model · نسخة FVG',evidence:'سحب وMSS وفجوة بإزاحة اتجاهية خلال نافذة لندن أو نيويورك'});
+ }
  return matches;
 }
 function card(parent,o,origin){
@@ -234,18 +232,18 @@ function card(parent,o,origin){
  }
  node('p','الرصد: '+dual(o.detectedAt)+(o.lastCompleteAt?' | آخر إغلاق: '+dual(o.lastCompleteAt):''),c);
  if(o.research)node('p','وقت الحالة: '+dual(o.research.at)+' | تكوّن: '+dual(o.formedAt),c);
- if(o.research?.phase==='confirmed_research')node('p','عاد السعر إلى FVG بعد تكوّن النموذج، وأكّد إغلاق لاحق الاتجاه البحثي. التنفيذ يتطلب تحققًا مستقلًا.',c);
+ if(o.research?.phase==='confirmed_research')node('p','تحقق شرط التأكيد في شموع مغلقة. التنفيذ يتطلب تحققًا مستقلًا.',c);
  const levels=node('div','',c,'dc-levels');
- for(const [name,value] of [[o.modelType==='turtle-soup'?'المستوى المسترد':o.modelType==='ifvg'?'منطقة IFVG':'منطقة FVG',o.modelType==='turtle-soup'?money(o.entry):o.zone?money(o.zone.low)+' — '+money(o.zone.high):'غير متاحة'],['دخول مرجعي',money(o.entry)],['إبطال/وقف افتراضي',money(o.stop)],[o.liquidity?'هدف السيولة · '+o.rr.toFixed(2)+'R':'هدف افتراضي',money(o.target)]]){
+ for(const [name,value] of [[o.modelType==='turtle-soup'?'المستوى المسترد':o.modelType==='ifvg'?'منطقة IFVG':o.modelType==='ote'?'منطقة OTE':o.modelType==='breaker'?'منطقة Breaker':o.modelType==='amd'?'حد التراكم':'منطقة FVG',o.modelType==='turtle-soup'?money(o.entry):o.zone?money(o.zone.low)+' — '+money(o.zone.high):'غير متاحة'],['دخول مرجعي',money(o.entry)],['إبطال/وقف افتراضي',money(o.stop)],[o.liquidity?'هدف السيولة · '+o.rr.toFixed(2)+'R':'هدف مرجعي',money(o.target)]]){
   const el=node('div','',levels);node('small',name,el);node('strong',value,el);
  }
 
  if(o.liquidity)node('p',
   (o.side==='BUY'?'سيولة فوق قمة مؤكدة':'سيولة تحت قاع مؤكد')+' · '+(o.liquidity.frame==='D'?'يومي':o.liquidity.frame+' د')+
-   ' · '+dual(o.liquidity.at)+' | منتصف النطاق '+money(o.midpoint)+' · '+(o.side==='BUY'?'Discount':'Premium'),c);
+   ' · '+dual(o.liquidity.at)+' | منتصف النطاق '+money(o.midpoint),c);
  if(o.dealingRange)node('p',(o.modelType==='turtle-soup'?'نطاق السحب إلى MSS ':o.modelType==='ifvg'?'نطاق انقلاب الفجوة ':'نطاق حركة السحب والإزاحة ')+money(o.dealingRange.low)+' — '+money(o.dealingRange.high)+' · إغلاق MSS '+dual(o.dealingRange.displacementAt+structure.FRAME_MS[o.frame]),c);
  if(o.interveningLiquidity)node('p','سيولة أقرب قبل الهدف: '+money(o.interveningLiquidity.level)+' · '+o.interveningLiquidity.rr.toFixed(2)+'R',c);
- const evidence=(o.modelEvidence||[]).map((at,i)=>Number.isFinite(at)?['سحب السيولة','MSS','FVG'][i]+' · '+dual(at):null).filter(Boolean);
+ const evidence=(o.modelEvidence||[]).map((at,i)=>Number.isFinite(at)?['سحب السيولة','MSS',o.modelType==='ifvg'?'الفجوة الأصلية':'FVG'][i]+' · '+dual(at):null).filter(Boolean);
  if(evidence.length)node('p',evidence.join(' | '),c);
  if(o.modelMatches?.length){
   node('h4','النماذج المطابقة',c);
@@ -290,9 +288,9 @@ function show(res){
   quoteExpiry=setTimeout(()=>{quote.textContent='انتهت حداثة قراءة Bid/Ask؛ أعد الفحص للحصول على تسعير جديد.'},Math.max(0,res.book.at+15000-Date.now()));
  }
 node('p','آخر إغلاق ساعة مرجعي: '+(res.price==null?'غير متاح':money(res.price))+' | '+(res.priceAt?dual(res.priceAt+3600000):'بيانات الساعة متأخرة'),info);
- const ctx=block('السياق بنيويورك');const day=res.context.previousDay;node('p','PDH: '+money(day.high)+' | PDL: '+money(day.low),ctx);node('p',res.context.priorWeek?'PWH: '+money(res.context.priorWeek.high)+' | PWL: '+money(res.context.priorWeek.low):'الأسبوع السابق غير مكتمل',ctx);node('p','نظام اليوم: '+res.context.sourceDay,ctx);
+ const ctx=block('السياق بنيويورك');const day=res.context?.previousDay||{};node('p','PDH: '+money(day.high)+' | PDL: '+money(day.low),ctx);node('p',res.context?.priorWeek?'PWH: '+money(res.context.priorWeek.high)+' | PWL: '+money(res.context.priorWeek.low):'الأسبوع السابق غير مكتمل',ctx);node('p','نظام اليوم: '+(res.context?.sourceDay||'غير متاح'),ctx);
  const safety=block('بوابات جودة البيانات والأخبار');const checks=[...res.blocks,...res.warnings];node('p',checks.length?'ملاحظات توقف اعتماد الخطة أو تحد من الوثوق:':'الفحوص العامة متاحة؛ كل نموذج يخضع أيضًا لشروطه الخاصة.',safety);if(checks.length){const ul=document.createElement('ul');safety.append(ul);checks.forEach(x=>node('li',x,ul))}if(res.nearbyNews.length){const ul=document.createElement('ul');safety.append(ul);res.nearbyNews.forEach(x=>node('li',x.title+' · '+dual(x.when),ul))}
- for(const o of res.opportunities.slice(0,8))card(output,{
+ for(const o of res.opportunities)card(output,{
   ...o,frame:res.frame,source:res.source,marketType:res.market==='crypto'?'PERPETUAL':'PROVIDER_NATIVE',
   detectedAt:res.checkedAt,lastCompleteAt:res.lastCompleteAt
  },'فحص يدوي');
@@ -319,31 +317,24 @@ async function getCandles(market,contract,tf,signal,requests=new Map()){
  };
  const hourlyRequest=cached('60',1000);
  const [hourly,entryBars,higherCandles]=await Promise.all([
-  hourlyRequest,tf==='60'?hourlyRequest:cached(tf,250),
-  higher==='60'?hourlyRequest:cached(higher,120)
+  hourlyRequest.catch(()=>[]),tf==='60'?hourlyRequest:cached(tf,250),
+  (higher==='60'?hourlyRequest:cached(higher,120)).catch(()=>[])
  ]);
  return {hourly,entryBars,higherCandles};
 }
 function inspectContract(market,contract,tf,{entryBars,hourly,higherCandles},news,batch=false){
  const now=Date.now();
  const res=api.inspect({market,symbol:contract,frame:tf,candles15:entryBars,candles60:hourly,higherCandles,
-  rollHour:Number(roll.value),includeTurtleSoup:modelType.value==='turtle-soup',includeIfvg:modelType.value==='ifvg',newsChecked:news.feedsLoaded>0,
+  rollHour:Number(roll.value),displayCompleteModels:true,includeTurtleSoup:true,includeIfvg:true,newsChecked:news.feedsLoaded>0,
   newsCovered:econ.scheduleCovers(news.parts||[],now),eventFeedsLoaded:news.feedsLoaded,events:news.events,now,
-  structureEngine:structure,signalEngine:signal,contextEngine:context,scenarioEngine:scenario});
+  structureEngine:structure,signalEngine:signal,contextEngine:context,scenarioEngine:scenario,advancedEngine:window.ICTAdvancedValidation4C4});
  if(news.failures?.length)res.warnings.push('تعذر تحميل بعض الأجندات: '+news.failures.join('؛ '));
- res.opportunities=res.opportunities.filter(api.qualifiesFocused);
  if(modelPhase.value)res.opportunities=res.opportunities.filter(plan=>plan.research?.phase===modelPhase.value);
  if(res.opportunities.length){
   const bars=structure.normalize(entryBars,tf,now).segments.at(-1)||[];
   const index=new Map(bars.map((bar,i)=>[bar.start,i]));
-  const pivots=structure.analyze(entryBars,tf,{now}).pivots;
-  for(const plan of res.opportunities)plan.modelMatches=matchingModels(plan,bars,index,tf,pivots);
+  for(const plan of res.opportunities)plan.modelMatches=matchingModels(plan,bars,index,tf);
   if(modelType.value)res.opportunities=res.opportunities.filter(plan=>plan.modelMatches.some(match=>match.type===modelType.value));
-  if(modelType.value==='turtle-soup')for(const plan of res.opportunities)plan.blocks.push('Turtle Soup قيد التحقق التاريخي؛ للعرض البحثي فقط.');
-  if(modelType.value==='ifvg')for(const plan of res.opportunities)plan.blocks.push('IFVG قيد التحقق التاريخي؛ للعرض البحثي فقط.');
-  // OTE is an additional research level; the existing entry stream tracks the composite midpoint.
-  if(modelType.value==='breaker')for(const plan of res.opportunities)plan.blocks.push('إعادة اختبار Breaker معروضة كدليل بحثي. مستويات البطاقة تخص النموذج المركب.');
-  if(modelType.value==='ote')for(const plan of res.opportunities)plan.blocks.push('مستوى OTE للبحث. الدخول المعروض للبطاقة هو الدخول المرجعي للنموذج المركب.');
  }
  if(batch)for(const plan of res.opportunities)plan.blocks.push('الفحص الجماعي بحثي؛ افحص الأصل منفردًا للتحقق من قراءة Bid/Ask ومتابعة السعر.');
  return res;
@@ -432,7 +423,7 @@ async function scan(auto=false){if(busy||(symbol.value==='all'||frame.value==='a
    root.dispatchEvent(new CustomEvent('ict:decision-cleared'));
    setState('أصبحت شموع الدخول قديمة؛ النتائج أدناه تخص وقت الفحص. أعد الفحص للتحديث.',true);
   },res.entryFreshUntil-now);
-  root.dispatchEvent(new CustomEvent('ict:decision-scanned',{detail:{result:res,bars:entryBars}}));setState(!res.opportunities.length?'اكتمل الفحص دون فرص دخول تستوفي الشروط.':'اكتمل التحليل البحثي. '+res.opportunities.length+' نموذج؛ '+(res.blocks.length?'راجع أسباب تعليق الفرص.':'راجع شروط الفرص.'),res.blocks.length>0);
+  root.dispatchEvent(new CustomEvent('ict:decision-scanned',{detail:{result:res,bars:entryBars}}));setState(!res.opportunities.length?'اكتمل الفحص دون نماذج مطابقة.':'اكتمل التحليل البحثي. '+res.opportunities.length+' نموذج؛ '+(res.blocks.length?'راجع أسباب تعليق الفرص.':'راجع شروط الفرص.'),res.blocks.length>0);
  }catch(e){if(id!==generation)return;clearScan();setState('تعذر تكوين خطة موثوقة: '+(e?.message||e)+'. لم تُنشأ توصية.',true)}finally{busy=false;run.disabled=!symbol.value}
 }
 function stop(){closeStream('توقفت مراقبة الأسعار.');active=false;if(timer)clearInterval(timer);timer=null;monitor.textContent='تشغيل المراقبة أثناء فتح الصفحة';monitor.setAttribute('aria-pressed','false')}

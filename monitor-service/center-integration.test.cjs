@@ -68,4 +68,6 @@ button.disabled=false;unload();assert.equal(tick,null,'stop timer on navigation'
 console.log('Center integration, PWA and auto-refresh contract: PASS');
 
 assert.doesNotMatch(html,/id="dc-quality"/,'entry qualification needs no new control');
-assert.match(decision,/res\.opportunities=res\.opportunities\.filter\(api\.qualifiesFocused\)/,'shared single and batch scan applies entry qualification');
+assert.doesNotMatch(decision,/res\.opportunities=res\.opportunities\.filter\(api\.qualifiesFocused\)/);
+assert.match(decision,/displayCompleteModels:true,includeTurtleSoup:true,includeIfvg:true/);
+assert.match(decision,/const plans=res\.opportunities\.filter\(plan=>api\.qualifiesFocused\(plan\)/);
