@@ -36,7 +36,7 @@ const cancelBatch=$('dc-cancel-batch');
 let batchController=null;
 const bybitSearch=$('dc-bybit-search'),bybitStatus=$('dc-bybit-status');
 let crypto=[...live.SYMBOLS],catalogLoaded=false,catalogLoading=false;
-const STORAGE='ict-8a-observation-archive-v1';let active=false,busy=false,timer=null,expiry=null,quoteExpiry=null,generation=0;
+const STORAGE='ict-8a-observation-archive-v1';let active=false,busy=false,timer=null,expiry=null,quoteExpiry=null,cardQuoteExpiry=null,generation=0;
 const streamEngine=window.ICTEntryStream,streamPanel=$('dc-live-entry'),streamPrice=$('dc-live-entry-price'),
  streamStatus=$('dc-live-entry-status'),streamEvents=$('dc-live-entry-events');
 let stream=null;
@@ -62,6 +62,7 @@ function showReferenceQuotes(res){
   const quote=await traditional.getQuote(instrument,{signal:controller.signal}).catch(()=>null);
   if(controller.signal.aborted)return;
   clearTimeout(expires);
+  res.updateCardQuotes(quote);
   streamStatus.textContent=quote?label:unavailable;
   streamPrice.textContent=quote?res.symbol+' · Bid '+money(quote.bid)+' | Ask '+money(quote.ask)+' · '+new Date(quote.at).toISOString():'';
   if(quote)expires=setTimeout(()=>{
@@ -96,16 +97,19 @@ function showEntryStream(res,news){
   const callbacks={
    failed(reason){
     watch.pause();
+    res.updateCardQuotes(null);
     closeStream(reason==='closed'?'الأداة غير قابلة للتداول حاليًا؛ توقفت التنبيهات.':reason==='wide'?'السبريد واسع؛ توقفت التنبيهات حتى فحص جديد.':
      'انقطع التدفق أو فقد حداثته؛ توقفت التنبيهات حتى فحص جديد.');
    },
    quote(quote,now){
     if(document.hidden||now>=res.entryFreshUntil){
+     res.updateCardQuotes(null);
      closeStream('توقفت مراقبة الدخول؛ يلزم فحص جديد.');
      return;
     }
     if(now-lastPaint>=250){
      lastPaint=now;
+     res.updateCardQuotes(quote);
      streamPrice.textContent=res.symbol+' · Bid '+money(quote.bid)+' | Ask '+money(quote.ask)+' · '+new Date(quote.at).toISOString();
     }
     const message='تدفق '+feedLabel+' متصل. '+ready+' القراءة مرجعية ولا تؤكد تنفيذ أمر.';
@@ -140,7 +144,7 @@ function money(n){return Number.isFinite(n)?n.toLocaleString('en-US',{maximumFra
 function node(tag,value,parent,cls){const e=document.createElement(tag);if(cls)e.className=cls;e.textContent=value;parent.append(e);return e}
 function clear(el){el.replaceChildren()}
 function clearScan(){
- clearTimeout(expiry);clearTimeout(quoteExpiry);
+ clearTimeout(expiry);clearTimeout(quoteExpiry);clearTimeout(cardQuoteExpiry);
  closeStream('أُوقفت مراقبة الأسعار إلى أن يكتمل الفحص.');
  clear(output);
  node('p','ستظهر هنا نتائج الفحص اليدوي.',output);
@@ -305,7 +309,30 @@ async function saveCardImage(o,source,levelRows,status,evidence){
  document.body.append(link);link.click();link.remove();
  setTimeout(()=>URL.revokeObjectURL(url),60000);
 }
-function card(parent,o,origin){
+const quoteFreshMs=15000;
+function updateCardQuoteRows(rows,market,quote){
+ clearTimeout(cardQuoteExpiry);
+ const now=Date.now();
+ const fresh=quote&&Number.isSafeInteger(quote.at)&&quote.at<=now&&now-quote.at<quoteFreshMs&&
+  Number.isFinite(quote.bid)&&Number.isFinite(quote.ask)&&quote.bid>0&&quote.ask>quote.bid;
+ for(const {element,plan,risk} of rows){
+  if(!fresh){
+   element.textContent='المسافة الحالية إلى الدخول: لا يتوفر سعر حديث.';
+   continue;
+  }
+  const buy=plan.side==='BUY';
+  const price=buy?quote.ask:quote.bid;
+  const distance=Math.abs(price-plan.entry)/risk;
+  const relative=price===plan.entry?'عند الدخول':price>plan.entry?'فوق الدخول':'تحت الدخول';
+  element.textContent=[
+   'المسافة الحالية إلى الدخول · '+distance.toFixed(2)+'R '+relative,
+   (buy?'Ask ':'Bid ')+money(price),market==='crypto'?'Bybit':'Biquote',
+   new Date(quote.at).toISOString().slice(0,19).replace('T',' ')+' UTC'
+  ].join(' · ');
+ }
+ if(fresh&&rows.length)cardQuoteExpiry=setTimeout(()=>updateCardQuoteRows(rows,market,null),quote.at+quoteFreshMs-now);
+}
+function card(parent,o,origin,quoteRows){
  const status=phases[o.research?.phase]||'رصد بحثي';
  const c=block([o.symbol,o.frame+' د',o.side,status].join(' · '),parent);
  c.classList.add('dc-wide');
@@ -322,6 +349,10 @@ function card(parent,o,origin){
  node('p','الرصد: '+dual(o.detectedAt)+(o.lastCompleteAt?' | آخر إغلاق: '+dual(o.lastCompleteAt):''),c);
  if(o.research)node('p','وقت الحالة: '+dual(o.research.at)+' | تكوّن: '+dual(o.formedAt),c);
  if(o.research?.phase==='confirmed_research')node('p','تحقق شرط التأكيد في شموع مغلقة. التنفيذ يتطلب تحققًا مستقلًا.',c);
+ const risk=Math.abs(o.entry-o.stop);
+ if(quoteRows&&Number.isFinite(o.entry)&&o.entry>0&&Number.isFinite(risk)&&risk>0&&['BUY','SELL'].includes(o.side)){
+  quoteRows.push({element:node('p','',c,'dc-muted'),plan:o,risk});
+ }
  const confirmationDistance=confirmationDistanceLabel(o);
  if(confirmationDistance)node('p',confirmationDistance,c,'dc-muted');
  const levels=node('div','',c,'dc-levels');
@@ -396,10 +427,13 @@ node('p','آخر إغلاق ساعة مرجعي: '+(res.price==null?'غير مت
  if(!res.context?.priorWeek&&res.providerWeek)node('p','مرجع الأسبوع السابق من الشموع اليومية لـ '+(res.market==='crypto'?'Bybit':'Biquote')+' بتواريخ UTC · '+res.providerWeek.key,ctx);
  node('p','نظام اليوم: '+(res.context?.sourceDay||'غير متاح'),ctx);
  const safety=block('بوابات جودة البيانات والأخبار');const checks=[...res.blocks,...res.warnings];node('p',checks.length?'ملاحظات توقف اعتماد الخطة أو تحد من الوثوق:':'الفحوص العامة متاحة؛ كل نموذج يخضع أيضًا لشروطه الخاصة.',safety);if(checks.length){const ul=document.createElement('ul');safety.append(ul);checks.forEach(x=>node('li',x,ul))}if(res.nearbyNews.length){const ul=document.createElement('ul');safety.append(ul);res.nearbyNews.forEach(x=>node('li',x.title+' · '+dual(x.when),ul))}
+ const quoteRows=[];
  for(const o of res.opportunities)card(output,{
   ...o,frame:res.frame,source:res.source,marketType:res.market==='crypto'?'PERPETUAL':'PROVIDER_NATIVE',
   detectedAt:res.checkedAt,lastCompleteAt:res.lastCompleteAt
- },'فحص يدوي');
+ },'فحص يدوي',quoteRows);
+ res.updateCardQuotes=quote=>updateCardQuoteRows(quoteRows,res.market,quote);
+ res.updateCardQuotes(res.book);
  const note=block('حدود هذا الإصدار');note.classList.add('dc-wide');node('p',res.disclaimer,note);node('p','لا يتم تداول آلي ولا حفظ توصية كصفقة منفذة. المراقبة اليدوية المتكررة تعمل أثناء فتح الصفحة. سعر المرجع آخر إغلاق شمعة، وليس Bid/Ask مباشرًا.',note);
 }
 async function loadNews(signal){
