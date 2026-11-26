@@ -8,7 +8,8 @@ const data=require('../historical-multi-market.json');
 
 const DAY=86400000;
 const displayed=process.env.IFVG_DISPLAYED==='1';
-const comparePhases=process.env.ICT_COMPARE_PHASES==='1';
+const paired=process.env.ICT_PAIRED_PHASES==='1';
+const comparePhases=paired||process.env.ICT_COMPARE_PHASES==='1';
 const compare=comparePhases||process.env.IFVG_COMPARE_COMPOSITE==='1';
 const holdout=compare||process.env.IFVG_HOLDOUT==='1';
 const extended=process.env.IFVG_EXTENDED==='1';
@@ -53,6 +54,7 @@ function ambiguousCases(assets){
  const keys=kinds.flatMap(kind=>phases.flatMap(phase=>['15','60'].map(frame=>bucket(kind,frame,phase))));
  const cases=[],settled=Object.fromEntries(keys.map(key=>[key,[]]));
  const enrolled=Object.fromEntries(keys.map(key=>[key,0]));
+ const pairs=[];
  const coverage={'15':{scans:0},'60':{scans:0}};
  for(const [symbol,series] of Object.entries(assets)){
   if(matched&&!matchedSymbols.includes(symbol))continue;
@@ -81,24 +83,28 @@ function ambiguousCases(assets){
      if(comparePhases){
       const at=confirmationTime(composite,model,bars,n-1,ms);
       if(at!==null)starts.push(['confirmed',at]);
+      else if(paired)continue;
      }
+     const pair=paired?{kind,frame,results:{}}:null;
+     if(pair)pairs.push(pair);
      for(const [phase,at] of starts){
       const key=bucket(kind,frame,phase);
       enrolled[key]++;
       const record=lifecycle.create({...model,market:'forex',symbol,frame,side,target:plan.target},at,{researchOnly:true});
       const result=lifecycle.advance(record,bars,bars.at(-1).start+ms);
+      if(pair)pair.results[phase]=result;
       if(Number.isFinite(result.outcomeR))settled[key].push(result.outcomeR);
       if(result.state!=='ambiguous')continue;
       const start=result.lastProcessedStart;
       const parent=bars.find(bar=>bar.start===start);
       const before=lifecycle.advance(record,bars,start);
-      cases.push({symbol,kind,frame,key,start,ms,parent,before,bars});
+      cases.push({symbol,frame,key,start,ms,parent,before,bars,pair,phase});
      }
     }
    }
   }
  }
- return {cases,settled,enrolled,coverage};
+ return {cases,settled,enrolled,coverage,pairs};
 }
 
 function refine(item,fine,frame){
@@ -184,7 +190,7 @@ async function main(){
    assets[symbol]=marketHistory;
   }
  }
- const {cases,settled,enrolled,coverage}=ambiguousCases(assets),requests=new Map(),summary={};
+ const {cases,settled,enrolled,coverage,pairs}=ambiguousCases(assets),requests=new Map(),summary={};
  console.log('Mode:',displayed?'nearest liquidity on entry frame':'focused','Fine frame:',fineFrame);
  console.log('Source:',data.source,holdout?'holdout fetched directly':'archive '+data.updatedAt,'ambiguous cases:',cases.length);
  if(independent){
@@ -198,6 +204,7 @@ async function main(){
  for(const item of cases){
   const prior=item.frame==='60'?refine(item,archived.get(item.symbol),'15'):null;
   if(prior&&['won','lost','invalidated'].includes(prior.state)){
+   if(item.pair)item.pair.results[item.phase]=prior;
    if(Number.isFinite(prior.outcomeR))settled[item.key].push(prior.outcomeR);
    const id='archive '+(independent?item.key+'m ':'')+prior.state;
    summary[id]=(summary[id]||0)+1;
@@ -220,6 +227,7 @@ async function main(){
  for(const item of pending){
   const batch=batches.get(item.symbol+':'+windowStart(item.start));
   const result=batch?.bars?refine(item,batch.bars,fineFrame):{state:batch?.reason||'unavailable'};
+  if(item.pair&&result.events)item.pair.results[item.phase]=result;
   const id=item.key+'m '+result.state;
   summary[id]=(summary[id]||0)+1;
   if(Number.isFinite(result.outcomeR)){netR+=result.outcomeR;settled[item.key].push(result.outcomeR);}
@@ -227,10 +235,34 @@ async function main(){
  console.log('IFVG refinement:',JSON.stringify(summary));
  if([...batches.values()].some(batch=>batch.bars))console.log('Net R from newly resolved '+fineFrame+'m cases:',netR.toFixed(2));
  if(comparePhases)console.log('Phase cohort sizes:',JSON.stringify(enrolled));
+ if(paired)logPairs(pairs);
  if(independent)for(const [frame,outcomes] of Object.entries(settled))logSettled('Settled '+frame+'m:',outcomes);
  if(!comparePhases)logSettled(compare?'Settled combined:':'Settled IFVG:',Object.values(settled).flat());
 }
 
+function logPairs(pairs){
+ const groups=new Map();
+ for(const {kind,frame,results:{observed,confirmed}} of pairs){
+  const key=kind+' '+frame+'m';
+  if(!groups.has(key))groups.set(key,{pairs:0,observedEntries:0,confirmedEntries:0,
+   confirmedExpiredWithoutEntry:0,confirmedOutcomesUnknown:0,changedToNoEntry:0,bothSettled:0,totalDeltaR:0});
+  const group=groups.get(key);
+  group.pairs++;
+  if(observed.activationAt!==null)group.observedEntries++;
+  if(confirmed.activationAt!==null)group.confirmedEntries++;
+  if(confirmed.activationAt===null&&confirmed.state==='expired')group.confirmedExpiredWithoutEntry++;
+  if(['ambiguous','gap','active','waiting'].includes(confirmed.state))group.confirmedOutcomesUnknown++;
+  if(observed.activationAt!==null&&confirmed.activationAt===null&&['expired','invalidated'].includes(confirmed.state))group.changedToNoEntry++;
+  if(Number.isFinite(observed.outcomeR)&&Number.isFinite(confirmed.outcomeR)){
+   group.bothSettled++;
+   group.totalDeltaR+=confirmed.outcomeR-observed.outcomeR;
+  }
+ }
+ for(const [key,group] of groups){
+  group.totalDeltaR=Number(group.totalDeltaR.toFixed(2));
+  console.log('Paired '+key+':',JSON.stringify(group));
+ }
+}
 function logSettled(label,settled){
  const total=settled.reduce((sum,value)=>sum+value,0),largest=Math.max(0,...settled);
  console.log(label,JSON.stringify({targets:settled.filter(value=>value>0).length,stops:settled.filter(value=>value<0).length,
