@@ -7,6 +7,8 @@ const lifecycle=require('../ict-opportunity-lifecycle-708b.js');
 const data=require('../historical-multi-market.json');
 
 const DAY=86400000;
+const displayed=process.env.IFVG_DISPLAYED==='1';
+const replayStart=Date.parse('2026-10-10T00:00:00Z');
 const fineFrame=process.env.IFVG_FINE_FRAME==='1'?'1':'5';
 const fineMs=lifecycle.FRAME[fineFrame];
 const windowMs=(fineFrame==='1'?3:7)*DAY;
@@ -23,6 +25,7 @@ function ambiguousCases(){
    const ms=lifecycle.FRAME[frame],bars=rows(series[key]||[]);
    for(let n=30;n<=bars.length;n++){
     const prefix=bars.slice(Math.max(0,n-250),n),now=prefix.at(-1).start+ms;
+    if(displayed&&(now<replayStart||now>Date.parse(data.updatedAt)))continue;
     const {analysis}=signals.evaluate(prefix,frame,{now,market:'forex',symbol});
     if(!analysis.eligible)continue;
     const segment=structure.normalize(prefix,frame,now).segments.at(-1)||[];
@@ -30,7 +33,7 @@ function ambiguousCases(){
     const pivots=[{pivots:analysis.pivots,ms,frame}];
     for(const model of rules.inversionFvg(segment,index,analysis,ms,'forex',symbol,frame)){
      if(model.formedAt!==now||model.status!=='watching')continue;
-     const plan=rules.liquidityPlan(model,segment,pivots,model.range);
+     const plan=rules.liquidityPlan(model,segment,pivots,model.range,{focused:!displayed});
      if(!plan||plan.interveningLiquidity)continue;
      const side=model.direction==='bull'?'BUY':'SELL';
      const record=lifecycle.create({...model,market:'forex',symbol,frame,side,target:plan.target},now,{researchOnly:true});
@@ -97,6 +100,7 @@ async function getFine(symbol,start,key){
 async function main(){
  const key=process.env.TWELVEDATA_API_KEY;
  const {cases,settled}=ambiguousCases(),requests=new Map(),summary={};
+ console.log('Mode:',displayed?'nearest liquidity on entry frame':'focused','Fine frame:',fineFrame);
  console.log('Source:',data.source,'archive:',data.updatedAt,'ambiguous cases:',cases.length);
  const pending=[];
  const archived=new Map(Object.entries(data.assets).map(([symbol,series])=>[symbol,new Map(rows(series['15m']||[]).map(bar=>[bar.start,bar]))]));
@@ -112,6 +116,7 @@ async function main(){
   requests.set(item.symbol+':'+day,{symbol:item.symbol,day});
  }
  console.log('Remaining cases:',pending.length,'targeted windows:',requests.size);
+ if(!key&&pending.length)console.log('Fine history unavailable: TWELVEDATA_API_KEY is not configured.');
  const batches=new Map();
  if(key)for(const [id,{symbol,day}] of requests){
   if(batches.size)await new Promise(resolve=>setTimeout(resolve,8500));
@@ -129,7 +134,7 @@ async function main(){
   if(Number.isFinite(result.outcomeR)){netR+=result.outcomeR;settled.push(result.outcomeR);}
  }
  console.log('IFVG refinement:',JSON.stringify(summary));
- console.log('Net R from newly resolved '+fineFrame+'m cases:',netR.toFixed(2));
+ if([...batches.values()].some(batch=>batch.bars))console.log('Net R from newly resolved '+fineFrame+'m cases:',netR.toFixed(2));
  const total=settled.reduce((sum,value)=>sum+value,0),largest=Math.max(0,...settled);
  console.log('Settled IFVG:',JSON.stringify({targets:settled.filter(value=>value>0).length,stops:settled.filter(value=>value<0).length,
   netR:Number(total.toFixed(2)),largestWinR:Number(largest.toFixed(2)),withoutLargestR:Number((total-largest).toFixed(2))}));
