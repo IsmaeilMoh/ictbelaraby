@@ -14,7 +14,7 @@ const START = Date.parse('2026-11-19T00:00:00Z');
 const END = Date.parse('2026-11-26T00:00:00Z');
 const MS = 900000;
 const HOUR = 3600000;
-const MARKETS = [['XAG/USD', 'metals'], ['EUR/JPY', 'forex'], ['GBP/JPY', 'forex']];
+const MARKETS = [['EUR/GBP', 'forex'], ['AUD/JPY', 'forex']];
 const COSTS = [0.05, 0.1, 0.2];
 
 function archive() {
@@ -95,7 +95,7 @@ function rejection(model, range, bars, structures, displayed) {
 }
 
 function replay(archives, symbol, market, bars, hourly) {
-  const outcomes = [], reasons = {}, modelReasons = {};
+  const outcomes = [], additional = [], reasons = {}, modelReasons = {}, displacementFailures = {};
   const addReason = reason => { reasons[reason] = (reasons[reason] || 0) + 1; };
   for (let n = 30; n <= bars.length; n++) {
     const now = bars[n - 1].start + MS;
@@ -109,11 +109,11 @@ function replay(archives, symbol, market, bars, hourly) {
     if (rules.nearNews(news.events, market, symbol, now).length) { addReason('near scheduled news'); continue; }
     const hourlyPrefix = hourly.filter(bar => bar.start + HOUR <= now).slice(-1000);
     let inspected;
+    const input = {market, symbol, frame: '15', now, candles15: prefix, candles60: hourlyPrefix,
+      newsChecked: true, newsCovered: true, events: news.events, structureEngine: structure,
+      signalEngine: signals, contextEngine: context, scenarioEngine: scenario};
     try {
-      inspected = rules.inspect({market, symbol, frame: '15', now, candles15: prefix,
-        candles60: hourlyPrefix,
-        newsChecked: true, newsCovered: true, events: news.events, structureEngine: structure,
-        signalEngine: signals, contextEngine: context, scenarioEngine: scenario});
+      inspected = rules.inspect(input);
     } catch (error) {
       if (!/جلسة يوم نيويورك|شموع ساعة مكتملة|بيانات غير كافية/.test(error.message)) throw error;
       addReason('hourly session unavailable');
@@ -129,17 +129,28 @@ function replay(archives, symbol, market, bars, hourly) {
         {pivots: higher.pivots, ms: HOUR, frame: '60'}];
       for (const model of formed) {
         const range = rules.displacementRange(model, segment, index, raw.analysis.events);
+        if (!range) {
+          const strong = Boolean(rules.displacementLeg(model, segment, index, raw.analysis.events));
+          const lag = index.get(model.fvgAt) - index.get(model.mssAt);
+          const key = 'strong=' + strong + '; lag=' + lag;
+          displacementFailures[key] = (displacementFailures[key] || 0) + 1;
+        }
         const displayed = inspected.opportunities.find(plan => plan.id === model.id);
         const reason = rejection(model, range, segment, structures, displayed) || 'diagnostic mismatch';
         modelReasons[reason] = (modelReasons[reason] || 0) + 1;
       }
     }
-    for (const plan of qualified) {
+    const comparison = formed.some(model => model.fvgAt - model.mssAt === 2 * MS)
+      ? rules.inspect({...input, allowDelayedFvgForResearch: true}).opportunities.filter(plan =>
+        plan.formedAt === now && rules.qualifiesFocused(plan) && plan.modelEvidence[2] - plan.modelEvidence[1] === 2 * MS)
+      : [];
+    for (const plan of [...qualified, ...comparison]) {
       const record = lifecycle.create({...plan, frame: '15'}, now, {researchOnly: true});
-      outcomes.push(lifecycle.advance(record, bars.slice(n, n + 24), Math.min(END, now + 24 * MS)));
+      const bucket = qualified.includes(plan) ? outcomes : additional;
+      bucket.push(lifecycle.advance(record, bars.slice(n, n + 24), Math.min(END, now + 24 * MS)));
     }
   }
-  return {outcomes, reasons, modelReasons};
+  return {outcomes, additional, reasons, modelReasons, displacementFailures};
 }
 
 async function main() {
@@ -147,7 +158,7 @@ async function main() {
   const archives = archive();
   console.log('Calendar snapshots:', archives.length, 'from commit history');
   if (!key) { console.log('Holdout prices unavailable without the licensed environment'); return; }
-  const combined = [];
+  const combined = [], added = [];
   let requests = 0;
   for (const [symbol, market] of MARKETS) {
     const marketPrices = [];
@@ -162,10 +173,13 @@ async function main() {
     }
     const result = replay(archives, symbol.replace('/', ''), market, entry.bars, hourly.bars);
     combined.push(...result.outcomes);
+    added.push(...result.additional);
     console.log('Holdout', symbol, JSON.stringify({entryBars: entry.bars.length, hourlyBars: hourly.bars.length,
-      ...summarize(result.outcomes), gateCounts: result.reasons, firstModelRejection: result.modelReasons}));
+      baseline: summarize(result.outcomes), newFvgTimingOnly: summarize(result.additional), gateCounts: result.reasons,
+      firstModelRejection: result.modelReasons, displacementFailures: result.displacementFailures}));
   }
-  console.log('Holdout overall:', JSON.stringify(summarize(combined)));
+  console.log('Holdout overall:', JSON.stringify({baseline: summarize(combined),
+    expanded: summarize([...combined, ...added]), additional: summarize(added)}));
 }
 
 if (require.main === module) main().catch(error => { console.error(error.message); process.exitCode = 1; });
