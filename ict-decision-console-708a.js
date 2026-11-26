@@ -144,20 +144,20 @@ function matchingModels(plan,bars,index,tf,pivots){
  const candidate={direction:plan.direction,sweepAt,mssAt,fvgAt,gapLow:plan.zone.low,gapHigh:plan.zone.high};
  if(rules.silverBulletMatch(candidate)){
   const hour=rules.nyParts(sweepAt).h;
-  matches.push({type:'silver-bullet',label:'Silver Bullet',at:sweepAt,evidence:'نافذة نيويورك '+hour+':00–'+(hour+1)+':00'});
+  matches.push({type:'silver-bullet',label:'Silver Bullet',evidence:'نافذة نيويورك '+hour+':00–'+(hour+1)+':00'});
  }
  const displacement=rules.displacementEvidence(candidate,bars,index);
- if(displacement.pass)matches.push({type:'2022',label:'2022 Model',at:displacement.at,evidence:'شمعة الإزاحة · '+dual(displacement.at)});
+ if(displacement.pass)matches.push({type:'2022',label:'2022 Model',evidence:'شمعة الإزاحة · '+dual(displacement.at)});
  const ote=advanced.oteEntry(candidate,bars,si,mi);
- if(ote!==null)matches.push({type:'ote',label:'OTE',price:ote,evidence:'تصحيح 70.5% داخل FVG · '+money(ote)});
+ if(ote!==null)matches.push({type:'ote',label:'OTE',evidence:'تصحيح 70.5% داخل FVG · '+money(ote)});
  const range=advanced.amdRange(candidate,bars,si,tf);
- if(range)matches.push({type:'amd',label:'Power of Three (AMD)',region:{at:range.firstAt,until:range.lastAt,low:range.accumulationLow,high:range.accumulationHigh},evidence:'نطاق تراكم نيويورك 00–05 · '+money(range.accumulationLow)+' — '+money(range.accumulationHigh)});
+ if(range)matches.push({type:'amd',label:'Power of Three (AMD)',evidence:'نطاق تراكم نيويورك 00–05 · '+money(range.accumulationLow)+' — '+money(range.accumulationHigh)});
  const breaker=advanced.breakerEvidence(candidate,bars,index,pivots);
- if(breaker)matches.push({type:'breaker',label:'Breaker Block',region:breaker,evidence:'الكتلة '+money(breaker.low)+' — '+money(breaker.high)+
+ if(breaker)matches.push({type:'breaker',label:'Breaker Block',evidence:'الكتلة '+money(breaker.low)+' — '+money(breaker.high)+
   ' · شمعة الكتلة '+dual(breaker.blockAt)+' · الكسر '+dual(breaker.breakAt)+' · إعادة الاختبار '+dual(breaker.retestAt)});
  return matches;
 }
-function card(parent,o,origin,chartBars){
+function card(parent,o,origin){
  const c=block([o.symbol,o.frame+' د',o.side,phases[o.research?.phase]||'رصد بحثي'].join(' · '),parent);
  c.classList.add('dc-wide');
  node('p',[origin,types[o.marketType],o.source].filter(Boolean).join(' · '),c);
@@ -165,8 +165,14 @@ function card(parent,o,origin,chartBars){
  if(o.research)node('p','وقت الحالة: '+dual(o.research.at)+' | تكوّن: '+dual(o.formedAt),c);
  if(o.research?.phase==='confirmed_research')node('p','عاد السعر إلى FVG بعد تكوّن النموذج، وأكّد إغلاق لاحق الاتجاه البحثي. التنفيذ يتطلب تحققًا مستقلًا.',c);
  const levels=node('div','',c,'dc-levels');
- for(const [name,value] of [['منطقة FVG',o.zone?money(o.zone.low)+' — '+money(o.zone.high):'غير متاحة'],['دخول مرجعي',money(o.entry)],['إبطال/وقف افتراضي',money(o.stop)],['هدف 2R افتراضي',money(o.target)]]){
+ for(const [name,value] of [['منطقة FVG',o.zone?money(o.zone.low)+' — '+money(o.zone.high):'غير متاحة'],['دخول مرجعي',money(o.entry)],['إبطال/وقف افتراضي',money(o.stop)],[o.dealingRange?'هدف عند سوينج مؤكد':'هدف افتراضي',money(o.target)]]){
   const el=node('div','',levels);node('small',name,el);node('strong',value,el);
+ }
+ if(o.dealingRange){
+  const {low,high,midpoint,correctionPct,qualifiedAt,swingAt}=o.dealingRange;
+  node('p','نطاق الحركة '+money(low)+' — '+money(high)+' · المنتصف '+money(midpoint)+
+   ' · تصحيح '+correctionPct.toFixed(1)+'% · '+(o.side==='BUY'?'Discount':'Premium'),c);
+  node('p','اكتمل شرط التصحيح: '+dual(qualifiedAt)+' · سوينج الهدف: '+dual(swingAt)+' · العائد إلى الوقف '+o.rr.toFixed(2)+'R',c);
  }
  const evidence=(o.modelEvidence||[]).map((at,i)=>Number.isFinite(at)?['سحب السيولة','MSS','FVG'][i]+' · '+dual(at):null).filter(Boolean);
  if(evidence.length)node('p',evidence.join(' | '),c);
@@ -179,7 +185,6 @@ function card(parent,o,origin,chartBars){
  const list=document.createElement('ul');
  c.append(list);
  for(const text of [...(o.blocks||[]),...(o.waiting||[])])node('li',text,list);
- window.ICTOpportunityChart?.mount(c,o,chartBars,phases[o.research?.phase]||'رصد بحثي');
 }
 const backgroundOutput=$('dc-background-output');
 let backgroundTimer;
@@ -219,7 +224,7 @@ node('p','آخر إغلاق ساعة مرجعي: '+(res.price==null?'غير مت
  for(const o of res.opportunities.slice(0,8))card(output,{
   ...o,frame:res.frame,source:res.source,marketType:'PERPETUAL',
   detectedAt:res.checkedAt,lastCompleteAt:res.lastCompleteAt
- },'فحص يدوي',res.chartBars);
+ },'فحص يدوي');
  const note=block('حدود هذا الإصدار');note.classList.add('dc-wide');node('p',res.disclaimer,note);node('p','لا يتم تداول آلي ولا حفظ توصية كصفقة منفذة. المراقبة اليدوية المتكررة تعمل أثناء فتح الصفحة. سعر المرجع آخر إغلاق شمعة، وليس Bid/Ask مباشرًا.',note);
 }
 async function loadNews(signal){
@@ -253,7 +258,6 @@ function inspectContract(contract,tf,{entryBars,hourly,higherCandles},news,batch
  if(modelPhase.value)res.opportunities=res.opportunities.filter(plan=>plan.research?.phase===modelPhase.value);
  if(res.opportunities.length){
   const bars=structure.normalize(entryBars,tf,now).segments.at(-1)||[];
-  res.chartBars=bars;
   const index=new Map(bars.map((bar,i)=>[bar.start,i]));
   const pivots=structure.analyze(entryBars,tf,{now}).pivots;
   for(const plan of res.opportunities)plan.modelMatches=matchingModels(plan,bars,index,tf,pivots);
@@ -295,7 +299,7 @@ async function scanBatch(){
      models+=res.opportunities.length;
      for(const opportunity of res.opportunities)card(results,{
       ...opportunity,frame:tf,source:res.source,marketType:'PERPETUAL',detectedAt:res.checkedAt,lastCompleteAt:res.lastCompleteAt
-     },'فحص جماعي',res.chartBars);
+     },'فحص جماعي');
     }
    }catch(error){
     if(signal.aborted)break;

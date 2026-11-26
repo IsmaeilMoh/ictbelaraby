@@ -101,6 +101,34 @@ function testModelTypes(){
   });
 }
 
+function testRangePlan(){
+  const model={direction:'bull',sweepAt:5*minute,formedAt:8*minute,entry:105,stop:100};
+  const bars=[
+    {start:minute,low:116,high:140},
+    {start:2*minute,low:112,high:135},
+    {start:5*minute,low:100,high:109},
+    {start:6*minute,low:104,high:126},
+    {start:7*minute,low:107,high:130},
+    {start:8*minute,low:121,high:125},
+    {start:9*minute,low:120,high:124}
+  ];
+  const pivots=[
+    {type:'swing-high',start:minute,confirmedAt:4*minute,level:140},
+    {type:'swing-high',start:2*minute,confirmedAt:4*minute,level:135},
+    {type:'swing-high',start:7*minute,confirmedAt:9*minute,level:130}
+  ];
+  assert.equal(decision.rangePlan(model,bars.slice(0,-1),pivots,minute),null,'30% alone is insufficient');
+  assert.equal(decision.rangePlan({...model,entry:115},bars,pivots,minute),null,'equilibrium is outside Discount');
+  assert.equal(decision.rangePlan(model,bars,pivots.slice(-1),minute),null,'no future pivot');
+  const plan=decision.rangePlan(model,bars,pivots,minute);
+  assert.equal(plan.target,135);
+  assert.equal(plan.rr,6);
+  assert.equal(plan.dealingRange.qualifiedAt,10*minute);
+  const mirrored=bars.map(bar=>({...bar,low:250-bar.high,high:250-bar.low}));
+  const bearish=pivots.map(pivot=>({...pivot,type:'swing-low',level:250-pivot.level}));
+  assert.equal(decision.rangePlan({...model,direction:'bear',entry:145,stop:150},mirrored,bearish,minute).target,115);
+  assert.equal(decision.rangePlan(model,[...bars.slice(0,-1),{...bars.at(-1),high:136}],pivots,minute).target,140);
+}
 function testSessions() {
   for (const [day, start, next, hours, roll] of [
     ['2026-03-08', '2026-03-08T05:00:00Z', '2026-03-09T04:00:00Z', 23, '2026-03-08T21:00:00Z'],
@@ -170,7 +198,7 @@ async function testOpportunities() {
     candles60: bars.map((b, i) => ({ ...b, start: now - (bars.length - i) * hour })),
     newsChecked: true, newsCovered: true
   };
-  assert.equal(decision.inspect(inputs).opportunities[0].blocks.length, 0);
+  assert.deepEqual(decision.inspect(inputs).opportunities, [], 'a new model needs a subsequent closed correction');
   assert.equal(decision.inspect(inputs).entryFreshUntil, now + interval);
   for (const [frame, higher] of [['60', '240'], ['240', 'D']]) {
     const tfMs = structure.FRAME_MS[frame], higherMs = structure.FRAME_MS[higher];
@@ -189,7 +217,7 @@ async function testOpportunities() {
     };
     const result = decision.inspect(higherInput);
     assert.equal(scenarioFrame, higher);
-    assert.ok(result.opportunities.some(plan => plan.side === "SELL" && plan.blocks.length === 0));
+    assert.deepEqual(result.opportunities, []);
     assert.equal(result.blocks.length, 0);
     assert.equal(result.entryFreshUntil, Math.floor(now / tfMs) * tfMs + tfMs);
     const stale = decision.inspect({ ...higherInput, candles15: higherInput.candles15.slice(0, -1) });
@@ -198,7 +226,7 @@ async function testOpportunities() {
   const highImpact = [{ when: now + minute, currency: 'USD', title: 'Scheduled release' }];
   for (const override of [{ newsCovered: false }, { events: highImpact },
     { now: now + 3 * interval }]) {
-    assert.ok(decision.inspect({ ...inputs, ...override }).opportunities[0].blocks.length > 0);
+    assert.ok(decision.inspect({ ...inputs, ...override }).blocks.length > 0);
   }
   const latest = bars.at(-1);
   const response = { retCode: 0, time: now - 1, result: {
@@ -274,6 +302,7 @@ async function testMonitor(bars) {
 (async () => {
   testSessions();
   await testCalendar();
+  testRangePlan();
   await testModelTypes();
   await testMonitor(await testOpportunities());
   console.log('Center safety: DST, calendar coverage, real ICT engine, invalidation, outage, stale candles and quote expiry PASS');

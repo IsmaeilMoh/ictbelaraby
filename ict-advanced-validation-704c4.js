@@ -32,7 +32,7 @@ function amdRange(candidate,bars,si,frame){
  if(start.hour!==RULES.amdAccumFrom||start.minute!==0||end.hour!==RULES.amdAccumTo||end.minute!==0||
     prior.some((bar,i)=>i>0&&bar.start-prior[i-1].start!==ms))return null;
  const high=Math.max(...prior.map(bar=>bar.high)),low=Math.min(...prior.map(bar=>bar.low));
- return (candidate.direction==='bull'?bars[si].low<low:bars[si].high>high)?{accumulationHigh:high,accumulationLow:low,firstAt:prior[0].start,lastAt:prior.at(-1).start}:null;
+ return (candidate.direction==='bull'?bars[si].low<low:bars[si].high>high)?{accumulationHigh:high,accumulationLow:low}:null;
 }
 // Month 04 Breaker Block: https://www.youtube.com/watch?v=UrS-mtGHtAA
 // This implementation uses the swing candle's full range and a closed retest.
