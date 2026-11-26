@@ -32,14 +32,19 @@ function normalize(rows,ms,now=Date.now()){
 }
 function aggregate(rows){return {high:Math.max(...rows.map(x=>x.high)),low:Math.min(...rows.map(x=>x.low)),open:rows[0].open,close:rows.at(-1).close,count:rows.length,from:rows[0].start,to:rows.at(-1).start}}
 // The provider's UTC-labelled daily candles are a separate reference from New York sessions.
-function priorProviderWeek(daily,now,continuous=false){
+function priorProviderWeek(daily,now,market){
  const key=shiftDay(nyWeek(nyDay(now)),-7);
  const midnight=Date.parse(key+'T00:00:00Z');
  const {rows}=normalize(daily,DAY,now);
- const weekdays=Array.from({length:continuous?7:5},(_,i)=>midnight+i*DAY);
- const week=rows.filter(bar=>bar.start>=midnight&&bar.start<midnight+7*DAY);
- if(week.length!==weekdays.length||week.some((bar,i)=>bar.start!==weekdays[i]))return null;
- return {...aggregate(week),key,start:midnight,days:week.length};
+ const continuous=market==='crypto';
+ // Biquote labels the Sunday evening reopening by its UTC date. It belongs to the following trading week.
+ const start=continuous?midnight:midnight-DAY;
+ const end=midnight+(continuous?7:5)*DAY;
+ const dates=Array.from({length:continuous?7:5},(_,i)=>midnight+i*DAY);
+ if(['forex','metals'].includes(market))dates.unshift(start);
+ const week=rows.filter(bar=>bar.start>=start&&bar.start<end);
+ if(week.some(bar=>bar.start%DAY!==0)||!dates.every(date=>week.some(bar=>bar.start===date)))return null;
+ return {...aggregate(week),key,start:week[0].start,days:week.length};
 }
 function build(unusedDaily,hourly,opts={}){
  const now=Number.isFinite(opts.now)?opts.now:Date.now(),market=opts.market||'forex',crypto=market==='crypto',rollHour=opts.rollHour===17?17:0;

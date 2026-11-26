@@ -411,7 +411,7 @@ function inspectContract(market,contract,tf,{entryBars,hourly,higherCandles,week
   rollHour:Number(roll.value),displayCompleteModels:true,includeTurtleSoup:true,includeIfvg:true,newsChecked:news.feedsLoaded>0,
   newsCovered:econ.scheduleCovers(news.parts||[],now),eventFeedsLoaded:news.feedsLoaded,events:news.events,now,
   structureEngine:structure,signalEngine:signal,contextEngine:context,scenarioEngine:scenario,advancedEngine:window.ICTAdvancedValidation4C4});
- if(weeklyDaily?.length&&!res.context?.priorWeek)res.providerWeek=context.priorProviderWeek(weeklyDaily,now,market==='crypto');
+ if(weeklyDaily?.length&&!res.context?.priorWeek)res.providerWeek=context.priorProviderWeek(weeklyDaily,now,market);
  if(news.failures?.length)res.warnings.push('تعذر تحميل بعض الأجندات: '+news.failures.join('؛ '));
  if(modelPhase.value)res.opportunities=res.opportunities.filter(plan=>plan.research?.phase===modelPhase.value);
  if(res.opportunities.length){
