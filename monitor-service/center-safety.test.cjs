@@ -81,6 +81,33 @@ function testModelTypes(){
   });
 }
 
+function testLiquidityPlan() {
+  const bars = [
+    { start: 0, low: 90, high: 132 },
+    { start: 1, low: 91, high: 122 },
+    { start: 2, low: 90, high: 114 },
+    { start: 3, low: 99, high: 120 }
+  ];
+  const model = { direction: 'bull', sweepAt: 2, formedAt: 4, entry: 100, stop: 90 };
+  const pivots = [
+    { type: 'swing-high', start: 0, confirmedAt: 1, level: 132 },
+    { type: 'swing-high', start: 1, confirmedAt: 2, level: 122 },
+    { type: 'swing-high', start: 2, confirmedAt: 3, level: 114 },
+    { type: 'swing-high', start: 3, confirmedAt: 4, level: 120 }
+  ];
+  const plan = (entry, candles, levels) =>
+    decision.liquidityPlan(entry, candles, [{ pivots: levels, ms: 1, frame: '5' }]);
+  assert.equal(plan(model, bars, pivots).target, 122, 'nearest confirmed untouched liquidity above 2R');
+  assert.equal(plan({ ...model, entry: 105 }, bars, pivots), null, 'equilibrium does not qualify');
+  assert.equal(plan(model, bars, pivots.slice(-2)), null, 'further confirmation and insufficient reward cannot supply a target');
+  const later = plan(model, [...bars, {start: 4, low: 111, high: 122}], pivots);
+  assert.equal(later.target, 122, 'the target does not move after it is reached');
+  assert.equal(later.targetTouched, true);
+  const short = plan({ ...model, direction: 'bear', entry: 150, stop: 160 },
+    bars.map(bar => ({ ...bar, high: 250-bar.low, low: 250-bar.high })),
+    pivots.map(pivot => ({ ...pivot, type: 'swing-low', level: 250-pivot.level })));
+  assert.equal(short.target, 128);
+}
 function testSessions() {
   for (const [day, start, next, hours, roll] of [
     ['2026-03-08', '2026-03-08T05:00:00Z', '2026-03-09T04:00:00Z', 23, '2026-03-08T21:00:00Z'],
@@ -150,20 +177,23 @@ async function testOpportunities() {
     candles60: bars.map((b, i) => ({ ...b, start: now - (bars.length - i) * hour })),
     newsChecked: true, newsCovered: true
   };
+  const scopedBars = bars.map((bar, i) => i === 4 ? { ...bar, low: model.target - 20 } : i === bars.length - 1 ? { ...bar, low: 187 } : bar);
+  inputs.candles15 = scopedBars;
   const plan = decision.inspect(inputs).opportunities.find(item => item.id === model.id);
   assert.ok(plan, 'a completed model is visible before any subsequent correction');
   assert.equal(plan.blocks.length, 0);
   assert.equal(plan.entry, (model.zone.low + model.zone.high) / 2);
   assert.equal(plan.stop, model.stop);
-  assert.equal(plan.rr, 2);
-  assert.equal(plan.target, model.target);
-  assert.ok(Math.abs(plan.entry - plan.target - 2 * (plan.stop - plan.entry)) < 1e-9);
+  assert.ok(plan.rr >= 2);
+  assert.ok(plan.entry > plan.midpoint);
+  assert.equal(plan.liquidity.type, 'swing-low');
+  assert.equal(plan.target, scopedBars[4].low);
   assert.equal(decision.inspect(inputs).entryFreshUntil, now + interval);
   for (const [frame, higher] of [['60', '240'], ['240', 'D']]) {
     const tfMs = structure.FRAME_MS[frame], higherMs = structure.FRAME_MS[higher];
     const rescale = ms => {
       const close = Math.floor(now / ms) * ms;
-      return bars.map((bar, i) => ({ ...bar, start: close - (bars.length - i) * ms }));
+      return scopedBars.map((bar, i) => ({ ...bar, start: close - (bars.length - i) * ms }));
     };
     let scenarioFrame;
     const higherInput = {
@@ -256,6 +286,7 @@ async function testMonitor(bars) {
 
 (async () => {
   testSessions();
+  testLiquidityPlan();
   await testCalendar();
   await testModelTypes();
   await testMonitor(await testOpportunities());
