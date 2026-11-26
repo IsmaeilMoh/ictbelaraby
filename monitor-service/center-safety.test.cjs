@@ -184,6 +184,27 @@ function testInversionFvg() {
   assert.deepEqual(detect([...bars,{start:4,low:106,high:113,close:112}],
     [{type:'MSS',at:4,direction:'bull'}]), [], 'the first close is the only inversion');
 }
+function testContinuationCandidates() {
+  const bars = Array.from({length: 14}, (_, start) => ({start, open: 101, close: 102, low: 100, high: 103}));
+  bars[3].low = 90;
+  bars[12] = {start: 12, open: 102, close: 112, low: 101, high: 114};
+  bars[13] = {start: 13, open: 112, close: 114, low: 106, high: 115};
+  const analysis = {
+    events: [{type: 'BOS', direction: 'bull', at: 12, level: 109}],
+    zones: [{type: 'FVG', direction: 'bull', at: 13, low: 103, high: 106}],
+    pivots: [{type: 'swing-low', start: 3, confirmedAt: 5, level: 90}]
+  };
+  const detect = (rows, a = analysis) => decision.continuationCandidates(rows,
+    new Map(rows.map((bar,i)=>[bar.start,i])), a, 1, 'forex', 'EURUSD', '15');
+  assert.deepEqual(detect(bars.slice(0,13)), []);
+  const [plan] = detect(bars);
+  assert.equal(plan.entry, 104.5);
+  assert.equal(plan.stop, 90);
+  assert.equal(plan.formedAt, 14);
+  assert.equal(detect([...bars,{start:14,low:105}])[0].status,'retested');
+  assert.deepEqual(detect(bars,{...analysis,events:[{...analysis.events[0],note:'initial break'}]}),[]);
+  assert.deepEqual(detect(bars,{...analysis,pivots:[{...analysis.pivots[0],confirmedAt:12}]}),[]);
+}
 function testSessions() {
   for (const [day, start, next, hours, roll] of [
     ['2026-03-08', '2026-03-08T05:00:00Z', '2026-03-09T04:00:00Z', 23, '2026-03-08T21:00:00Z'],
@@ -362,6 +383,7 @@ async function testMonitor(bars) {
 
 (async () => {
   testSessions();
+  testContinuationCandidates();
   testTurtleSoup();
   testInversionFvg();
   testLiquidityPlan();

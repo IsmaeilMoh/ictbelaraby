@@ -5,16 +5,20 @@ const MIN=60000;
 const knownMarkets=new Set(['crypto','kraken','forex','metals','indices','stocks','energy']);
 function nearNews(events,market,symbol,now){const relevant=market==='forex'?[symbol.slice(0,3),symbol.slice(3,6)]:market==='crypto'?['USD']:['USD'];return (events||[]).filter(e=>e&&Number.isFinite(e.when)&&relevant.includes(e.currency)&&Math.abs(e.when-now)<=30*MIN).sort((a,b)=>Math.abs(a.when-now)-Math.abs(b.when-now)).slice(0,8)}
 const contextFrame=frame=>({'60':'240','240':'D'}[String(frame)]||'60');
+function strongDisplacement(bars,index,bullish){
+ if(index<12)return false;
+ const bar=bars[index];
+ const bodies=bars.slice(index-12,index).map(candle=>Math.abs(candle.close-candle.open)).sort((a,b)=>a-b);
+ const median=(bodies[5]+bodies[6])/2,body=bullish?bar.close-bar.open:bar.open-bar.close;
+ return body>1.5*median;
+}
 function displacementLeg(model,bars,index,events){
  const sweep=index.get(model.sweepAt),mss=index.get(model.mssAt);
  if(sweep==null||mss==null||mss<12||mss<=sweep)return null;
  const bullish=model.direction==='bull',bar=bars[mss];
  const breakEvent=events.find(event=>event.type==='MSS'&&event.direction===model.direction&&event.at===model.mssAt);
  if(!breakEvent||!(bullish?bar.close>breakEvent.level:bar.close<breakEvent.level))return null;
- const bodies=bars.slice(mss-12,mss).map(candle=>Math.abs(candle.close-candle.open)).sort((a,b)=>a-b);
- const median=(bodies[5]+bodies[6])/2,body=bullish?bar.close-bar.open:bar.open-bar.close;
- if(body<=1.5*median)return null;
-
+ if(!strongDisplacement(bars,mss,bullish))return null;
  const leg=bars.slice(sweep,mss+1);
  const low=bullish?bars[sweep].low:Math.min(...leg.map(bar=>bar.low));
  const high=bullish?Math.max(...leg.map(bar=>bar.high)):bars[sweep].high;
@@ -109,8 +113,42 @@ function inversionFvg(bars,index,analysis,ms,market,symbol,frame){
  }
  return candidates;
 }
+function continuationCandidates(bars,index,analysis,ms,market,symbol,frame){
+ const candidates=[];
+ for(const event of analysis.events){
+  if(event.type!=='BOS'||event.note)continue;
+  const bos=index.get(event.at);
+  if(bos==null||bars.length-1-bos>13)continue;
+  const bullish=event.direction==='bull';
+  if(!strongDisplacement(bars,bos,bullish))continue;
+  const zone=analysis.zones.find(gap=>gap.direction===event.direction&&
+   (gap.at===event.at||gap.at===event.at+ms));
+  if(!zone)continue;
+  const end=index.get(zone.at);
+  if(end==null||bars.length-1-end>12)continue;
+  const pivot=analysis.pivots.filter(item=>item.type===(bullish?'swing-low':'swing-high')&&
+   index.has(item.start)&&item.confirmedAt+ms<=event.at).at(-1);
+  if(!pivot)continue;
+  const entry=(zone.low+zone.high)/2,stop=pivot.level;
+  if(!(bullish?stop<zone.low:stop>zone.high))continue;
+  const afterPivot=bars.slice(index.get(pivot.start)+1,end+1);
+  if(afterPivot.some(bar=>bullish?bar.low<=stop:bar.high>=stop))continue;
+  const leg=bars.slice(index.get(pivot.start),bos+1);
+  const low=Math.min(...leg.map(bar=>bar.low)),high=Math.max(...leg.map(bar=>bar.high));
+  const tested=bars.slice(end+1).some(bar=>bullish?bar.low<=zone.high:bar.high>=zone.low);
+  const formedAt=zone.at+ms;
+  candidates.push({
+   id:[market,symbol,frame,'bos-fvg',event.at,zone.at].join('|'),direction:event.direction,entry,stop,formedAt,
+   ageBars:bars.length-1-end,mssAt:event.at,fvgAt:zone.at,modelType:'bos-fvg',
+   status:tested?'retested':'watching',research:{phase:'observed',at:formedAt},
+   confirmation:'BOS → FVG · استمرار الهيكل',zone:{low:zone.low,high:zone.high},
+   range:{low,high,midpoint:(low+high)/2,displacementAt:event.at}
+  });
+ }
+ return candidates;
+}
 function inspect(input){
- const {market,symbol,frame='15',candles15=[],candles60=[],higherCandles,events=[],eventFeedsLoaded=0,newsChecked=false,newsCovered=false,now=Date.now(),rollHour=0,includeTurtleSoup=false,includeIfvg=false,allowDelayedFvgForResearch=false,allowEarlyFvgForResearch=false,structureEngine,signalEngine,contextEngine,scenarioEngine}=input;
+ const {market,symbol,frame='15',candles15=[],candles60=[],higherCandles,events=[],eventFeedsLoaded=0,newsChecked=false,newsCovered=false,now=Date.now(),rollHour=0,includeTurtleSoup=false,includeIfvg=false,allowDelayedFvgForResearch=false,allowEarlyFvgForResearch=false,includeContinuationForResearch=false,structureEngine,signalEngine,contextEngine,scenarioEngine}=input;
  if(!knownMarkets.has(market)||!symbol||!['5','15',...(market==='kraken'?[]:['60','240'])].includes(String(frame)))throw Error('السوق أو الإطار المختار غير مدعوم');
  if(!structureEngine||!signalEngine||!contextEngine||!scenarioEngine)throw Error('محرك تحليلي أساسي مفقود');
  const warnings=[],blocks=[];
@@ -136,7 +174,9 @@ function inspect(input){
  ];
  const reversals=includeTurtleSoup&&evaluation.analysis.eligible?turtleSoup(bars,index,evaluation.analysis.events,ms,market,symbol,frame):[];
  const inversions=includeIfvg&&evaluation.analysis.eligible?inversionFvg(bars,index,evaluation.analysis,ms,market,symbol,frame):[];
- const opportunities=[...recent,...reversals,...inversions].flatMap(m=>{
+ const continuations=includeContinuationForResearch&&evaluation.analysis.eligible
+  ?continuationCandidates(bars,index,evaluation.analysis,ms,market,symbol,frame):[];
+ const opportunities=[...recent,...reversals,...inversions,...continuations].flatMap(m=>{
   const range=m.range||displacementRange(m,bars,index,evaluation.analysis.events,allowDelayedFvgForResearch?2:1,allowEarlyFvgForResearch?-1:0);
   const plan=liquidityPlan(m,bars,targetStructures,range);
   if(!plan)return [];
@@ -160,5 +200,5 @@ function inspect(input){
 function qualifiesFocused(plan){
  return plan.research?.phase==='observed'&&!plan.blocks.length&&!plan.interveningLiquidity;
 }
-return Object.freeze({inversionFvg,turtleSoup,qualifiesFocused,inspect,nearNews,contextFrame,liquidityPlan,displacementRange,displacementLeg});
+return Object.freeze({continuationCandidates,inversionFvg,turtleSoup,qualifiesFocused,inspect,nearNews,contextFrame,liquidityPlan,displacementRange,displacementLeg});
 });
