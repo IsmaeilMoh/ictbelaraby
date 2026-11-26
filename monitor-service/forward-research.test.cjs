@@ -182,3 +182,16 @@ assert.throws(()=>book.parseBook(orderbook,'BTCUSDT',now-1),/STALE/);
  assert.deepEqual(contextAt(hourly,fourHour,'60',now),{candles60:[hourly[0]],higherCandles:[fourHour[0]]});
  assert.deepEqual(contextAt(hourly,daily,'240',now),{candles60:[hourly[0]],higherCandles:[daily[0]]});
 }
+
+{
+ const {readWindow,priceWindows}=require('./ict-unseen-market-replay.cjs');
+ const now=Date.parse('2026-11-26T14:00:00Z');
+ const window=readWindow('2026-11-01','2026-11-17','2026-11-26',now);
+ assert.throws(()=>readWindow('2026-11-01','2026-11-17','2026-11-27',now));
+ assert.throws(()=>readWindow('2026-11-01','2026-11-17','2026-11-31',now));
+ const chunks=priceWindows('5min',window);
+ assert.ok(chunks.length>1);
+ assert.equal(chunks.at(-1).to,window.end);
+ assert.ok(chunks.every((chunk,index)=>chunk.to-chunk.from<=5000*300000
+  &&(!index||chunks[index-1].to===chunk.from)));
+}

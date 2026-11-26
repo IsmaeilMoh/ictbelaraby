@@ -13,12 +13,13 @@ const calendar = require('../ict-economic-link-706a.js');
 const START = Date.parse('2026-11-18T14:00:00Z');
 const END = Date.parse('2026-11-26T12:00:00Z');
 const HOUR = 3600000;
+const DAY = 24 * HOUR;
+const DEFAULT_WINDOW = {start: START, split: Date.parse('2026-11-23T00:00:00Z'), end: END};
 const FRAMES = [['5', '5min'], ['15', '15min'], ['60', '1h'], ['240', '4h']];
 const PROVIDER_INTERVALS = new Map([...FRAMES, ['D', '1day']]);
 const MARKETS = [['XAU/USD', 'metals'], ...[
   'EUR/USD', 'GBP/USD', 'USD/JPY', 'EUR/JPY', 'GBP/JPY', 'EUR/GBP', 'AUD/JPY'
 ].map(symbol => [symbol, 'forex'])];
-const SPLIT = Date.parse('2026-11-23T00:00:00Z');
 const alternatives = [
   ['early', -1, {allowEarlyFvgForResearch: true}],
   ['late', 2, {allowDelayedFvgForResearch: true}]
@@ -26,11 +27,39 @@ const alternatives = [
 const groups = () => ({selection:{baseline:[],early:[],late:[]}, validation:{baseline:[],early:[],late:[]}});
 const COSTS = [0.05, 0.1, 0.2];
 
-function archive() {
+function readWindow(start, split, end, now = Date.now()) {
+  if (!start && !split && !end) return DEFAULT_WINDOW;
+  const times = [start, split, end].map(value => {
+    if (typeof value !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(value)) throw Error('Use UTC dates YYYY-MM-DD');
+    const time = Date.parse(value + 'T00:00:00Z');
+    if (!Number.isFinite(time) || new Date(time).toISOString().slice(0, 10) !== value) throw Error('Invalid UTC date');
+    return time;
+  });
+  const [first, boundary, last] = times;
+  if (boundary - first < 2 * DAY || last - boundary < 2 * DAY || last > now || last - first > 56 * DAY) {
+    throw Error('Use two completed chronological periods of at least two days, up to 56 days total');
+  }
+  return {start: first, split: boundary, end: last};
+}
+
+function priceWindows(interval, window) {
+  const warmup = interval === '1day' || interval === '4h' ? 80 : 14;
+  const span = (interval === '5min' ? 14 : 40) * DAY;
+  const ranges = [];
+  for (let from = Math.floor(window.start / DAY) * DAY - warmup * DAY; from < window.end; from += span) {
+    ranges.push({from, to: Math.min(from + span, window.end)});
+  }
+  return ranges;
+}
+
+const iso = time => new Date(time).toISOString();
+const providerTime = time => iso(time).slice(0, 19).replace('T', ' ');
+
+function archive(window = DEFAULT_WINDOW) {
   const files = ['calendar-live.json', 'calendar-next.json'];
   return files.flatMap(file => {
-    const log = execFileSync('git', ['log', '--diff-filter=AM', '--format=%H %ct', '--since=2026-11-17T00:00:00Z',
-      '--until=2026-11-27T00:00:00Z', 'HEAD', '--', file], {encoding: 'utf8'}).trim();
+    const log = execFileSync('git', ['log', '--diff-filter=AM', '--format=%H %ct', '--since=' + iso(window.start - DAY),
+      '--until=' + iso(window.end), 'HEAD', '--', file], {encoding: 'utf8'}).trim();
     return log.split('\n').filter(Boolean).map(line => {
       const [sha, time] = line.split(' ');
       const json = JSON.parse(execFileSync('git', ['show', sha + ':' + file], {encoding: 'utf8'}));
@@ -50,9 +79,9 @@ function newsAt(archives, now) {
   return {events: calendar.collect(parts), covered: calendar.scheduleCovers(parts, now)};
 }
 
-async function prices(symbol, interval, key) {
+async function prices(symbol, interval, key, range) {
   const query = new URLSearchParams({symbol, interval, timezone: 'UTC', outputsize: '5000',
-    start_date: interval === '1day' || interval === '4h' ? '2026-09-01 00:00:00' : '2026-11-08 00:00:00', end_date: '2026-11-26 12:00:00', apikey: key});
+    start_date: providerTime(range.from), end_date: providerTime(range.to - 1000), apikey: key});
   let response;
   try {
     response = await fetch('https://api.twelvedata.com/time_series?' + query,
@@ -72,9 +101,9 @@ async function prices(symbol, interval, key) {
     start: Date.parse(String(row.datetime).replace(' ', 'T') + 'Z'),
     open: Number(row.open), high: Number(row.high), low: Number(row.low), close: Number(row.close),
     confirmed: true
-  })), frame, END);
+  })), frame, range.to);
   if (normalized.rejected || normalized.duplicates) return {failure: 'invalid or duplicate rows'};
-  return {bars: normalized.rows.filter(bar => bar.start + ms <= END).map(bar => ({...bar, confirmed: true}))};
+  return {bars: normalized.rows.filter(bar => bar.start >= range.from && bar.start + ms <= range.to).map(bar => ({...bar, confirmed: true}))};
 }
 
 function summarize(outcomes) {
@@ -119,7 +148,7 @@ function contextAt(hourly, higher, frame, now) {
   };
 }
 
-function replay(archives, symbol, market, bars, hourly, frame, higherBars = hourly) {
+function replay(archives, symbol, market, bars, hourly, frame, higherBars = hourly, window = DEFAULT_WINDOW) {
   const ms = structure.FRAME_MS[frame];
   const horizon = 24 * HOUR;
   const maxBars = horizon / ms;
@@ -127,7 +156,7 @@ function replay(archives, symbol, market, bars, hourly, frame, higherBars = hour
   const addReason = reason => { reasons[reason] = (reasons[reason] || 0) + 1; };
   for (let n = 30; n <= bars.length; n++) {
     const now = bars[n - 1].start + ms;
-    if (now < START || now >= END || (now < SPLIT && now + horizon > SPLIT)) continue;
+    if (now < window.start || now >= window.end || (now < window.split && now + horizon > window.split)) continue;
     const prefix = bars.slice(Math.max(0, n - 250), n);
     const raw = signals.evaluate(prefix, frame, {market, symbol, now});
     const formed = raw.models.filter(model => model.formedAt === now && model.status === 'watching' && model.research);
@@ -169,7 +198,7 @@ function replay(archives, symbol, market, bars, hourly, frame, higherBars = hour
         modelReasons[reason] = (modelReasons[reason] || 0) + 1;
       }
     }
-    const period = now < SPLIT ? periods.selection : periods.validation;
+    const period = now < window.split ? periods.selection : periods.validation;
     const positions = [['baseline', qualified]];
     for (const [name, lag, options] of alternatives) {
       if (!formed.some(model => model.fvgAt - model.mssAt === lag * ms)) continue;
@@ -181,7 +210,7 @@ function replay(archives, symbol, market, bars, hourly, frame, higherBars = hour
     for (const [name, plans] of positions) {
       for (const plan of plans) {
         const record = lifecycle.create({...plan, frame}, now, {researchOnly: true, maxBars});
-        period[name].push(lifecycle.advance(record, bars.slice(n, n + maxBars), Math.min(END, now + horizon)));
+        period[name].push(lifecycle.advance(record, bars.slice(n, n + maxBars), Math.min(window.end, now + horizon)));
       }
     }
   }
@@ -200,17 +229,32 @@ function summarizePeriod({baseline, early, late}) {
 
 async function main() {
   const key = process.env.TWELVEDATA_API_KEY;
-  const archives = archive();
+  const window = readWindow(process.env.ICT_REPLAY_START, process.env.ICT_REPLAY_SPLIT, process.env.ICT_REPLAY_END);
+  const archives = archive(window);
   console.log('Calendar snapshots:', archives.length, 'from commit history');
+  let coveredHours = 0;
+  for (let now = window.start; now < window.end; now += HOUR) if (newsAt(archives, now).covered) coveredHours++;
+  console.log('Calendar-covered hours:', coveredHours, '/', Math.ceil((window.end-window.start)/HOUR));
+  if (!coveredHours) { console.log('Replay skipped: no point-in-time calendar coverage'); return; }
   if (!key) { console.log('Holdout prices unavailable without the licensed environment'); return; }
   const combined = Object.fromEntries(FRAMES.map(([frame]) => [frame, groups()]));
-  console.log('Research split:', new Date(SPLIT).toISOString());
+  console.log('Research split:', iso(window.split));
   let requests = 0;
   for (const [symbol, market] of MARKETS) {
     const marketPrices = new Map();
     for (const interval of PROVIDER_INTERVALS.values()) {
-      if (requests++) await new Promise(resolve => setTimeout(resolve, 12000));
-      marketPrices.set(interval, await prices(symbol, interval, key));
+      const bars = [];
+      for (const range of priceWindows(interval, window)) {
+        if (requests++) await new Promise(resolve => setTimeout(resolve, 12000));
+        const result = await prices(symbol, interval, key, range);
+        if (result.failure) {
+          if (/\b(?:429|401|403)\b/.test(result.failure)) throw Error('Licensed provider: ' + result.failure);
+          marketPrices.set(interval, result);
+          break;
+        }
+        bars.push(...result.bars);
+      }
+      if (!marketPrices.has(interval)) marketPrices.set(interval, {bars});
     }
     const hourly = marketPrices.get('1h');
     for (const [frame, interval] of FRAMES) {
@@ -220,7 +264,7 @@ async function main() {
         console.log('Holdout', symbol, frame, 'unavailable:', entry.failure || hourly.failure || higher.failure || 'empty');
         continue;
       }
-      const result = replay(archives, symbol.replace('/', ''), market, entry.bars, hourly.bars, frame, higher.bars);
+      const result = replay(archives, symbol.replace('/', ''), market, entry.bars, hourly.bars, frame, higher.bars, window);
       for (const [period, buckets] of Object.entries(result.periods)) {
         for (const [name, outcomes] of Object.entries(buckets)) combined[frame][period][name].push(...outcomes);
       }
@@ -236,4 +280,4 @@ async function main() {
 }
 
 if (require.main === module) main().catch(error => { console.error(error.message); process.exitCode = 1; });
-module.exports = {newsAt, summarize, rejection, replay, contextAt};
+module.exports = {newsAt, summarize, rejection, replay, contextAt, readWindow, priceWindows};

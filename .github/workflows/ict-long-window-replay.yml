@@ -1,0 +1,39 @@
+name: ICT long-window research
+on:
+  workflow_dispatch:
+    inputs:
+      start:
+        description: UTC start date (YYYY-MM-DD)
+        required: true
+        type: string
+      split:
+        description: UTC boundary between selection and validation
+        required: true
+        type: string
+      end:
+        description: Exclusive UTC end date (YYYY-MM-DD)
+        required: true
+        type: string
+permissions:
+  contents: read
+concurrency:
+  group: ict-licensed-research
+  cancel-in-progress: false
+jobs:
+  replay:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Compare all four entry frames
+        env:
+          TWELVEDATA_API_KEY: ${{ secrets.TWELVEDATA_API_KEY }}
+          ICT_REPLAY_START: ${{ inputs.start }}
+          ICT_REPLAY_SPLIT: ${{ inputs.split }}
+          ICT_REPLAY_END: ${{ inputs.end }}
+        run: node monitor-service/ict-unseen-market-replay.cjs | tee -a "$GITHUB_STEP_SUMMARY"
