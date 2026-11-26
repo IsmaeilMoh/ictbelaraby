@@ -334,6 +334,7 @@ function card(parent,o,origin){
   }catch{feedback.textContent='تعذر حفظ الصورة. جرّب مرة أخرى.';}
   finally{save.disabled=false;}
  });
+ return c;
 }
 const backgroundOutput=$('dc-background-output');
 let backgroundTimer;
@@ -441,6 +442,29 @@ async function scanBatch(){
  clear(output);
  const results=block('نتائج الفحص الجماعي',output);
  node('p',modelType.selectedOptions[0].textContent+' · حالة النموذج: '+(phases[modelPhase.value]||'جميع الحالات')+' · اختر أصلًا منفردًا لمتابعة سعره.',results);
+ const filterControls=node('div','',results);
+ filterControls.hidden=true;
+ const filterLabel=node('label','فلترة النتائج حسب الحالة',filterControls);
+ const filter=node('select','',filterLabel);
+ for(const [value,label] of [['','جميع الحالات'],...Object.entries(phases)]){
+  node('option',label,filter).value=value;
+ }
+ const filterStatus=node('p','',filterControls,'dc-muted');
+ filterStatus.setAttribute('role','status');
+ const cards=[];
+ const matchesFilter=phase=>!filter.value||phase===filter.value;
+ const updateFilterStatus=visible=>{
+  filterStatus.textContent=visible?'عرض '+visible+' من '+cards.length+' نموذج':'لا توجد نتائج بهذه الحالة ضمن الفحص.';
+ };
+ let visibleCards=0;
+ filter.addEventListener('change',()=>{
+  visibleCards=0;
+  for(const {element,phase} of cards){
+   element.hidden=!matchesFilter(phase);
+   if(!element.hidden)visibleCards++;
+  }
+  updateFilterStatus(visibleCards);
+ });
  let checked=0,failed=0,models=0,halted=false;
  const matched=new Set();
  const stopPattern=isCrypto?/^BYBIT_(?:HTTP_(?:403|429|451)|CODE_(?:10006|429))$/:/^Biquote: HTTP (?:403|429|451)$/;
@@ -460,9 +484,17 @@ async function scanBatch(){
      if(res.opportunities.length){
       matched.add(asset);
       models+=res.opportunities.length;
-      for(const opportunity of res.opportunities)card(results,{
-       ...opportunity,frame:tf,source:res.source,marketType:isCrypto?'PERPETUAL':'PROVIDER_NATIVE',detectedAt:res.checkedAt,lastCompleteAt:res.lastCompleteAt
-      },'فحص جماعي');
+      for(const opportunity of res.opportunities){
+       const element=card(results,{
+        ...opportunity,frame:tf,source:res.source,marketType:isCrypto?'PERPETUAL':'PROVIDER_NATIVE',detectedAt:res.checkedAt,lastCompleteAt:res.lastCompleteAt
+       },'فحص جماعي');
+       const phase=opportunity.research?.phase;
+       cards.push({element,phase});
+       element.hidden=!matchesFilter(phase);
+       if(!element.hidden)visibleCards++;
+      }
+      filterControls.hidden=false;
+      updateFilterStatus(visibleCards);
      }
     }catch(error){
      if(signal.aborted)break;
