@@ -218,8 +218,22 @@ function matchingModels(plan,bars,index,tf){
  }
  return matches;
 }
+function confirmationDistanceLabel(o){
+ const distance=o.confirmationDistanceR;
+ return Number.isFinite(distance)?'المسافة إلى الدخول عند التأكيد · '+distance.toFixed(2)+'R':null;
+}
+let cardLogoRequest;
+function loadCardLogo(){
+ if(!cardLogoRequest){
+  const logo=new Image();
+  logo.src='./logo-transparent.png';
+  cardLogoRequest=logo.decode().then(()=>logo).catch(()=>{cardLogoRequest=null;return null;});
+ }
+ return cardLogoRequest;
+}
 async function saveCardImage(o,source,levelRows,status,evidence){
- // Render from the same values used by the card so the export works offline and needs no external assets.
+ // Use the same figures as the card and a same-origin logo cached by the site shell.
+ const logo=await loadCardLogo();
  const canvas=document.createElement('canvas');
  const ctx=canvas.getContext('2d');
  if(!ctx)throw Error('Canvas unavailable');
@@ -237,7 +251,7 @@ async function saveCardImage(o,source,levelRows,status,evidence){
  };
  const groups=[
   ['المصدر والأوقات',[source,'تكوّن النموذج · '+dual(o.formedAt),'وقت الرصد · '+dual(o.detectedAt),
-   o.lastCompleteAt?'آخر إغلاق · '+dual(o.lastCompleteAt):null]],
+   o.lastCompleteAt?'آخر إغلاق · '+dual(o.lastCompleteAt):null,confirmationDistanceLabel(o)]],
   ['أدلة النموذج',[...(o.modelMatches||[]).map(m=>[m.label,m.evidence].filter(Boolean).join(' · ')),...evidence,...(o.evidence||[])]],
   ['حالة التحقق',o.blocks||[]]
  ];
@@ -254,6 +268,13 @@ async function saveCardImage(o,source,levelRows,status,evidence){
   ctx.font=(bold?'700 ':'')+size+'px '+family;ctx.fillStyle=color;
   ctx.direction=dir;ctx.textAlign='right';ctx.fillText(str,x,y,max);
  };
+ if(logo){
+  const scale=132/Math.max(logo.naturalWidth,logo.naturalHeight);
+  ctx.save();
+  ctx.filter='invert(1)';
+  ctx.drawImage(logo,margin,56,logo.naturalWidth*scale,logo.naturalHeight*scale);
+  ctx.restore();
+ }
  const right=width-margin;
  print('ICT بالعربي  ·  مركز فرص التداول الذكي',right,99,30,'#a4dfcd',{bold:true});
  print(o.symbol,right,178,64,'#f2fcfa',{bold:true,dir:'ltr'});
@@ -301,6 +322,8 @@ function card(parent,o,origin){
  node('p','الرصد: '+dual(o.detectedAt)+(o.lastCompleteAt?' | آخر إغلاق: '+dual(o.lastCompleteAt):''),c);
  if(o.research)node('p','وقت الحالة: '+dual(o.research.at)+' | تكوّن: '+dual(o.formedAt),c);
  if(o.research?.phase==='confirmed_research')node('p','تحقق شرط التأكيد في شموع مغلقة. التنفيذ يتطلب تحققًا مستقلًا.',c);
+ const confirmationDistance=confirmationDistanceLabel(o);
+ if(confirmationDistance)node('p',confirmationDistance,c,'dc-muted');
  const levels=node('div','',c,'dc-levels');
  const levelRows=[[o.modelType==='turtle-soup'?'المستوى المسترد':o.modelType==='ifvg'?'منطقة IFVG':o.modelType==='ote'?'منطقة OTE':o.modelType==='breaker'?'منطقة Breaker':o.modelType==='amd'?'حد التراكم':'منطقة FVG',o.modelType==='turtle-soup'?money(o.entry):o.zone?money(o.zone.low)+' — '+money(o.zone.high):'غير متاحة'],['دخول مرجعي',money(o.entry)],['إبطال/وقف افتراضي',money(o.stop)],[o.liquidity?'هدف السيولة · '+o.rr.toFixed(2)+'R':'هدف مرجعي',money(o.target)]];
  for(const [name,value] of levelRows){
@@ -418,7 +441,13 @@ function inspectContract(market,contract,tf,{entryBars,hourly,higherCandles,week
  if(res.opportunities.length){
   const bars=structure.normalize(entryBars,tf,now).segments.at(-1)||[];
   const index=new Map(bars.map((bar,i)=>[bar.start,i]));
-  for(const plan of res.opportunities)plan.modelMatches=matchingModels(plan,bars,index,tf);
+  for(const plan of res.opportunities){
+   plan.modelMatches=matchingModels(plan,bars,index,tf);
+   if(plan.research?.phase!=='confirmed_research')continue;
+   const candle=bars[index.get(plan.research.at-structure.FRAME_MS[tf])];
+   const risk=Math.abs(plan.entry-plan.stop);
+   if(candle&&risk>0)plan.confirmationDistanceR=Math.abs(candle.close-plan.entry)/risk;
+  }
   if(modelType.value)res.opportunities=res.opportunities.filter(plan=>plan.modelMatches.some(match=>match.type===modelType.value));
  }
  if(batch)for(const plan of res.opportunities)plan.blocks.push('الفحص الجماعي بحثي؛ افحص الأصل منفردًا للتحقق من قراءة Bid/Ask ومتابعة السعر.');
