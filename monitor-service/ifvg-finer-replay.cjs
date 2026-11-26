@@ -25,6 +25,7 @@ const iso=time=>new Date(time).toISOString();
 const utc=time=>iso(time).slice(0,19).replace('T',' ');
 const rows=series=>series.map(([time,open,high,low,close])=>({start:Date.parse(time),open,high,low,close,confirmed:true}));
 const fields=['open','high','low','close'];
+let lastRequestAt=0;
 
 function browserSignals(){
  const fs=require('node:fs');
@@ -119,6 +120,9 @@ function refine(item,fine,frame){
 }
 
 async function getHistory(symbol,start,key,frame=fineFrame,duration=windowMs){
+ const remaining=8500-(Date.now()-lastRequestAt);
+ if(remaining>0)await new Promise(resolve=>setTimeout(resolve,remaining));
+ lastRequestAt=Date.now();
  const step=lifecycle.FRAME[frame];
  const interval=frame==='60'?'1h':frame+'min';
  const query=new URLSearchParams({
@@ -207,7 +211,6 @@ async function main(){
  if(!key&&pending.length)console.log('Fine history unavailable: TWELVEDATA_API_KEY is not configured.');
  const batches=new Map();
  if(key)for(const [id,{symbol,day}] of requests){
-  if(batches.size)await new Promise(resolve=>setTimeout(resolve,8500));
   const result=await getHistory(symbol,day,key);
   batches.set(id,result);
   if(result.reason)console.log(symbol,iso(day).slice(0,10),result.reason);
