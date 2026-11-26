@@ -23,6 +23,8 @@ assert.equal(source.parseQuote(tick,ins,now+15001),null);
 assert.equal(source.parseQuote(tick,ins,now-1),null);
 assert.equal(source.resolve('metals','XAUUSD').quote,'USD');
 assert.equal(source.resolve('indices','NAS100').providerSymbol,'USTEC');
+assert.equal(source.resolve('energy','USOIL').providerSymbol,'USOIL');
+assert.equal(source.resolve('energy','UKOIL').providerSymbol,'UKOIL');
 const b=bybit.parseHistory({retCode:0,result:{symbol:'BTCUSDT',list:[
  [start+34*ms,'100','103','99','102','25','20'],[start+33*ms,'100','104','98','101','30','20']
 ]}},'BTCUSDT','15',now);

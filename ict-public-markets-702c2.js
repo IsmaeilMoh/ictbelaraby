@@ -6,7 +6,7 @@ const MARKETS=Object.freeze({
  metals:[['XAUUSD','XAUUSD'],['XAGUSD','XAGUSD']],
  indices:[['NAS100','USTEC'],['US500','US500'],['US30','US30']],
  stocks:[['AAPL','AAPL'],['TSLA','TSLA'],['NVDA','NVDA'],['MSFT','MSFT'],['NFLX','NFLX']],
- energy:[['USOIL','WTI'],['UKOIL','BRENT']]
+ energy:[['USOIL','USOIL'],['UKOIL','UKOIL']]
 });
 const FRAMES=Object.freeze({'1min':['1m',60000],'5min':['5m',300000],'15min':['15m',900000],'1h':['1h',3600000],'4h':['4h',14400000],'1day':['1d',86400000]});
  const PUBLIC_QUOTES=Object.freeze({

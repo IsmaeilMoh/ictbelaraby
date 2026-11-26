@@ -97,7 +97,8 @@ jobs:
             : 'unverified (no qualifying data)';
           async function probe() {
             console.log('### Biquote public source probe');
-            for (const [market, symbol] of [['forex','EURUSD'],['metals','XAUUSD'],['indices','NAS100'],['stocks','AAPL'],['energy','USOIL']]) {
+            const instruments = Object.entries(api.MARKETS).flatMap(([market, rows]) => rows.map(([symbol]) => [market, symbol]));
+            for (const [market, symbol] of instruments) {
               const instrument = api.resolve(market, symbol);
               const [candles, quote] = await Promise.allSettled([
                 api.get(instrument, '15min', {fetch: fromPages, limit: 20}),
