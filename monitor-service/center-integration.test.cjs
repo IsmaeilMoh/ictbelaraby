@@ -66,3 +66,6 @@ doc.hidden=false;visible();assert.equal(clicks,3,'refresh on return');
 button.disabled=true;now+=300000;tick();assert.equal(clicks,3,'do not overlap in-flight requests');
 button.disabled=false;unload();assert.equal(tick,null,'stop timer on navigation');
 console.log('Center integration, PWA and auto-refresh contract: PASS');
+
+assert.doesNotMatch(html,/id="dc-quality"/,'entry qualification needs no new control');
+assert.match(decision,/res\.opportunities=res\.opportunities\.filter\(api\.qualifiesFocused\)/,'shared single and batch scan applies entry qualification');
