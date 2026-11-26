@@ -24,10 +24,11 @@ const listed=group=>catalog[group]||[];
 const validSymbol=s=>typeof s==='string'&&/^[A-Z0-9][A-Z0-9._-]{0,29}$/.test(s);
 const metal=/^X(?:AU|AG|PT|PD|AL|CU|NI|PB|ZN)[A-Z]{3}$/;
 function classify({name,type,description}){
- if(type==='Forex')return /^[A-Z]{6}$/.test(name)?'forex':null;
- if(type==='Stock')return 'stocks';
- if(type==='Index')return 'indices';
- if(type!=='Commodity')return null;
+ type=String(type).toLowerCase();
+ if(type==='forex')return /^[A-Z]{6}$/.test(name)?'forex':null;
+ if(type==='stock')return 'stocks';
+ if(type==='index')return 'indices';
+ if(type!=='commodity')return null;
  if(metal.test(name)||/\b(gold|silver|platinum|palladium|aluminum|aluminium|copper|nickel|lead|zinc|tin)\b/i.test(description||''))return 'metals';
  if(/\b(oil|natural gas|heating oil|gasoline|brent)\b/i.test(description||''))return 'energy';
  return null;
@@ -36,7 +37,7 @@ function parseCatalog(payload){
  if(!Array.isArray(payload))throw Error('استجابة دليل Biquote غير صالحة');
  const groups=Object.fromEntries(Object.keys(MARKETS).map(group=>[group,new Map()]));
  for(const row of payload){
-  if(!row||!validSymbol(row.name)||!['MT5','MATRIKS'].includes(row.source))continue;
+  if(!row||!validSymbol(row.name))continue;
   const group=classify(row);
   if(!group)continue;
   const alias=MARKETS[group].find(([,provider])=>provider===row.name)?.[0]||row.name;

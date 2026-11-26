@@ -103,6 +103,10 @@ jobs:
                 console.log(`- Catalog ${group}: ${items.length} symbols with quotes in the last 7 days`);
             } catch (error) {
               console.log('- Catalog unavailable: ' + (error.cause?.code || error.message));
+              for (const path of ['symbols?quotedWithinDays=7','active','symbols?activeOnly=true']) {
+                const sample = await fetch('https://biquote.io/api/'+path,{signal:AbortSignal.timeout(8000)}).then(r=>r.json()).catch(()=>null);
+                console.log('Catalog diagnostic',path,Array.isArray(sample)?sample.length:typeof sample,JSON.stringify(Array.isArray(sample)?sample.slice(0,2):sample)?.slice(0,800));
+              }
             }
             const instruments = Object.entries(api.MARKETS).flatMap(([market, rows]) => rows.map(([symbol]) => [market, symbol]));
             for (const [market, symbol] of instruments) {
