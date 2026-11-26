@@ -32,7 +32,7 @@ jobs:
           TWELVEDATA_API_KEY: ${{ secrets.TWELVEDATA_API_KEY }}
         run: node monitor-service/ifvg-finer-replay.cjs | tee -a "$GITHUB_STEP_SUMMARY"
       - name: Replay new 15-minute markets with archived news and hourly context
-        if: github.event_name == 'pull_request' && github.head_ref == 'dev/ict-entry-diagnostics' && github.event.pull_request.head.repo.full_name == github.repository
+        if: github.event_name == 'pull_request' && github.head_ref == 'dev/ict-fvg-timing-replay' && github.event.pull_request.head.repo.full_name == github.repository
         env:
           TWELVEDATA_API_KEY: ${{ secrets.TWELVEDATA_API_KEY }}
         run: |
