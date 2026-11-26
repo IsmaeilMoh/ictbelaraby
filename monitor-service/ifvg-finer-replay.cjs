@@ -8,7 +8,10 @@ const data=require('../historical-multi-market.json');
 
 const DAY=86400000;
 const displayed=process.env.IFVG_DISPLAYED==='1';
-const replayStart=Date.parse('2026-10-10T00:00:00Z');
+const independent=process.env.IFVG_INDEPENDENT==='1';
+const boundary=Date.parse('2026-10-10T00:00:00Z');
+const replayStart=independent?Date.parse('2026-09-01T00:00:00Z'):boundary;
+const replayEnd=independent?boundary:Date.parse(data.updatedAt)+1;
 const fineFrame=process.env.IFVG_FINE_FRAME==='1'?'1':'5';
 const fineMs=lifecycle.FRAME[fineFrame];
 const windowMs=(fineFrame==='1'?3:7)*DAY;
@@ -19,15 +22,19 @@ const rows=series=>series.map(([time,open,high,low,close])=>({start:Date.parse(t
 const fields=['open','high','low','close'];
 
 function ambiguousCases(){
- const cases=[],settled=[];
+ const cases=[],settled={'15':[],'60':[]},coverage={'15':{scans:0},'60':{scans:0}};
  for(const [symbol,series] of Object.entries(data.assets)){
   for(const [frame,key] of [['15','15m'],['60','1h']]){
-   const ms=lifecycle.FRAME[frame],bars=rows(series[key]||[]);
+   const ms=lifecycle.FRAME[frame],bars=rows(series[key]||[]).filter(bar=>!independent||bar.start+ms<replayEnd);
    for(let n=30;n<=bars.length;n++){
     const prefix=bars.slice(Math.max(0,n-250),n),now=prefix.at(-1).start+ms;
-    if(displayed&&(now<replayStart||now>Date.parse(data.updatedAt)))continue;
+    if(displayed&&(now<replayStart||now>=replayEnd))continue;
     const {analysis}=signals.evaluate(prefix,frame,{now,market:'forex',symbol});
     if(!analysis.eligible)continue;
+    const sample=coverage[frame];
+    sample.scans++;
+    sample.first=Math.min(sample.first??now,now);
+    sample.last=Math.max(sample.last??now,now);
     const segment=structure.normalize(prefix,frame,now).segments.at(-1)||[];
     const index=new Map(segment.map((bar,i)=>[bar.start,i]));
     const pivots=[{pivots:analysis.pivots,ms,frame}];
@@ -38,7 +45,7 @@ function ambiguousCases(){
      const side=model.direction==='bull'?'BUY':'SELL';
      const record=lifecycle.create({...model,market:'forex',symbol,frame,side,target:plan.target},now,{researchOnly:true});
      const result=lifecycle.advance(record,bars,bars.at(-1).start+ms);
-     if(Number.isFinite(result.outcomeR))settled.push(result.outcomeR);
+     if(Number.isFinite(result.outcomeR))settled[frame].push(result.outcomeR);
      if(result.state!=='ambiguous')continue;
      const start=result.lastProcessedStart;
      const parent=bars.find(bar=>bar.start===start);
@@ -48,7 +55,7 @@ function ambiguousCases(){
    }
   }
  }
- return {cases,settled};
+ return {cases,settled,coverage};
 }
 
 function refine(item,fine,frame){
@@ -99,16 +106,23 @@ async function getFine(symbol,start,key){
 
 async function main(){
  const key=process.env.TWELVEDATA_API_KEY;
- const {cases,settled}=ambiguousCases(),requests=new Map(),summary={};
+ const {cases,settled,coverage}=ambiguousCases(),requests=new Map(),summary={};
  console.log('Mode:',displayed?'nearest liquidity on entry frame':'focused','Fine frame:',fineFrame);
  console.log('Source:',data.source,'archive:',data.updatedAt,'ambiguous cases:',cases.length);
+ if(independent){
+  console.log('Independent UTC interval:',iso(replayStart),iso(replayEnd));
+  for(const [frame,info] of Object.entries(coverage)){
+   console.log('Coverage '+frame+'m:',JSON.stringify({scans:info.scans,first:info.first?iso(info.first):null,last:info.last?iso(info.last):null}));
+  }
+ }
  const pending=[];
  const archived=new Map(Object.entries(data.assets).map(([symbol,series])=>[symbol,new Map(rows(series['15m']||[]).map(bar=>[bar.start,bar]))]));
  for(const item of cases){
   const prior=item.frame==='60'?refine(item,archived.get(item.symbol),'15'):null;
   if(prior&&['won','lost','invalidated'].includes(prior.state)){
-   if(Number.isFinite(prior.outcomeR))settled.push(prior.outcomeR);
-   summary['archive '+prior.state]=(summary['archive '+prior.state]||0)+1;
+   if(Number.isFinite(prior.outcomeR))settled[item.frame].push(prior.outcomeR);
+   const id='archive '+(independent?item.frame+'m ':'')+prior.state;
+   summary[id]=(summary[id]||0)+1;
    continue;
   }
   pending.push(item);
@@ -131,12 +145,17 @@ async function main(){
   const result=batch?.bars?refine(item,batch.bars,fineFrame):{state:batch?.reason||'unavailable'};
   const id=item.frame+'m '+result.state;
   summary[id]=(summary[id]||0)+1;
-  if(Number.isFinite(result.outcomeR)){netR+=result.outcomeR;settled.push(result.outcomeR);}
+  if(Number.isFinite(result.outcomeR)){netR+=result.outcomeR;settled[item.frame].push(result.outcomeR);}
  }
  console.log('IFVG refinement:',JSON.stringify(summary));
  if([...batches.values()].some(batch=>batch.bars))console.log('Net R from newly resolved '+fineFrame+'m cases:',netR.toFixed(2));
+ if(independent)for(const [frame,outcomes] of Object.entries(settled))logSettled('Settled '+frame+'m:',outcomes);
+ logSettled('Settled IFVG:',Object.values(settled).flat());
+}
+
+function logSettled(label,settled){
  const total=settled.reduce((sum,value)=>sum+value,0),largest=Math.max(0,...settled);
- console.log('Settled IFVG:',JSON.stringify({targets:settled.filter(value=>value>0).length,stops:settled.filter(value=>value<0).length,
+ console.log(label,JSON.stringify({targets:settled.filter(value=>value>0).length,stops:settled.filter(value=>value<0).length,
   netR:Number(total.toFixed(2)),largestWinR:Number(largest.toFixed(2)),withoutLargestR:Number((total-largest).toFixed(2))}));
 }
 if(require.main===module)main().catch(()=>{console.error('IFVG refinement failed');process.exitCode=1});
