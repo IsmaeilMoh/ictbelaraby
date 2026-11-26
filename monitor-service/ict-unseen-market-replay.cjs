@@ -14,7 +14,15 @@ const START = Date.parse('2026-11-19T00:00:00Z');
 const END = Date.parse('2026-11-26T00:00:00Z');
 const MS = 900000;
 const HOUR = 3600000;
-const MARKETS = [['EUR/CHF', 'forex'], ['CAD/JPY', 'forex']];
+const MARKETS = [['XAU/USD', 'metals'], ...[
+  'EUR/USD', 'GBP/USD', 'USD/JPY', 'EUR/JPY', 'GBP/JPY', 'EUR/GBP', 'AUD/JPY'
+].map(symbol => [symbol, 'forex'])];
+const SPLIT = Date.parse('2026-11-23T00:00:00Z');
+const alternatives = [
+  ['early', -1, {allowEarlyFvgForResearch: true}],
+  ['late', 2, {allowDelayedFvgForResearch: true}]
+];
+const groups = () => ({selection:{baseline:[],early:[],late:[]}, validation:{baseline:[],early:[],late:[]}});
 const COSTS = [0.05, 0.1, 0.2];
 
 function archive() {
@@ -73,6 +81,7 @@ function summarize(outcomes) {
     opportunities: outcomes.length,
     targets: settled.filter(row => row.state === 'won').length,
     stops: settled.filter(row => row.state === 'lost').length,
+    touched: outcomes.filter(row => row.activationAt != null).length,
     ambiguous: outcomes.filter(row => row.state === 'ambiguous').length,
     netR: Object.fromEntries(COSTS.map(cost => [
       cost, Number(settled.reduce((sum, row) => sum + row.outcomeR - cost, 0).toFixed(2))
@@ -95,11 +104,11 @@ function rejection(model, range, bars, structures, displayed) {
 }
 
 function replay(archives, symbol, market, bars, hourly) {
-  const outcomes = [], additional = [], reasons = {}, modelReasons = {}, displacementFailures = {};
+  const periods = groups(), reasons = {}, modelReasons = {}, displacementFailures = {};
   const addReason = reason => { reasons[reason] = (reasons[reason] || 0) + 1; };
   for (let n = 30; n <= bars.length; n++) {
     const now = bars[n - 1].start + MS;
-    if (now < START || now >= END) continue;
+    if (now < START || now >= END || (now < SPLIT && now + 24 * MS > SPLIT)) continue;
     const prefix = bars.slice(Math.max(0, n - 250), n);
     const raw = signals.evaluate(prefix, '15', {market, symbol, now});
     const formed = raw.models.filter(model => model.formedAt === now && model.status === 'watching' && model.research);
@@ -140,17 +149,33 @@ function replay(archives, symbol, market, bars, hourly) {
         modelReasons[reason] = (modelReasons[reason] || 0) + 1;
       }
     }
-    const comparison = formed.some(model => model.fvgAt - model.mssAt === -MS)
-      ? rules.inspect({...input, allowEarlyFvgForResearch: true}).opportunities.filter(plan =>
-        plan.formedAt === now && rules.qualifiesFocused(plan) && plan.modelEvidence[2] - plan.modelEvidence[1] === -MS)
-      : [];
-    for (const plan of [...qualified, ...comparison]) {
-      const record = lifecycle.create({...plan, frame: '15'}, now, {researchOnly: true});
-      const bucket = qualified.includes(plan) ? outcomes : additional;
-      bucket.push(lifecycle.advance(record, bars.slice(n, n + 24), Math.min(END, now + 24 * MS)));
+    const period = now < SPLIT ? periods.selection : periods.validation;
+    const positions = [['baseline', qualified]];
+    for (const [name, lag, options] of alternatives) {
+      if (!formed.some(model => model.fvgAt - model.mssAt === lag * MS)) continue;
+      const additional = rules.inspect({...input, ...options}).opportunities.filter(plan =>
+        plan.formedAt === now && rules.qualifiesFocused(plan) &&
+        plan.modelEvidence[2] - plan.modelEvidence[1] === lag * MS);
+      positions.push([name, additional]);
+    }
+    for (const [name, plans] of positions) {
+      for (const plan of plans) {
+        const record = lifecycle.create({...plan, frame: '15'}, now, {researchOnly: true});
+        period[name].push(lifecycle.advance(record, bars.slice(n, n + 24), Math.min(END, now + 24 * MS)));
+      }
     }
   }
-  return {outcomes, additional, reasons, modelReasons, displacementFailures};
+  return {periods, reasons, modelReasons, displacementFailures};
+}
+
+function summarizePeriod({baseline, early, late}) {
+  return {
+    baseline: summarize(baseline),
+    earlyAdditional: summarize(early),
+    lateAdditional: summarize(late),
+    withEarly: summarize([...baseline, ...early]),
+    withLate: summarize([...baseline, ...late])
+  };
 }
 
 async function main() {
@@ -158,7 +183,8 @@ async function main() {
   const archives = archive();
   console.log('Calendar snapshots:', archives.length, 'from commit history');
   if (!key) { console.log('Holdout prices unavailable without the licensed environment'); return; }
-  const combined = [], added = [];
+  const combined = groups();
+  console.log('Research split:', new Date(SPLIT).toISOString());
   let requests = 0;
   for (const [symbol, market] of MARKETS) {
     const marketPrices = [];
@@ -172,14 +198,16 @@ async function main() {
       continue;
     }
     const result = replay(archives, symbol.replace('/', ''), market, entry.bars, hourly.bars);
-    combined.push(...result.outcomes);
-    added.push(...result.additional);
+    for (const [period, buckets] of Object.entries(result.periods)) {
+      for (const [name, outcomes] of Object.entries(buckets)) combined[period][name].push(...outcomes);
+    }
     console.log('Holdout', symbol, JSON.stringify({entryBars: entry.bars.length, hourlyBars: hourly.bars.length,
-      baseline: summarize(result.outcomes), earlyFvgOnly: summarize(result.additional), gateCounts: result.reasons,
+      selection: summarizePeriod(result.periods.selection), validation: summarizePeriod(result.periods.validation), gateCounts: result.reasons,
       firstModelRejection: result.modelReasons, displacementFailures: result.displacementFailures}));
   }
-  console.log('Holdout overall:', JSON.stringify({baseline: summarize(combined),
-    expanded: summarize([...combined, ...added]), additional: summarize(added)}));
+  for (const [period, buckets] of Object.entries(combined)) {
+    console.log('Holdout overall', period + ':', JSON.stringify(summarizePeriod(buckets)));
+  }
 }
 
 if (require.main === module) main().catch(error => { console.error(error.message); process.exitCode = 1; });
