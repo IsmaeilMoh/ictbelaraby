@@ -6,16 +6,18 @@ const signals=require('./ict_phase2e/ict-signal-engine-702e.js');
 const lifecycle=require('../ict-opportunity-lifecycle-708b.js');
 const data=require('../historical-multi-market.json');
 
-const FIVE=300000;
-const WEEK=7*86400000;
-const windowStart=time=>Math.floor(time/WEEK)*WEEK;
+const DAY=86400000;
+const fineFrame=process.env.IFVG_FINE_FRAME==='1'?'1':'5';
+const fineMs=lifecycle.FRAME[fineFrame];
+const windowMs=(fineFrame==='1'?3:7)*DAY;
+const windowStart=time=>Math.floor(time/windowMs)*windowMs;
 const iso=time=>new Date(time).toISOString();
 const utc=time=>iso(time).slice(0,19).replace('T',' ');
 const rows=series=>series.map(([time,open,high,low,close])=>({start:Date.parse(time),open,high,low,close,confirmed:true}));
 const fields=['open','high','low','close'];
 
 function ambiguousCases(){
- const cases=[];
+ const cases=[],settled=[];
  for(const [symbol,series] of Object.entries(data.assets)){
   for(const [frame,key] of [['15','15m'],['60','1h']]){
    const ms=lifecycle.FRAME[frame],bars=rows(series[key]||[]);
@@ -33,6 +35,7 @@ function ambiguousCases(){
      const side=model.direction==='bull'?'BUY':'SELL';
      const record=lifecycle.create({...model,market:'forex',symbol,frame,side,target:plan.target},now,{researchOnly:true});
      const result=lifecycle.advance(record,bars,bars.at(-1).start+ms);
+     if(Number.isFinite(result.outcomeR))settled.push(result.outcomeR);
      if(result.state!=='ambiguous')continue;
      const start=result.lastProcessedStart;
      const parent=bars.find(bar=>bar.start===start);
@@ -42,7 +45,7 @@ function ambiguousCases(){
    }
   }
  }
- return cases;
+ return {cases,settled};
 }
 
 function refine(item,fine,frame){
@@ -65,8 +68,8 @@ function refine(item,fine,frame){
 
 async function getFine(symbol,start,key){
  const query=new URLSearchParams({
-  symbol:symbol.slice(0,3)+'/'+symbol.slice(3),interval:'5min',timezone:'UTC',
-  start_date:utc(start),end_date:utc(start+WEEK-1),outputsize:'2016',apikey:key
+  symbol:symbol.slice(0,3)+'/'+symbol.slice(3),interval:fineFrame+'min',timezone:'UTC',
+  start_date:utc(start),end_date:utc(start+windowMs-1),outputsize:String(windowMs/fineMs),apikey:key
  });
  let response;
  try{response=await fetch('https://api.twelvedata.com/time_series?'+query,{signal:AbortSignal.timeout(12000)})}
@@ -75,13 +78,13 @@ async function getFine(symbol,start,key){
  const payload=await response.json().catch(()=>null);
  const code=Number(payload?.code);
  if(!Array.isArray(payload?.values))return {reason:Number.isInteger(code)?'provider '+code:'no data'};
- if(payload.meta?.symbol?.replace('/','')!==symbol||payload.meta?.interval!=='5min')return {reason:'identity'};
+ if(payload.meta?.symbol?.replace('/','')!==symbol||payload.meta?.interval!==fineFrame+'min')return {reason:'identity'};
  const bars=new Map();
  for(const row of payload.values){
   const stamp=Date.parse(String(row.datetime).replace(' ','T')+'Z');
   const bar={start:stamp,confirmed:true};
   for(const field of fields)bar[field]=Number(row[field]);
-  if(!Number.isSafeInteger(stamp)||stamp%FIVE!==0||stamp<start||stamp>=start+WEEK||
+  if(!Number.isSafeInteger(stamp)||stamp%fineMs!==0||stamp<start||stamp>=start+windowMs||
      bars.has(stamp)||!fields.every(field=>Number.isFinite(bar[field])&&bar[field]>0)||
      bar.high<Math.max(bar.open,bar.close,bar.low)||bar.low>Math.min(bar.open,bar.close,bar.high)){
    return {reason:'invalid candles'};
@@ -93,13 +96,14 @@ async function getFine(symbol,start,key){
 
 async function main(){
  const key=process.env.TWELVEDATA_API_KEY;
- const cases=ambiguousCases(),requests=new Map(),summary={};
+ const {cases,settled}=ambiguousCases(),requests=new Map(),summary={};
  console.log('Source:',data.source,'archive:',data.updatedAt,'ambiguous cases:',cases.length);
  const pending=[];
  const archived=new Map(Object.entries(data.assets).map(([symbol,series])=>[symbol,new Map(rows(series['15m']||[]).map(bar=>[bar.start,bar]))]));
  for(const item of cases){
   const prior=item.frame==='60'?refine(item,archived.get(item.symbol),'15'):null;
   if(prior&&['won','lost','invalidated'].includes(prior.state)){
+   if(Number.isFinite(prior.outcomeR))settled.push(prior.outcomeR);
    summary['archive '+prior.state]=(summary['archive '+prior.state]||0)+1;
    continue;
   }
@@ -107,7 +111,7 @@ async function main(){
   const day=windowStart(item.start);
   requests.set(item.symbol+':'+day,{symbol:item.symbol,day});
  }
- console.log('Remaining cases:',pending.length,'targeted symbol-weeks:',requests.size);
+ console.log('Remaining cases:',pending.length,'targeted windows:',requests.size);
  const batches=new Map();
  if(key)for(const [id,{symbol,day}] of requests){
   if(batches.size)await new Promise(resolve=>setTimeout(resolve,8500));
@@ -119,13 +123,16 @@ async function main(){
  let netR=0;
  for(const item of pending){
   const batch=batches.get(item.symbol+':'+windowStart(item.start));
-  const result=batch?.bars?refine(item,batch.bars,'5'):{state:batch?.reason||'unavailable'};
+  const result=batch?.bars?refine(item,batch.bars,fineFrame):{state:batch?.reason||'unavailable'};
   const id=item.frame+'m '+result.state;
   summary[id]=(summary[id]||0)+1;
-  if(Number.isFinite(result.outcomeR))netR+=result.outcomeR;
+  if(Number.isFinite(result.outcomeR)){netR+=result.outcomeR;settled.push(result.outcomeR);}
  }
  console.log('IFVG refinement:',JSON.stringify(summary));
- console.log('Net R from newly resolved 5m cases:',netR.toFixed(2));
+ console.log('Net R from newly resolved '+fineFrame+'m cases:',netR.toFixed(2));
+ const total=settled.reduce((sum,value)=>sum+value,0),largest=Math.max(0,...settled);
+ console.log('Settled IFVG:',JSON.stringify({targets:settled.filter(value=>value>0).length,stops:settled.filter(value=>value<0).length,
+  netR:Number(total.toFixed(2)),largestWinR:Number(largest.toFixed(2)),withoutLargestR:Number((total-largest).toFixed(2))}));
 }
 if(require.main===module)main().catch(()=>{console.error('IFVG refinement failed');process.exitCode=1});
 module.exports={refine};
