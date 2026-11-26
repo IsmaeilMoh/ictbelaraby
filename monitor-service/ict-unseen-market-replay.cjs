@@ -24,7 +24,7 @@ const alternatives = [
   ['early', -1, {allowEarlyFvgForResearch: true}],
   ['late', 2, {allowDelayedFvgForResearch: true}]
 ];
-const groups = () => ({selection:{baseline:[],early:[],late:[],continuation:[]}, validation:{baseline:[],early:[],late:[],continuation:[]}});
+const groups = () => ({selection:{baseline:[],early:[],late:[],continuation:[],confirmation:[]}, validation:{baseline:[],early:[],late:[],continuation:[],confirmation:[]}});
 const COSTS = [0.05, 0.1, 0.2];
 
 function readWindow(start, split, end, now = Date.now()) {
@@ -148,6 +148,33 @@ function contextAt(hourly, higher, frame, now) {
   };
 }
 
+function confirmedRetest(plan, bars, observedAt, deadline) {
+  const ms = lifecycle.FRAME[plan.frame], buy = plan.side === 'BUY';
+  let touched = false;
+  const unfilled = state => ({state, activationAt: null, outcomeR: null});
+  for (let i = 0; i < bars.length; i++) {
+    const bar = bars[i];
+    if (bar.start !== observedAt + i * ms) return unfilled('gap');
+    if (bar.confirmed !== true || bar.start + ms > deadline) break;
+    if (buy ? bar.low <= plan.stop || bar.high >= plan.target : bar.high >= plan.stop || bar.low <= plan.target) {
+      return unfilled('invalidated-before-confirmation');
+    }
+    touched ||= bar.low <= plan.zone.high && bar.high >= plan.zone.low;
+    if (!touched || !(buy ? bar.close > plan.zone.high : bar.close < plan.zone.low)) continue;
+    const next = bars[i + 1];
+    if (!next || next.start >= deadline) return unfilled('no-next-open');
+    if (next.start !== bar.start + ms) return unfilled('gap');
+    const entry = next.open;
+    const risk = buy ? entry - plan.stop : plan.stop - entry;
+    const reward = buy ? plan.target - entry : entry - plan.target;
+    if (!(risk > 0 && reward >= 2 * risk)) return unfilled('insufficient-rr-at-open');
+    const record = lifecycle.create({...plan, entry}, next.start,
+      {researchOnly: true, maxBars: (deadline - next.start) / ms});
+    return lifecycle.advance({...record, state: 'active', activationAt: next.start}, bars.slice(i + 1), deadline);
+  }
+  return unfilled('no-confirmation');
+}
+
 function replay(archives, symbol, market, bars, hourly, frame, higherBars = hourly, window = DEFAULT_WINDOW) {
   const ms = structure.FRAME_MS[frame];
   const horizon = 24 * HOUR;
@@ -215,16 +242,33 @@ function replay(archives, symbol, market, bars, hourly, frame, higherBars = hour
     for (const [name, plans] of positions) {
       for (const plan of plans) {
         const record = lifecycle.create({...plan, frame}, now, {researchOnly: true, maxBars});
-        period[name].push(lifecycle.advance(record, bars.slice(n, n + maxBars), Math.min(window.end, now + horizon)));
+        const forward = bars.slice(n, n + maxBars);
+        const deadline = Math.min(window.end, now + horizon);
+        const outcome = lifecycle.advance(record, forward, deadline);
+        period[name].push(outcome);
+        if (name === 'baseline') {
+          const confirmed = confirmedRetest({...plan, frame}, forward, now, deadline);
+          period.confirmation.push({...confirmed, baselineState: outcome.state, baselineEntry: outcome.activationAt != null});
+        }
       }
     }
   }
   return {periods, reasons, modelReasons, displacementFailures};
 }
 
-function summarizePeriod({baseline, early, late, continuation}) {
+function summarizePeriod({baseline, early, late, continuation, confirmation}) {
   return {
     baseline: summarize(baseline),
+    confirmedRetest: {
+      ...summarize(confirmation),
+      skippedBaselineEntries: confirmation.filter(row => row.baselineEntry && row.activationAt == null).length,
+      skippedBaselineStops: confirmation.filter(row => row.baselineState === 'lost' && row.activationAt == null).length,
+      skippedBaselineTargets: confirmation.filter(row => row.baselineState === 'won' && row.activationAt == null).length,
+      noFillReasons: confirmation.filter(row => row.activationAt == null).reduce((counts, row) => {
+        counts[row.state] = (counts[row.state] || 0) + 1;
+        return counts;
+      }, {})
+    },
     continuation: summarize(continuation),
     withContinuation: summarize([...baseline, ...continuation]),
     earlyAdditional: summarize(early),
@@ -287,4 +331,4 @@ async function main() {
 }
 
 if (require.main === module) main().catch(error => { console.error(error.message); process.exitCode = 1; });
-module.exports = {newsAt, summarize, rejection, replay, contextAt, readWindow, priceWindows};
+module.exports = {newsAt, summarize, rejection, replay, contextAt, readWindow, priceWindows, confirmedRetest};

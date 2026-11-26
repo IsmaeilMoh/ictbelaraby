@@ -195,3 +195,19 @@ assert.throws(()=>book.parseBook(orderbook,'BTCUSDT',now-1),/STALE/);
  assert.ok(chunks.every((chunk,index)=>chunk.to-chunk.from<=5000*300000
   &&(!index||chunks[index-1].to===chunk.from)));
 }
+
+{
+ const {confirmedRetest}=require('./ict-unseen-market-replay.cjs');
+ const start=Date.parse('2026-11-25T14:00:00Z'),ms=900000;
+ const plan={id:'trial',symbol:'EURUSD',market:'forex',side:'BUY',frame:'15',formedAt:start,
+  entry:100,stop:95,target:120,zone:{low:99,high:101}};
+ const first={start,open:103,high:105,low:99,close:103,confirmed:true};
+ const next={start:start+ms,open:103,high:121,low:102,close:119,confirmed:true};
+ assert.equal(confirmedRetest(plan,[first],start,start+2*ms).state,'no-next-open');
+ assert.equal(confirmedRetest(plan,[first,{...next,open:110}],start,start+2*ms).state,'insufficient-rr-at-open');
+ assert.equal(confirmedRetest(plan,[{...first,low:94},next],start,start+2*ms).state,'invalidated-before-confirmation');
+ const result=confirmedRetest(plan,[first,next],start,start+2*ms);
+ assert.equal(result.state,'won');
+ assert.equal(result.activationAt,next.start);
+ assert.equal(result.entry,103);
+}
