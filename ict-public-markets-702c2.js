@@ -93,5 +93,15 @@ function parseQuote(payload,ins,now=Date.now()){
 async function getQuote(ins,opts={}){
  return parseQuote(await request(encodeURIComponent(ins.providerSymbol)+'?allowStale=false',opts),ins,opts.now);
 }
-return Object.freeze({MARKETS,FRAMES,FRAME_BY_MINUTES,PUBLIC_QUOTES,SOURCE,listed,validSymbol,parseCatalog,loadCatalog,resolve,parse,get,parseQuote,getQuote});
+function tradingViewLink(market,symbol,frame){
+ if(!validSymbol(symbol))return null;
+ const perpetual=market==='crypto'&&/^[A-Z0-9]+USDT$/.test(symbol);
+ const ticker=perpetual?'BYBIT:'+symbol+'.P':Object.hasOwn(MARKETS,market)?PUBLIC_QUOTES[market]?.[symbol]:null;
+ const base='https://www.tradingview.com';
+ if(!ticker)return {url:base+'/symbols/'+encodeURIComponent(symbol)+'/',ticker:null};
+ const query=new URLSearchParams({symbol:ticker});
+ if(['5','15','60','240'].includes(String(frame)))query.set('interval',String(frame));
+ return {url:base+'/chart/?'+query,ticker};
+}
+return Object.freeze({MARKETS,FRAMES,FRAME_BY_MINUTES,PUBLIC_QUOTES,SOURCE,listed,validSymbol,parseCatalog,loadCatalog,resolve,parse,get,parseQuote,getQuote,tradingViewLink});
 });
