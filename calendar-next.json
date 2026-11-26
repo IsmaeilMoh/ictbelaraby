@@ -1,5 +1,5 @@
 {
-  "updatedAt": "2026-11-26T01:41:29.042197Z",
+  "updatedAt": "2026-11-26T04:24:18.137069Z",
   "weekStart": "2026-11-30",
   "source": "Forex Factory",
   "sourceUrl": "https://www.forexfactory.com/calendar?week=nov30.2026",
@@ -399,7 +399,7 @@
       "impact": "Medium",
       "actual": "—",
       "forecast": "—",
-      "previous": "2.5%"
+      "previous": "2.6%"
     },
     {
       "id": "2026-12-01T10:00:00Z-EUR-CPI Flash Estimate y/y",
@@ -443,7 +443,7 @@
       "impact": "Low",
       "actual": "—",
       "forecast": "—",
-      "previous": "—"
+      "previous": "54.5"
     },
     {
       "id": "2026-12-01T15:00:00Z-USD-ISM Manufacturing PMI",
@@ -652,7 +652,7 @@
       "impact": "Low",
       "actual": "—",
       "forecast": "—",
-      "previous": "—"
+      "previous": "1.1M"
     },
     {
       "id": "2026-12-03T00:00:00Z-NZD-ANZ Commodity Prices m/m",
@@ -806,7 +806,7 @@
       "impact": "Medium",
       "actual": "—",
       "forecast": "—",
-      "previous": "—"
+      "previous": "189K"
     },
     {
       "id": "2026-12-03T14:45:00Z-USD-Final Services PMI",
@@ -817,7 +817,7 @@
       "impact": "Low",
       "actual": "—",
       "forecast": "—",
-      "previous": "—"
+      "previous": "54.7"
     },
     {
       "id": "2026-12-03T15:00:00Z-USD-ISM Services PMI",
@@ -850,7 +850,7 @@
       "impact": "Low",
       "actual": "—",
       "forecast": "—",
-      "previous": "—"
+      "previous": "-24B"
     },
     {
       "id": "2026-12-04T07:45:00Z-EUR-French Industrial Production m/m",

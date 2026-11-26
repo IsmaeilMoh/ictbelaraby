@@ -1,5 +1,5 @@
 {
-  "updatedAt": "2026-11-26T01:41:28.694855Z",
+  "updatedAt": "2026-11-26T04:24:17.646849Z",
   "weekStart": "2026-11-23",
   "source": "Forex Factory",
   "sourceUrl": "https://www.forexfactory.com/calendar",
@@ -573,6 +573,16 @@
       "impact": "Low",
       "forecast": "3.2%",
       "previous": "3.1%",
+      "actual": "—"
+    },
+    {
+      "id": "2026-11-26T09:15:00+00:00-EUR-Euro Summit",
+      "title": "Euro Summit",
+      "date": "2026-11-26T09:15:00Z",
+      "country": "EUR",
+      "impact": "Low",
+      "forecast": "—",
+      "previous": "—",
       "actual": "—"
     },
     {
