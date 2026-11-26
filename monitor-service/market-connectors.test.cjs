@@ -1,6 +1,12 @@
 'use strict';
 const assert=require('node:assert/strict');
 const source=require('../ict-public-markets-702c2.js');
+assert.deepEqual(source.tradingViewLink('crypto','BTCUSDT','15'),{
+ url:'https://www.tradingview.com/chart/?symbol=BYBIT%3ABTCUSDT.P&interval=15',ticker:'BYBIT:BTCUSDT.P'
+});
+assert.equal(source.tradingViewLink('metals','XAUUSD','60').ticker,'FOREXCOM:XAUUSD');
+assert.equal(source.tradingViewLink('stocks','THYAO','15').url,'https://www.tradingview.com/symbols/THYAO/');
+assert.equal(source.tradingViewLink('stocks','../bad','15'),null);
 const bybit=require('./ict-live-feed-702a.js');
 const now=Date.parse('2026-11-24T12:42:00Z');
 const ms=900000,start=Math.floor(now/ms)*ms-35*ms;

@@ -222,6 +222,14 @@ function card(parent,o,origin){
  const c=block([o.symbol,o.frame+' د',o.side,phases[o.research?.phase]||'رصد بحثي'].join(' · '),parent);
  c.classList.add('dc-wide');
  node('p',[origin,types[o.marketType],o.source].filter(Boolean).join(' · '),c);
+ const tradingView=traditional.tradingViewLink(o.market,o.symbol,o.frame);
+ if(tradingView){
+  const label=tradingView.ticker?'فتح الشارت على TradingView · '+tradingView.ticker:'صفحة الرمز على TradingView · '+o.symbol;
+  const row=node('p','',c),link=node('a',label,row);
+  link.href=tradingView.url;
+  link.target='_blank';
+  link.rel='noopener noreferrer';
+ }
  node('p','الرصد: '+dual(o.detectedAt)+(o.lastCompleteAt?' | آخر إغلاق: '+dual(o.lastCompleteAt):''),c);
  if(o.research)node('p','وقت الحالة: '+dual(o.research.at)+' | تكوّن: '+dual(o.formedAt),c);
  if(o.research?.phase==='confirmed_research')node('p','عاد السعر إلى FVG بعد تكوّن النموذج، وأكّد إغلاق لاحق الاتجاه البحثي. التنفيذ يتطلب تحققًا مستقلًا.',c);
