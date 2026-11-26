@@ -119,11 +119,11 @@ function clearScan(){
  root.dispatchEvent(new CustomEvent('ict:decision-cleared'));
 }
 function setState(v,bad=false){status.textContent=v;status.dataset.bad=bad?'1':'0'}
-function selectOptions(select,items,choose){clear(select);for(const item of items){const opt=document.createElement('option');opt.value=item;opt.textContent=item==='all'?'جميع عقود Bybit USDT':item;select.append(opt)}if(choose&&items.includes(choose))select.value=choose}
+function selectOptions(select,items,choose){clear(select);for(const item of items){const opt=document.createElement('option');opt.value=item;opt.textContent=item==='all'?(selectedMarket()==='crypto'?'جميع عقود Bybit USDT':'جميع أصول الفئة'):item;select.append(opt)}if(choose&&items.includes(choose))select.value=choose}
 function initCatalog(preselected){
  const market=selectedMarket();
  bybitCatalog.hidden=market!=='crypto';
- selectOptions(symbol,market==='crypto'?crypto:traditional.MARKETS[market].map(row=>row[0]),preselected??(market==='crypto'?'BTCUSDT':undefined));
+ selectOptions(symbol,market==='crypto'?crypto:[...traditional.MARKETS[market].map(row=>row[0]),'all'],preselected??(market==='crypto'?'BTCUSDT':undefined));
  roll.value='0';
  selectionChanged();
  if(market==='crypto')loadBybitCatalog(preselected);
@@ -298,13 +298,16 @@ function inspectContract(market,contract,tf,{entryBars,hourly,higherCandles},new
   if(modelType.value==='breaker')for(const plan of res.opportunities)plan.blocks.push('إعادة اختبار Breaker معروضة كدليل بحثي. مستويات البطاقة تخص النموذج المركب.');
   if(modelType.value==='ote')for(const plan of res.opportunities)plan.blocks.push('مستوى OTE للبحث. الدخول المعروض للبطاقة هو الدخول المرجعي للنموذج المركب.');
  }
- if(batch)for(const plan of res.opportunities)plan.blocks.push('الفحص الجماعي بحثي؛ افحص العقد منفردًا للتحقق من Bid/Ask والمراقبة اللحظية.');
+ if(batch)for(const plan of res.opportunities)plan.blocks.push('الفحص الجماعي بحثي؛ افحص الأصل منفردًا للتحقق من قراءة Bid/Ask ومتابعة السعر.');
  return res;
 }
 function cancelGroupedScan(){batchController?.abort()}
 async function scanBatch(){
- if(busy||!catalogLoaded)return;
- const contracts=[...crypto],tf=frame.value,id=++generation;
+ const market=selectedMarket(),isCrypto=market==='crypto';
+ if(busy||(isCrypto&&!catalogLoaded))return;
+ const assets=isCrypto?[...crypto]:traditional.MARKETS[market].map(([symbol])=>symbol);
+ const tf=frame.value,id=++generation;
+ const venue=isCrypto?'Bybit':'Biquote';
  const controller=new AbortController(),{signal}=controller;
  batchController=controller;
  busy=true;
@@ -313,38 +316,39 @@ async function scanBatch(){
  clearScan();
  clear(output);
  const results=block('نتائج الفحص الجماعي',output);
- node('p',modelType.selectedOptions[0].textContent+' · حالة النموذج: '+(phases[modelPhase.value]||'جميع الحالات')+' · اختر عقدًا منفردًا لمتابعة سعر الدخول.',results);
+ node('p',modelType.selectedOptions[0].textContent+' · حالة النموذج: '+(phases[modelPhase.value]||'جميع الحالات')+' · اختر أصلًا منفردًا لمتابعة سعره.',results);
  let checked=0,failed=0,matched=0,models=0,halted=false;
  try{
   setState('جارٍ تحميل الأجندة للفحص الجماعي…');
   const news=await loadNews(signal);
-  for(const contract of contracts){
+  for(const asset of assets){
    if(signal.aborted)break;
-   setState('جارٍ فحص '+contract+' · '+(checked+failed+1)+' من '+contracts.length);
+   setState('جارٍ فحص '+asset+' · '+(checked+failed+1)+' من '+assets.length);
    try{
-    const data=await getCandles('crypto',contract,tf,signal);
+    const data=await getCandles(market,asset,tf,signal);
     if(signal.aborted)break;
-    const res=inspectContract('crypto',contract,tf,data,news,true);
+    const res=inspectContract(market,asset,tf,data,news,true);
     checked++;
     if(res.opportunities.length){
      matched++;
      models+=res.opportunities.length;
      for(const opportunity of res.opportunities)card(results,{
-      ...opportunity,frame:tf,source:res.source,marketType:'PERPETUAL',detectedAt:res.checkedAt,lastCompleteAt:res.lastCompleteAt
+      ...opportunity,frame:tf,source:res.source,marketType:isCrypto?'PERPETUAL':'PROVIDER_NATIVE',detectedAt:res.checkedAt,lastCompleteAt:res.lastCompleteAt
      },'فحص جماعي');
     }
    }catch(error){
     if(signal.aborted)break;
     failed++;
-    if(/^BYBIT_(?:HTTP_(?:403|429|451)|CODE_(?:10006|429))$/.test(error.message)){halted=true;break}
+    const stopPattern=isCrypto?/^BYBIT_(?:HTTP_(?:403|429|451)|CODE_(?:10006|429))$/:/^Biquote: HTTP (?:403|429|451)$/;
+    if(stopPattern.test(error.message)){halted=true;break}
    }
-   if(checked+failed<contracts.length)await new Promise(resolve=>setTimeout(resolve,200));
+   if(checked+failed<assets.length)await new Promise(resolve=>setTimeout(resolve,200));
   }
   if(id===generation){
-   if(!models)node('p',checked?'لم يُرصد نموذج مطابق في العقود التي اكتمل فحصها.':'لم يكتمل فحص أي عقد.',results);
-   setState((halted?'توقف الفحص بسبب رفض Bybit أو حدود الطلبات. ':signal.aborted?'أُوقف الفحص. ':'انتهى الفحص. ')+
-    'تم فحص '+checked+' من '+contracts.length+' · عقود مطابقة '+matched+' · نماذج '+models+
-    ' · تعذّر '+failed+' · لم تُفحص '+(contracts.length-checked-failed),halted||failed>0);
+   if(!models)node('p',checked?'لم يُرصد نموذج مطابق في الأصول التي اكتمل فحصها.':'لم يكتمل فحص أي أصل.',results);
+   setState((halted?'توقف الفحص بسبب رفض '+venue+' أو حدود الطلبات. ':signal.aborted?'أُوقف الفحص. ':'انتهى الفحص. ')+
+    'تم فحص '+checked+' من '+assets.length+' · أصول مطابقة '+matched+' · نماذج '+models+
+    ' · تعذّر '+failed+' · لم تُفحص '+(assets.length-checked-failed),halted||failed>0);
   }
  }finally{
   batchController=null;
@@ -386,7 +390,7 @@ function selectionChanged(){
  if(streamPanel){streamPanel.hidden=true;streamEvents.replaceChildren()}
  run.disabled=!symbol.value||busy;
  monitor.disabled=!symbol.value||symbol.value==='all';
- setState(symbol.value==='all'?'الفحص الجماعي يشمل جميع العقود المتاحة، حتى عند استخدام البحث.':'اختر الأصل واضغط فحص السوق.');
+ setState(symbol.value==='all'?(selectedMarket()==='crypto'?'الفحص الجماعي يشمل جميع العقود المتاحة، حتى عند استخدام البحث.':'الفحص الجماعي يشمل جميع أصول الفئة المختارة.'):'اختر الأصل واضغط فحص السوق.');
 }
 marketSelect.addEventListener('change',()=>initCatalog());
 for(const field of [frame,symbol,modelType,modelPhase,roll])field.addEventListener('change',selectionChanged);
@@ -454,7 +458,7 @@ const params=new URLSearchParams(window.location.search);
 const requestedMarket=params.get('market');
 const requestedSymbol=params.get('symbol');
 if(Object.hasOwn(traditional.MARKETS,requestedMarket))marketSelect.value=requestedMarket;
-const validSelection=selectedMarket()==='crypto'?/^[A-Z0-9]{1,31}USDT$/.test(requestedSymbol??''):true;
+const validSelection=requestedSymbol==='all'||(selectedMarket()==='crypto'?/^[A-Z0-9]{1,31}USDT$/.test(requestedSymbol??''):true);
 initCatalog(validSelection?requestedSymbol:undefined);
 showArchive();
 window.addEventListener('hashchange',openLinkedDetails);
