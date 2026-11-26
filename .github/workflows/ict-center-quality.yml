@@ -40,10 +40,11 @@ jobs:
           set -o pipefail
           node monitor-service/ifvg-finer-replay.cjs | tee -a "$GITHUB_STEP_SUMMARY"
       - name: Replay IFVG on a separate archived period
-        if: github.event_name == 'pull_request' && (github.head_ref == 'dev/ifvg-independent-replay' || github.head_ref == 'dev/ict-prior-week-and-matched-replay' || github.head_ref == 'dev/ict-batch-results-filter' || github.head_ref == 'dev/ifvg-holdout-markets') && github.event.pull_request.head.repo.full_name == github.repository
+        if: github.event_name == 'pull_request' && (github.head_ref == 'dev/ifvg-independent-replay' || github.head_ref == 'dev/ict-prior-week-and-matched-replay' || github.head_ref == 'dev/ict-batch-results-filter' || github.head_ref == 'dev/ifvg-holdout-markets' || github.head_ref == 'dev/ict-batch-frame-model') && github.event.pull_request.head.repo.full_name == github.repository
         env:
           IFVG_DISPLAYED: '1'
           IFVG_INDEPENDENT: '1'
+          IFVG_COMPARE_COMPOSITE: ${{ github.head_ref == 'dev/ict-batch-frame-model' && '1' || '0' }}
           IFVG_HOLDOUT: ${{ github.head_ref == 'dev/ifvg-holdout-markets' && '1' || '0' }}
           IFVG_EXTENDED: ${{ github.head_ref == 'dev/ict-batch-results-filter' && '1' || '0' }}
           IFVG_MATCHED: ${{ github.head_ref == 'dev/ict-prior-week-and-matched-replay' && '1' || '0' }}

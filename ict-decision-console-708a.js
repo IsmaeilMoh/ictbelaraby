@@ -444,24 +444,31 @@ async function scanBatch(){
  node('p',modelType.selectedOptions[0].textContent+' · حالة النموذج: '+(phases[modelPhase.value]||'جميع الحالات')+' · اختر أصلًا منفردًا لمتابعة سعره.',results);
  const filterControls=node('div','',results);
  filterControls.hidden=true;
- const filterLabel=node('label','فلترة النتائج حسب الحالة',filterControls);
- const filter=node('select','',filterLabel);
- for(const [value,label] of [['','جميع الحالات'],...Object.entries(phases)]){
-  node('option',label,filter).value=value;
- }
+ const filters=node('div','',filterControls,'dc-form');
+ const addFilter=(label,all,options)=>{
+  const select=node('select','',node('label',label,filters));
+  node('option',all,select).value='';
+  for(const option of options)node('option',option.textContent,select).value=option.value;
+  return select;
+ };
+ const phaseFilter=addFilter('فلترة النتائج حسب الحالة','جميع الحالات',[...modelPhase.options].filter(o=>o.value));
+ const frameFilter=addFilter('فلترة النتائج حسب إطار الدخول','كل الأطر الزمنية',[...frame.options].filter(o=>frames.includes(o.value)));
+ const typeFilter=addFilter('فلترة النتائج حسب نوع النموذج','جميع النماذج',[...modelType.options].filter(o=>o.value));
  const filterStatus=node('p','',filterControls,'dc-muted');
  filterStatus.setAttribute('role','status');
  const cards=[];
- const matchesFilter=phase=>!filter.value||phase===filter.value;
+ const matchesFilter=item=>(!phaseFilter.value||item.phase===phaseFilter.value)&&
+  (!frameFilter.value||item.frame===frameFilter.value)&&
+  (!typeFilter.value||item.types.includes(typeFilter.value));
  const updateFilterStatus=visible=>{
-  filterStatus.textContent=visible?'عرض '+visible+' من '+cards.length+' نموذج':'لا توجد نتائج بهذه الحالة ضمن الفحص.';
+  filterStatus.textContent=visible?'عرض '+visible+' من '+cards.length+' نموذج':'لا توجد نتائج تطابق الفلاتر المحددة.';
  };
  let visibleCards=0;
- filter.addEventListener('change',()=>{
+ filters.addEventListener('change',()=>{
   visibleCards=0;
-  for(const {element,phase} of cards){
-   element.hidden=!matchesFilter(phase);
-   if(!element.hidden)visibleCards++;
+  for(const item of cards){
+   item.element.hidden=!matchesFilter(item);
+   if(!item.element.hidden)visibleCards++;
   }
   updateFilterStatus(visibleCards);
  });
@@ -488,9 +495,9 @@ async function scanBatch(){
        const element=card(results,{
         ...opportunity,frame:tf,source:res.source,marketType:isCrypto?'PERPETUAL':'PROVIDER_NATIVE',detectedAt:res.checkedAt,lastCompleteAt:res.lastCompleteAt
        },'فحص جماعي');
-       const phase=opportunity.research?.phase;
-       cards.push({element,phase});
-       element.hidden=!matchesFilter(phase);
+       const item={element,phase:opportunity.research?.phase,frame:tf,types:opportunity.modelMatches.map(match=>match.type)};
+       cards.push(item);
+       element.hidden=!matchesFilter(item);
        if(!element.hidden)visibleCards++;
       }
       filterControls.hidden=false;
