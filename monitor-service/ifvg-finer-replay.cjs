@@ -8,13 +8,14 @@ const data=require('../historical-multi-market.json');
 
 const DAY=86400000;
 const displayed=process.env.IFVG_DISPLAYED==='1';
+const holdout=process.env.IFVG_HOLDOUT==='1';
 const extended=process.env.IFVG_EXTENDED==='1';
-const matched=extended||process.env.IFVG_MATCHED==='1';
-const matchedSymbols=['EURUSD','XAUUSD'];
+const matched=holdout||extended||process.env.IFVG_MATCHED==='1';
+const matchedSymbols=holdout?['GBPUSD','USDJPY']:['EURUSD','XAUUSD'];
 const independent=matched||process.env.IFVG_INDEPENDENT==='1';
 const boundary=Date.parse('2026-10-10T00:00:00Z');
-const replayStart=matched&&!extended?Date.parse('2026-10-04T00:00:00Z'):independent?Date.parse('2026-09-01T00:00:00Z'):boundary;
-const replayEnd=independent?boundary:Date.parse(data.updatedAt)+1;
+const replayStart=holdout?Date.parse('2026-10-12T00:00:00Z'):matched&&!extended?Date.parse('2026-10-04T00:00:00Z'):independent?Date.parse('2026-09-01T00:00:00Z'):boundary;
+const replayEnd=holdout?Date.parse('2026-11-13T00:00:00Z'):independent?boundary:Date.parse(data.updatedAt)+1;
 const fineFrame=process.env.IFVG_FINE_FRAME==='1'?'1':'5';
 const windowMs=(fineFrame==='1'?3:7)*DAY;
 const windowStart=time=>Math.floor(time/windowMs)*windowMs;
@@ -81,8 +82,9 @@ function refine(item,fine,frame){
 
 async function getHistory(symbol,start,key,frame=fineFrame,duration=windowMs){
  const step=lifecycle.FRAME[frame];
+ const interval=frame==='60'?'1h':frame+'min';
  const query=new URLSearchParams({
-  symbol:symbol.slice(0,3)+'/'+symbol.slice(3),interval:frame+'min',timezone:'UTC',
+  symbol:symbol.slice(0,3)+'/'+symbol.slice(3),interval,timezone:'UTC',
   start_date:utc(start),end_date:utc(start+duration-1),outputsize:String(Math.ceil(duration/step)),apikey:key
  });
  let response;
@@ -92,7 +94,7 @@ async function getHistory(symbol,start,key,frame=fineFrame,duration=windowMs){
  const payload=await response.json().catch(()=>null);
  const code=Number(payload?.code);
  if(!Array.isArray(payload?.values))return {reason:Number.isInteger(code)?'provider '+code:'no data'};
- if(payload.meta?.symbol?.replace('/','')!==symbol||payload.meta?.interval!==frame+'min')return {reason:'identity'};
+ if(payload.meta?.symbol?.replace('/','')!==symbol||payload.meta?.interval!==interval)return {reason:'identity'};
  const bars=new Map();
  for(const row of payload.values){
   const stamp=Date.parse(String(row.datetime).replace(' ','T')+'Z');
@@ -125,9 +127,24 @@ async function main(){
    console.log('Same-provider backfill:',symbol,backfill.length);
   }
  }
+ if(holdout){
+  if(!key)throw Error('TWELVEDATA_API_KEY is not configured');
+  const warmup=replayStart-3*DAY;
+  for(const symbol of matchedSymbols){
+   const marketHistory={};
+   for(const [frame,series] of [['15','15m'],['60','1h']]){
+    const result=await getHistory(symbol,warmup,key,frame,replayEnd-warmup);
+    if(!result.bars?.size)throw Error(symbol+' '+series+' history unavailable: '+result.reason);
+    marketHistory[series]=[...result.bars.values()].sort((a,b)=>a.start-b.start)
+     .map(bar=>[iso(bar.start),...fields.map(field=>bar[field])]);
+    console.log('Holdout provider bars:',symbol,series,marketHistory[series].length);
+   }
+   assets[symbol]=marketHistory;
+  }
+ }
  const {cases,settled,coverage}=ambiguousCases(assets),requests=new Map(),summary={};
  console.log('Mode:',displayed?'nearest liquidity on entry frame':'focused','Fine frame:',fineFrame);
- console.log('Source:',data.source,'archive:',data.updatedAt,'ambiguous cases:',cases.length);
+ console.log('Source:',data.source,holdout?'holdout fetched directly':'archive '+data.updatedAt,'ambiguous cases:',cases.length);
  if(independent){
   console.log('Independent UTC interval:',iso(replayStart),iso(replayEnd));
   for(const [frame,info] of Object.entries(coverage)){
