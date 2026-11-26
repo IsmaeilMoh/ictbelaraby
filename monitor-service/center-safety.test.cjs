@@ -152,6 +152,29 @@ function testTurtleSoup() {
   assert.equal(detect([...bars,{start:2,low:99,high:111}], [sweep,shift])[0].status, 'retested');
   assert.deepEqual(detect([bars[0],{...bars[1],low:89}], [sweep,shift]), []);
 }
+function testInversionFvg() {
+  const zone = {at: 2, low: 100, high: 105, direction: 'bear'};
+  const events = [{type: 'MSS', at: 3, direction: 'bull'}];
+  const bars = [
+    {start: 0, low: 105, high: 120},
+    {start: 1, low: 98, high: 114},
+    {start: 2, low: 96, high: 100},
+    {start: 3, low: 98, high: 110, close: 108}
+  ];
+  const detect = (rows, shifts=events) => decision.inversionFvg(rows,
+   new Map(rows.map((bar,i)=>[bar.start,i])), {events:shifts,zones:[zone]}, 1, 'forex','EURUSD','15');
+  assert.deepEqual(detect(bars.slice(0,3)), []);
+  assert.deepEqual(detect(bars, []), []);
+  assert.deepEqual(detect([...bars.slice(0,3),{...bars[3],close:105}]), []);
+  const [plan] = detect(bars);
+  assert.equal(plan.entry, 102.5);
+  assert.equal(plan.stop, 100);
+  assert.equal(plan.formedAt, 4);
+  assert.equal(plan.status, 'watching');
+  assert.equal(detect([...bars,{start:4,low:104,high:110}])[0].status, 'retested');
+  assert.deepEqual(detect([...bars,{start:4,low:106,high:113,close:112}],
+    [{type:'MSS',at:4,direction:'bull'}]), [], 'the first close is the only inversion');
+}
 function testSessions() {
   for (const [day, start, next, hours, roll] of [
     ['2026-03-08', '2026-03-08T05:00:00Z', '2026-03-09T04:00:00Z', 23, '2026-03-08T21:00:00Z'],
@@ -331,6 +354,7 @@ async function testMonitor(bars) {
 (async () => {
   testSessions();
   testTurtleSoup();
+  testInversionFvg();
   testLiquidityPlan();
   testDisplacementRange();
   await testCalendar();
