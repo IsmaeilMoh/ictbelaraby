@@ -226,15 +226,13 @@ function card(parent,o,origin){
  if(o.research)node('p','وقت الحالة: '+dual(o.research.at)+' | تكوّن: '+dual(o.formedAt),c);
  if(o.research?.phase==='confirmed_research')node('p','عاد السعر إلى FVG بعد تكوّن النموذج، وأكّد إغلاق لاحق الاتجاه البحثي. التنفيذ يتطلب تحققًا مستقلًا.',c);
  const levels=node('div','',c,'dc-levels');
- for(const [name,value] of [['منطقة FVG',o.zone?money(o.zone.low)+' — '+money(o.zone.high):'غير متاحة'],['دخول مرجعي',money(o.entry)],['إبطال/وقف افتراضي',money(o.stop)],[o.dealingRange?'هدف عند سوينج مؤكد':'هدف افتراضي',money(o.target)]]){
+ for(const [name,value] of [['منطقة FVG',o.zone?money(o.zone.low)+' — '+money(o.zone.high):'غير متاحة'],['دخول مرجعي',money(o.entry)],['إبطال/وقف افتراضي',money(o.stop)],[o.liquidity?'هدف السيولة · '+o.rr.toFixed(2)+'R':'هدف افتراضي',money(o.target)]]){
   const el=node('div','',levels);node('small',name,el);node('strong',value,el);
  }
- if(o.dealingRange){
-  const {low,high,midpoint,correctionPct,qualifiedAt,swingAt}=o.dealingRange;
-  node('p','نطاق الحركة '+money(low)+' — '+money(high)+' · المنتصف '+money(midpoint)+
-   ' · تصحيح '+correctionPct.toFixed(1)+'% · '+(o.side==='BUY'?'Discount':'Premium'),c);
-  node('p','اكتمل شرط التصحيح: '+dual(qualifiedAt)+' · سوينج الهدف: '+dual(swingAt)+' · العائد إلى الوقف '+o.rr.toFixed(2)+'R',c);
- }
+
+ if(o.liquidity)node('p',
+  (o.side==='BUY'?'سيولة فوق قمة مؤكدة':'سيولة تحت قاع مؤكد')+' · '+(o.liquidity.frame==='D'?'يومي':o.liquidity.frame+' د')+
+   ' · '+dual(o.liquidity.at)+' | منتصف النطاق '+money(o.midpoint)+' · '+(o.side==='BUY'?'Discount':'Premium'),c);
  const evidence=(o.modelEvidence||[]).map((at,i)=>Number.isFinite(at)?['سحب السيولة','MSS','FVG'][i]+' · '+dual(at):null).filter(Boolean);
  if(evidence.length)node('p',evidence.join(' | '),c);
  if(o.modelMatches?.length){

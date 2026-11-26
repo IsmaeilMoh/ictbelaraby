@@ -81,33 +81,32 @@ function testModelTypes(){
   });
 }
 
-function testRangePlan(){
-  const model={direction:'bull',sweepAt:5*minute,formedAt:8*minute,entry:105,stop:100};
-  const bars=[
-    {start:minute,low:116,high:140},
-    {start:2*minute,low:112,high:135},
-    {start:5*minute,low:100,high:109},
-    {start:6*minute,low:104,high:126},
-    {start:7*minute,low:107,high:130},
-    {start:8*minute,low:121,high:125},
-    {start:9*minute,low:120,high:124}
+function testLiquidityPlan() {
+  const bars = [
+    { start: 0, low: 90, high: 132 },
+    { start: 1, low: 91, high: 122 },
+    { start: 2, low: 90, high: 114 },
+    { start: 3, low: 99, high: 120 }
   ];
-  const pivots=[
-    {type:'swing-high',start:minute,confirmedAt:4*minute,level:140},
-    {type:'swing-high',start:2*minute,confirmedAt:4*minute,level:135},
-    {type:'swing-high',start:7*minute,confirmedAt:9*minute,level:130}
+  const model = { direction: 'bull', sweepAt: 2, formedAt: 4, entry: 100, stop: 90 };
+  const pivots = [
+    { type: 'swing-high', start: 0, confirmedAt: 1, level: 132 },
+    { type: 'swing-high', start: 1, confirmedAt: 2, level: 122 },
+    { type: 'swing-high', start: 2, confirmedAt: 3, level: 114 },
+    { type: 'swing-high', start: 3, confirmedAt: 4, level: 120 }
   ];
-  assert.equal(decision.rangePlan(model,bars.slice(0,-1),pivots,minute),null,'30% alone is insufficient');
-  assert.equal(decision.rangePlan({...model,entry:115},bars,pivots,minute),null,'equilibrium is outside Discount');
-  assert.equal(decision.rangePlan(model,bars,pivots.slice(-1),minute),null,'no future pivot');
-  const plan=decision.rangePlan(model,bars,pivots,minute);
-  assert.equal(plan.target,135);
-  assert.equal(plan.rr,6);
-  assert.equal(plan.dealingRange.qualifiedAt,10*minute);
-  const mirrored=bars.map(bar=>({...bar,low:250-bar.high,high:250-bar.low}));
-  const bearish=pivots.map(pivot=>({...pivot,type:'swing-low',level:250-pivot.level}));
-  assert.equal(decision.rangePlan({...model,direction:'bear',entry:145,stop:150},mirrored,bearish,minute).target,115);
-  assert.equal(decision.rangePlan(model,[...bars.slice(0,-1),{...bars.at(-1),high:136}],pivots,minute).target,140);
+  const plan = (entry, candles, levels) =>
+    decision.liquidityPlan(entry, candles, [{ pivots: levels, ms: 1, frame: '5' }]);
+  assert.equal(plan(model, bars, pivots).target, 122, 'nearest confirmed untouched liquidity above 2R');
+  assert.equal(plan({ ...model, entry: 105 }, bars, pivots), null, 'equilibrium does not qualify');
+  assert.equal(plan(model, bars, pivots.slice(-2)), null, 'further confirmation and insufficient reward cannot supply a target');
+  const later = plan(model, [...bars, {start: 4, low: 111, high: 122}], pivots);
+  assert.equal(later.target, 122, 'the target does not move after it is reached');
+  assert.equal(later.targetTouched, true);
+  const short = plan({ ...model, direction: 'bear', entry: 150, stop: 160 },
+    bars.map(bar => ({ ...bar, high: 250-bar.low, low: 250-bar.high })),
+    pivots.map(pivot => ({ ...pivot, type: 'swing-low', level: 250-pivot.level })));
+  assert.equal(short.target, 128);
 }
 function testSessions() {
   for (const [day, start, next, hours, roll] of [
@@ -178,13 +177,23 @@ async function testOpportunities() {
     candles60: bars.map((b, i) => ({ ...b, start: now - (bars.length - i) * hour })),
     newsChecked: true, newsCovered: true
   };
-  assert.deepEqual(decision.inspect(inputs).opportunities, [], 'a new model needs a subsequent closed correction');
+  const scopedBars = bars.map((bar, i) => i === 4 ? { ...bar, low: model.target - 20 } : i === bars.length - 1 ? { ...bar, low: 187 } : bar);
+  inputs.candles15 = scopedBars;
+  const plan = decision.inspect(inputs).opportunities.find(item => item.id === model.id);
+  assert.ok(plan, 'a completed model is visible before any subsequent correction');
+  assert.equal(plan.blocks.length, 0);
+  assert.equal(plan.entry, (model.zone.low + model.zone.high) / 2);
+  assert.equal(plan.stop, model.stop);
+  assert.ok(plan.rr >= 2);
+  assert.ok(plan.entry > plan.midpoint);
+  assert.equal(plan.liquidity.type, 'swing-low');
+  assert.equal(plan.target, scopedBars[4].low);
   assert.equal(decision.inspect(inputs).entryFreshUntil, now + interval);
   for (const [frame, higher] of [['60', '240'], ['240', 'D']]) {
     const tfMs = structure.FRAME_MS[frame], higherMs = structure.FRAME_MS[higher];
     const rescale = ms => {
       const close = Math.floor(now / ms) * ms;
-      return bars.map((bar, i) => ({ ...bar, start: close - (bars.length - i) * ms }));
+      return scopedBars.map((bar, i) => ({ ...bar, start: close - (bars.length - i) * ms }));
     };
     let scenarioFrame;
     const higherInput = {
@@ -197,7 +206,7 @@ async function testOpportunities() {
     };
     const result = decision.inspect(higherInput);
     assert.equal(scenarioFrame, higher);
-    assert.deepEqual(result.opportunities, []);
+    assert.ok(result.opportunities.some(plan => plan.side === "SELL" && plan.blocks.length === 0));
     assert.equal(result.blocks.length, 0);
     assert.equal(result.entryFreshUntil, Math.floor(now / tfMs) * tfMs + tfMs);
     const stale = decision.inspect({ ...higherInput, candles15: higherInput.candles15.slice(0, -1) });
@@ -206,7 +215,7 @@ async function testOpportunities() {
   const highImpact = [{ when: now + minute, currency: 'USD', title: 'Scheduled release' }];
   for (const override of [{ newsCovered: false }, { events: highImpact },
     { now: now + 3 * interval }]) {
-    assert.ok(decision.inspect({ ...inputs, ...override }).blocks.length > 0);
+    assert.ok(decision.inspect({ ...inputs, ...override }).opportunities.find(item => item.id === model.id).blocks.length > 0);
   }
   const latest = bars.at(-1);
   const response = { retCode: 0, time: now - 1, result: {
@@ -277,8 +286,8 @@ async function testMonitor(bars) {
 
 (async () => {
   testSessions();
+  testLiquidityPlan();
   await testCalendar();
-  testRangePlan();
   await testModelTypes();
   await testMonitor(await testOpportunities());
   console.log('Center safety: DST, calendar coverage, real ICT engine, invalidation, outage, stale candles and quote expiry PASS');
