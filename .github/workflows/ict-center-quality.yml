@@ -165,7 +165,7 @@ jobs:
             try {
               const candles = await markets.get(markets.resolve(group, symbol), '1day', {limit: 15});
               const week = context.priorProviderWeek(candles, Date.now());
-              console.log(symbol, 'PWH/PWL', week ? JSON.stringify({week:week.key, high:week.high, low:week.low}) : 'insufficient verified daily candles');
+              console.log(symbol, 'PWH/PWL', week ? JSON.stringify({week:week.key, high:week.high, low:week.low}) : 'insufficient verified daily candles ' + JSON.stringify(candles.map(bar=>[new Date(bar.start).toISOString(), bar.confirmed])));
             } catch (error) {
               console.log(symbol, 'PWH/PWL unavailable:', error.cause?.code || error.message);
             }
