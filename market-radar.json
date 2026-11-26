@@ -1,72 +1,31 @@
 {
-  "updatedAt": "2026-11-25T23:53:34.953764Z",
+  "updatedAt": "2026-11-26T01:17:36.260396Z",
   "source": "Yahoo Finance public chart feed (unofficial)",
   "intervalMinutes": 5,
   "windowBasis": "5-minute chart close comparisons",
   "isRealtime": false,
   "items": [
     {
-      "symbol": "USDJPY",
-      "label": "دولار / ين",
+      "symbol": "AUDUSD",
+      "label": "أسترالي / دولار",
       "category": "forex",
       "proxy": false,
-      "quotedAt": "2026-11-25T23:53:33Z",
-      "price": 159.21600342,
-      "5": -0.00313,
-      "15": 0.00189,
-      "60": 0.04461
+      "quotedAt": "2026-11-26T01:15:46Z",
+      "price": 0.6643194,
+      "5": 0.03322,
+      "15": 0.05978,
+      "60": 0.18601
     },
     {
-      "symbol": "USDCHF",
-      "label": "دولار / فرنك",
+      "symbol": "NZDUSD",
+      "label": "نيوزيلندي / دولار",
       "category": "forex",
       "proxy": false,
-      "quotedAt": "2026-11-25T23:53:33Z",
-      "price": 0.83112001,
-      "5": -0.0012,
-      "15": -0.00721,
-      "60": 0.10841
-    },
-    {
-      "symbol": "USDCAD",
-      "label": "دولار / كندي",
-      "category": "forex",
-      "proxy": false,
-      "quotedAt": "2026-11-25T23:53:32Z",
-      "price": 1.42153001,
-      "5": 0.0,
-      "15": -0.01055,
-      "60": 0.0373
-    },
-    {
-      "symbol": "XAUUSD",
-      "label": "الذهب — عقود COMEX الآجلة",
-      "category": "metals",
-      "proxy": true,
-      "quotedAt": "2026-11-25T23:43:30Z",
-      "price": 3608.69995117,
-      "5": -0.05539,
-      "15": 0.19157
-    },
-    {
-      "symbol": "XAGUSD",
-      "label": "الفضة — عقود COMEX الآجلة",
-      "category": "metals",
-      "proxy": true,
-      "quotedAt": "2026-11-25T23:43:32Z",
-      "price": 41.70500183,
-      "5": -0.07188,
-      "15": 0.33683
-    },
-    {
-      "symbol": "WTI",
-      "label": "خام WTI — عقد آجل",
-      "category": "energy",
-      "proxy": true,
-      "quotedAt": "2026-11-25T23:43:31Z",
-      "price": 84.06999969,
-      "5": 0.0,
-      "15": 0.08333
+      "quotedAt": "2026-11-26T01:15:46Z",
+      "price": 0.54923928,
+      "5": 0.02745,
+      "15": 0.03295,
+      "60": 0.06041
     }
   ]
 }
