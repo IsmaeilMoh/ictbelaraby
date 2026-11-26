@@ -117,4 +117,11 @@ assert.throws(()=>book.parseBook(orderbook,'BTCUSDT',now-1),/STALE/);
  assert.equal(refine(item,indexed,'5').state,'lost');
  assert.equal(refine(item,new Map(bars.slice(0,2).map(bar=>[bar.start,bar])),'5').state,'missing');
  assert.equal(refine({...item,parent:{...parent,high:112}},indexed,'5').state,'mismatch');
+ const minutes=bars.flatMap(bar=>Array.from({length:5},(_,i)=>({
+  ...bar,start:bar.start+i*60000,open:i?bar.close:bar.open
+ })));
+ const minuteIndex=new Map(minutes.map(bar=>[bar.start,bar]));
+ assert.equal(refine(item,minuteIndex,'1').state,'lost');
+ minuteIndex.delete(start+60000);
+ assert.equal(refine(item,minuteIndex,'1').state,'missing');
 }
