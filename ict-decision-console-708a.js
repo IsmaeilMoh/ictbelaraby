@@ -233,6 +233,7 @@ function card(parent,o,origin){
  if(o.liquidity)node('p',
   (o.side==='BUY'?'سيولة فوق قمة مؤكدة':'سيولة تحت قاع مؤكد')+' · '+(o.liquidity.frame==='D'?'يومي':o.liquidity.frame+' د')+
    ' · '+dual(o.liquidity.at)+' | منتصف النطاق '+money(o.midpoint)+' · '+(o.side==='BUY'?'Discount':'Premium'),c);
+ if(o.dealingRange)node('p','نطاق حركة السحب والإزاحة '+money(o.dealingRange.low)+' — '+money(o.dealingRange.high)+' · إغلاق الإزاحة '+dual(o.dealingRange.displacementAt+structure.FRAME_MS[o.frame]),c);
  const evidence=(o.modelEvidence||[]).map((at,i)=>Number.isFinite(at)?['سحب السيولة','MSS','FVG'][i]+' · '+dual(at):null).filter(Boolean);
  if(evidence.length)node('p',evidence.join(' | '),c);
  if(o.modelMatches?.length){

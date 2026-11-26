@@ -81,6 +81,22 @@ function testModelTypes(){
   });
 }
 
+function testDisplacementRange() {
+  const bars = Array.from({length: 16}, (_, start) => ({start, open: 100, close: 101, low: 99, high: 102}));
+  bars[12] = {...bars[12], low: 95};
+  bars[13] = {start: 13, open: 101, close: 108, low: 100, high: 109};
+  bars[14] = {start: 14, open: 110, close: 111, low: 110, high: 112};
+  bars[15] = {...bars[15], high: 130};
+  const index = new Map(bars.map((bar, idx) => [bar.start, idx]));
+  const model = {direction: 'bull', sweepAt: 12, mssAt: 13, fvgAt: 14};
+  const events = [{type: 'MSS', at: 13, direction: 'bull', level: 103}];
+  const evidence = decision.displacementRange(model, bars, index, events);
+  assert.deepEqual(evidence, {low: 95, high: 109, midpoint: 102, displacementAt: 13});
+  assert.equal(decision.displacementRange({...model, fvgAt: 15}, bars, index, events), null);
+  const weak = bars.map(bar => bar.start === 13 ? {...bar, open: 107} : bar);
+  assert.equal(decision.displacementRange(model, weak, index, events), null);
+  assert.equal(decision.displacementRange(model, bars, index, [{...events[0], level: 108}]), null);
+}
 function testLiquidityPlan() {
   const bars = [
     { start: 0, low: 90, high: 132 },
@@ -96,7 +112,7 @@ function testLiquidityPlan() {
     { type: 'swing-high', start: 3, confirmedAt: 4, level: 120 }
   ];
   const plan = (entry, candles, levels) =>
-    decision.liquidityPlan(entry, candles, [{ pivots: levels, ms: 1, frame: '5' }]);
+    decision.liquidityPlan(entry, candles, [{ pivots: levels, ms: 1, frame: '5' }], {midpoint:125-(entry.direction==='bull'?20:-20)});
   assert.equal(plan(model, bars, pivots).target, 122, 'nearest confirmed untouched liquidity above 2R');
   assert.equal(plan({ ...model, entry: 105 }, bars, pivots), null, 'equilibrium does not qualify');
   assert.equal(plan(model, bars, pivots.slice(-2)), null, 'further confirmation and insufficient reward cannot supply a target');
@@ -287,6 +303,7 @@ async function testMonitor(bars) {
 (async () => {
   testSessions();
   testLiquidityPlan();
+  testDisplacementRange();
   await testCalendar();
   await testModelTypes();
   await testMonitor(await testOpportunities());
