@@ -226,17 +226,67 @@ function confirmationDistanceLabel(o){
  const distance=o.confirmationDistanceR;
  return Number.isFinite(distance)?'المسافة إلى الدخول عند التأكيد · '+distance.toFixed(2)+'R':null;
 }
+// White export-size PNG derived from logo-transparent.png, embedded for offline downloads.
+const cardLogoData='data:image/png;base64,'+
+ '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' +
+ 'oPw/ZN6rxpger/YAAAAASUVORK5CYII=';
 let cardLogoRequest;
 function loadCardLogo(){
- if(!cardLogoRequest){
+ return cardLogoRequest??=new Promise((resolve,reject)=>{
   const logo=new Image();
-  logo.src='./logo-transparent.png';
-  cardLogoRequest=logo.decode().then(()=>logo).catch(()=>{cardLogoRequest=null;return null;});
- }
- return cardLogoRequest;
+  logo.onload=()=>resolve(logo);
+  logo.onerror=()=>{cardLogoRequest=null;reject(Error('Card logo unavailable'));};
+  logo.src=cardLogoData;
+ });
 }
 async function saveCardImage(o,source,levelRows,status,evidence){
- // Use the same figures as the card and a same-origin logo cached by the site shell.
  const logo=await loadCardLogo();
  const canvas=document.createElement('canvas');
  const ctx=canvas.getContext('2d');
@@ -272,13 +322,8 @@ async function saveCardImage(o,source,levelRows,status,evidence){
   ctx.font=(bold?'700 ':'')+size+'px '+family;ctx.fillStyle=color;
   ctx.direction=dir;ctx.textAlign='right';ctx.fillText(str,x,y,max);
  };
- if(logo){
-  const scale=132/Math.max(logo.naturalWidth,logo.naturalHeight);
-  ctx.save();
-  ctx.filter='invert(1)';
-  ctx.drawImage(logo,margin,56,logo.naturalWidth*scale,logo.naturalHeight*scale);
-  ctx.restore();
- }
+ const logoScale=136/Math.max(logo.naturalWidth,logo.naturalHeight);
+ ctx.drawImage(logo,margin,56,logo.naturalWidth*logoScale,logo.naturalHeight*logoScale);
  const right=width-margin;
  print('ICT بالعربي  ·  مركز فرص التداول الذكي',right,99,30,'#a4dfcd',{bold:true});
  print(o.symbol,right,178,64,'#f2fcfa',{bold:true,dir:'ltr'});
@@ -310,29 +355,52 @@ async function saveCardImage(o,source,levelRows,status,evidence){
  setTimeout(()=>URL.revokeObjectURL(url),60000);
 }
 const quoteFreshMs=15000;
+function freshCardQuote(quote,now){
+ return quote&&Number.isSafeInteger(quote.at)&&quote.at<=now&&now-quote.at<quoteFreshMs&&
+  Number.isFinite(quote.bid)&&Number.isFinite(quote.ask)&&quote.bid>0&&quote.ask>quote.bid;
+}
+function writeCardQuote({element,plan,risk},market,quote){
+ if(!quote){
+  element.textContent='المسافة الحالية إلى الدخول: لا يتوفر سعر حديث.';
+  return;
+ }
+ const buy=plan.side==='BUY';
+ const price=buy?quote.ask:quote.bid;
+ const distance=Math.abs(price-plan.entry)/risk;
+ const relative=price===plan.entry?'عند الدخول':price>plan.entry?'فوق الدخول':'تحت الدخول';
+ element.textContent=[
+  'المسافة الحالية إلى الدخول · '+distance.toFixed(2)+'R '+relative,
+  (buy?'Ask ':'Bid ')+money(price),market==='crypto'?'Bybit':'Biquote',
+  new Date(quote.at).toISOString().slice(0,19).replace('T',' ')+' UTC'
+ ].join(' · ');
+}
 function updateCardQuoteRows(rows,market,quote){
  clearTimeout(cardQuoteExpiry);
- const now=Date.now();
- const fresh=quote&&Number.isSafeInteger(quote.at)&&quote.at<=now&&now-quote.at<quoteFreshMs&&
-  Number.isFinite(quote.bid)&&Number.isFinite(quote.ask)&&quote.bid>0&&quote.ask>quote.bid;
- for(const {element,plan,risk} of rows){
-  if(!fresh){
-   element.textContent='المسافة الحالية إلى الدخول: لا يتوفر سعر حديث.';
-   continue;
-  }
-  const buy=plan.side==='BUY';
-  const price=buy?quote.ask:quote.bid;
-  const distance=Math.abs(price-plan.entry)/risk;
-  const relative=price===plan.entry?'عند الدخول':price>plan.entry?'فوق الدخول':'تحت الدخول';
-  element.textContent=[
-   'المسافة الحالية إلى الدخول · '+distance.toFixed(2)+'R '+relative,
-   (buy?'Ask ':'Bid ')+money(price),market==='crypto'?'Bybit':'Biquote',
-   new Date(quote.at).toISOString().slice(0,19).replace('T',' ')+' UTC'
-  ].join(' · ');
- }
+ const now=Date.now(),fresh=freshCardQuote(quote,now);
+ for(const row of rows)writeCardQuote(row,market,fresh?quote:null);
  if(fresh&&rows.length)cardQuoteExpiry=setTimeout(()=>updateCardQuoteRows(rows,market,null),quote.at+quoteFreshMs-now);
 }
-function card(parent,o,origin,quoteRows){
+function fetchCardQuote(market,symbol){
+ return market==='crypto'?live.fetchBook(symbol):traditional.getQuote(traditional.resolve(market,symbol));
+}
+function addBatchQuoteButton(actions,row){
+ const button=node('button','تحديث السعر',actions,'secondary');button.type='button';
+ let expiry;
+ button.addEventListener('click',async()=>{
+  button.disabled=true;
+  clearTimeout(expiry);
+  row.element.textContent='جارٍ تحديث السعر…';
+  const {market,symbol}=row.plan;
+  try{
+   const quote=await fetchCardQuote(market,symbol);
+   const now=Date.now(),fresh=freshCardQuote(quote,now);
+   writeCardQuote(row,market,fresh?quote:null);
+   if(fresh&&row.element.isConnected)expiry=setTimeout(()=>writeCardQuote(row,market,null),quote.at+quoteFreshMs-now);
+  }catch{writeCardQuote(row,market,null);}
+  finally{button.disabled=false;}
+ });
+}
+function card(parent,o,origin,{quoteRows,batchQuote=false}={}){
  const status=phases[o.research?.phase]||'رصد بحثي';
  const c=block([o.symbol,o.frame+' د',o.side,status].join(' · '),parent);
  c.classList.add('dc-wide');
@@ -350,9 +418,10 @@ function card(parent,o,origin,quoteRows){
  if(o.research)node('p','وقت الحالة: '+dual(o.research.at)+' | تكوّن: '+dual(o.formedAt),c);
  if(o.research?.phase==='confirmed_research')node('p','تحقق شرط التأكيد في شموع مغلقة. التنفيذ يتطلب تحققًا مستقلًا.',c);
  const risk=Math.abs(o.entry-o.stop);
- if(quoteRows&&Number.isFinite(o.entry)&&o.entry>0&&Number.isFinite(risk)&&risk>0&&['BUY','SELL'].includes(o.side)){
-  quoteRows.push({element:node('p','',c,'dc-muted'),plan:o,risk});
- }
+ const canQuote=(quoteRows||batchQuote)&&Number.isFinite(o.entry)&&o.entry>0&&Number.isFinite(risk)&&risk>0&&['BUY','SELL'].includes(o.side);
+ const quoteRow=canQuote?{element:node('p','',c,'dc-muted'),plan:o,risk}:null;
+ if(quoteRow&&quoteRows)quoteRows.push(quoteRow);
+ if(quoteRow&&batchQuote)quoteRow.element.setAttribute('role','status');
  const confirmationDistance=confirmationDistanceLabel(o);
  if(confirmationDistance)node('p',confirmationDistance,c,'dc-muted');
  const levels=node('div','',c,'dc-levels');
@@ -378,6 +447,7 @@ function card(parent,o,origin,quoteRows){
  c.append(list);
  for(const text of [...(o.blocks||[]),...(o.waiting||[])])node('li',text,list);
  const actions=node('div','',c,'dc-actions');
+ if(quoteRow&&batchQuote)addBatchQuoteButton(actions,quoteRow);
  const save=node('button','حفظ البطاقة كصورة',actions,'secondary');save.type='button';
  const feedback=node('p','',actions,'dc-muted');feedback.setAttribute('role','status');
  save.addEventListener('click',async()=>{
@@ -431,7 +501,7 @@ node('p','آخر إغلاق ساعة مرجعي: '+(res.price==null?'غير مت
  for(const o of res.opportunities)card(output,{
   ...o,frame:res.frame,source:res.source,marketType:res.market==='crypto'?'PERPETUAL':'PROVIDER_NATIVE',
   detectedAt:res.checkedAt,lastCompleteAt:res.lastCompleteAt
- },'فحص يدوي',quoteRows);
+ },'فحص يدوي',{quoteRows});
  res.updateCardQuotes=quote=>updateCardQuoteRows(quoteRows,res.market,quote);
  res.updateCardQuotes(res.book);
  const note=block('حدود هذا الإصدار');note.classList.add('dc-wide');node('p',res.disclaimer,note);node('p','لا يتم تداول آلي ولا حفظ توصية كصفقة منفذة. المراقبة اليدوية المتكررة تعمل أثناء فتح الصفحة. سعر المرجع آخر إغلاق شمعة، وليس Bid/Ask مباشرًا.',note);
@@ -557,7 +627,7 @@ async function scanBatch(){
       for(const opportunity of res.opportunities){
        const element=card(results,{
         ...opportunity,frame:tf,source:res.source,marketType:isCrypto?'PERPETUAL':'PROVIDER_NATIVE',detectedAt:res.checkedAt,lastCompleteAt:res.lastCompleteAt
-       },'فحص جماعي');
+       },'فحص جماعي',{batchQuote:true});
        const item={element,phase:opportunity.research?.phase,frame:tf,types:opportunity.modelMatches.map(match=>match.type)};
        cards.push(item);
        element.hidden=!matchesFilter(item);
@@ -593,7 +663,7 @@ async function scan(auto=false){if(busy||(symbol.value==='all'||frame.value==='a
  const id=++generation,selection=[symbol.value,frame.value,roll.value].join('|');busy=true;run.disabled=true;clearScan();setState('جارٍ جلب شموع إطار التداول والسياق، وفحص الأجندة، ثم ربط الأدلة…');
  try{
   const contract=symbol.value,market=selectedMarket();
-  const bookRequest=market==='crypto'?live.fetchBook(contract):traditional.getQuote(traditional.resolve(market,contract));
+  const bookRequest=fetchCardQuote(market,contract);
   const [data,news,book]=await Promise.all([
    getCandles(market,contract,frame.value,undefined,new Map(),true),loadNews(),bookRequest.catch(()=>null)
   ]);
