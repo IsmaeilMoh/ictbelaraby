@@ -40,10 +40,11 @@ jobs:
           set -o pipefail
           node monitor-service/ifvg-finer-replay.cjs | tee -a "$GITHUB_STEP_SUMMARY"
       - name: Replay IFVG on a separate archived period
-        if: github.event_name == 'pull_request' && (github.head_ref == 'dev/ifvg-independent-replay' || github.head_ref == 'dev/ict-prior-week-and-matched-replay' || github.head_ref == 'dev/ict-batch-results-filter') && github.event.pull_request.head.repo.full_name == github.repository
+        if: github.event_name == 'pull_request' && (github.head_ref == 'dev/ifvg-independent-replay' || github.head_ref == 'dev/ict-prior-week-and-matched-replay' || github.head_ref == 'dev/ict-batch-results-filter' || github.head_ref == 'dev/ifvg-holdout-markets') && github.event.pull_request.head.repo.full_name == github.repository
         env:
           IFVG_DISPLAYED: '1'
           IFVG_INDEPENDENT: '1'
+          IFVG_HOLDOUT: ${{ github.head_ref == 'dev/ifvg-holdout-markets' && '1' || '0' }}
           IFVG_EXTENDED: ${{ github.head_ref == 'dev/ict-batch-results-filter' && '1' || '0' }}
           IFVG_MATCHED: ${{ github.head_ref == 'dev/ict-prior-week-and-matched-replay' && '1' || '0' }}
           IFVG_FINE_FRAME: '1'
@@ -207,7 +208,7 @@ jobs:
             const res = await fetch(url + '?probe=' + Date.now(), {signal: AbortSignal.timeout(12000)});
             if (!res.ok) throw Error('HTTP ' + res.status);
             const html = await res.text();
-            const found = html.includes('ict-context-engine-703a.js?v=7.0.45-prior-week');
-            console.log('GitHub Pages prior-week revision:', found ? 'verified' : 'not found');
-          })().catch(error => console.log('GitHub Pages prior-week revision unverified:', error.message));
+            const found = html.includes('ict-decision-console-708a.js?v=7.0.46-batch-filter');
+            console.log('GitHub Pages batch-filter revision:', found ? 'verified' : 'not found');
+          })().catch(error => console.log('GitHub Pages batch-filter revision unverified:', error.message));
           JS
