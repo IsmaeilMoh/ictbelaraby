@@ -160,3 +160,15 @@ assert.throws(()=>book.parseBook(orderbook,'BTCUSDT',now-1),/STALE/);
  assert.equal(rejection(model,{midpoint:99},[],[],null),'premium or discount');
  assert.equal(rejection(model,{midpoint:105},[],[],null),'no eligible liquidity target at 2R');
 }
+
+{
+ const {replay}=require('./ict-unseen-market-replay.cjs');
+ const dataset=require('./fixtures/ict-history.json').datasets[0];
+ const bars=dataset.rows.map(([time,open,high,low,close])=>({
+  start:Date.parse(time),open,high,low,close,confirmed:true
+ }));
+ const result=replay([],dataset.symbol,'forex',bars,[],'15');
+ assert.ok(result.reasons['calendar unavailable']>0);
+ assert.equal(result.periods.validation.baseline.length,0);
+ assert.doesNotThrow(()=>replay([],dataset.symbol,'forex',[],[],'5'));
+}

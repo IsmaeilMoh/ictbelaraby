@@ -1,6 +1,6 @@
 'use strict';
 
-// Holdout markets omitted from the earlier session/timeframe experiment.
+// Compare entry frames and FVG timing using snapshots available at the decision time.
 const {execFileSync} = require('node:child_process');
 const rules = require('../ict-decision-engine-708a.js');
 const structure = require('../ict-structure-engine-702d.js');
@@ -10,10 +10,10 @@ const context = require('../ict-context-engine-703a.js');
 const scenario = require('../ict-scenario-engine-703b.js');
 const calendar = require('../ict-economic-link-706a.js');
 
-const START = Date.parse('2026-11-19T00:00:00Z');
-const END = Date.parse('2026-11-26T00:00:00Z');
-const MS = 900000;
+const START = Date.parse('2026-11-18T14:00:00Z');
+const END = Date.parse('2026-11-26T12:00:00Z');
 const HOUR = 3600000;
+const FRAMES = [['5', '5min'], ['15', '15min']];
 const MARKETS = [['XAU/USD', 'metals'], ...[
   'EUR/USD', 'GBP/USD', 'USD/JPY', 'EUR/JPY', 'GBP/JPY', 'EUR/GBP', 'AUD/JPY'
 ].map(symbol => [symbol, 'forex'])];
@@ -50,8 +50,8 @@ function newsAt(archives, now) {
 }
 
 async function prices(symbol, interval, key) {
-  const query = new URLSearchParams({symbol, interval, timezone: 'UTC', outputsize: '2500',
-    start_date: '2026-11-08 00:00:00', end_date: '2026-11-26 00:00:00', apikey: key});
+  const query = new URLSearchParams({symbol, interval, timezone: 'UTC', outputsize: '5000',
+    start_date: '2026-11-08 00:00:00', end_date: '2026-11-26 12:00:00', apikey: key});
   let response;
   try {
     response = await fetch('https://api.twelvedata.com/time_series?' + query,
@@ -65,22 +65,28 @@ async function prices(symbol, interval, key) {
   if (payload.meta?.symbol?.replace('/', '') !== symbol.replace('/', '') || payload.meta?.interval !== interval) {
     return {failure: 'identity mismatch'};
   }
-  const ms = interval === '1h' ? HOUR : MS;
+  const frame = interval === '1h' ? '60' : interval === '5min' ? '5' : '15';
+  const ms = structure.FRAME_MS[frame];
   const normalized = structure.normalize(payload.values.map(row => ({
     start: Date.parse(String(row.datetime).replace(' ', 'T') + 'Z'),
     open: Number(row.open), high: Number(row.high), low: Number(row.low), close: Number(row.close),
     confirmed: true
-  })), interval === '1h' ? '60' : '15', END);
+  })), frame, END);
   if (normalized.rejected || normalized.duplicates) return {failure: 'invalid or duplicate rows'};
   return {bars: normalized.rows.filter(bar => bar.start + ms <= END).map(bar => ({...bar, confirmed: true}))};
 }
 
 function summarize(outcomes) {
   const settled = outcomes.filter(row => Number.isFinite(row.outcomeR));
+  const targets = settled.filter(row => row.state === 'won').length;
+  const returns = settled.map(row => row.outcomeR - 0.1);
   return {
     opportunities: outcomes.length,
-    targets: settled.filter(row => row.state === 'won').length,
-    stops: settled.filter(row => row.state === 'lost').length,
+    targets,
+    stops: settled.length - targets,
+    targetRate: settled.length ? Number((100 * targets / settled.length).toFixed(1)) : null,
+    unresolved: outcomes.length - settled.length,
+    withoutLargestAt0_1R: Number((returns.reduce((sum, value) => sum + value, 0) - Math.max(0, ...returns)).toFixed(2)),
     touched: outcomes.filter(row => row.activationAt != null).length,
     ambiguous: outcomes.filter(row => row.state === 'ambiguous').length,
     netR: Object.fromEntries(COSTS.map(cost => [
@@ -103,14 +109,17 @@ function rejection(model, range, bars, structures, displayed) {
   return null;
 }
 
-function replay(archives, symbol, market, bars, hourly) {
+function replay(archives, symbol, market, bars, hourly, frame) {
+  const ms = structure.FRAME_MS[frame];
+  const horizon = 6 * HOUR;
+  const maxBars = horizon / ms;
   const periods = groups(), reasons = {}, modelReasons = {}, displacementFailures = {};
   const addReason = reason => { reasons[reason] = (reasons[reason] || 0) + 1; };
   for (let n = 30; n <= bars.length; n++) {
-    const now = bars[n - 1].start + MS;
-    if (now < START || now >= END || (now < SPLIT && now + 24 * MS > SPLIT)) continue;
+    const now = bars[n - 1].start + ms;
+    if (now < START || now >= END || (now < SPLIT && now + horizon > SPLIT)) continue;
     const prefix = bars.slice(Math.max(0, n - 250), n);
-    const raw = signals.evaluate(prefix, '15', {market, symbol, now});
+    const raw = signals.evaluate(prefix, frame, {market, symbol, now});
     const formed = raw.models.filter(model => model.formedAt === now && model.status === 'watching' && model.research);
     if (!formed.length) continue;
     const news = newsAt(archives, now);
@@ -118,7 +127,7 @@ function replay(archives, symbol, market, bars, hourly) {
     if (rules.nearNews(news.events, market, symbol, now).length) { addReason('near scheduled news'); continue; }
     const hourlyPrefix = hourly.filter(bar => bar.start + HOUR <= now).slice(-1000);
     let inspected;
-    const input = {market, symbol, frame: '15', now, candles15: prefix, candles60: hourlyPrefix,
+    const input = {market, symbol, frame, now, candles15: prefix, candles60: hourlyPrefix,
       newsChecked: true, newsCovered: true, events: news.events, structureEngine: structure,
       signalEngine: signals, contextEngine: context, scenarioEngine: scenario};
     try {
@@ -131,10 +140,10 @@ function replay(archives, symbol, market, bars, hourly) {
     const qualified = inspected.opportunities.filter(plan => plan.formedAt === now && rules.qualifiesFocused(plan));
     if (!qualified.length) {
       addReason('entry qualification');
-      const segment = structure.normalize(prefix, '15', now).segments.at(-1) || [];
+      const segment = structure.normalize(prefix, frame, now).segments.at(-1) || [];
       const index = new Map(segment.map((bar, i) => [bar.start, i]));
       const higher = structure.analyze(hourlyPrefix, '60', {now, pivot: 2});
-      const structures = [{pivots: raw.analysis.pivots, ms: MS, frame: '15'},
+      const structures = [{pivots: raw.analysis.pivots, ms: ms, frame},
         {pivots: higher.pivots, ms: HOUR, frame: '60'}];
       for (const model of formed) {
         const range = rules.displacementRange(model, segment, index, raw.analysis.events);
@@ -152,16 +161,16 @@ function replay(archives, symbol, market, bars, hourly) {
     const period = now < SPLIT ? periods.selection : periods.validation;
     const positions = [['baseline', qualified]];
     for (const [name, lag, options] of alternatives) {
-      if (!formed.some(model => model.fvgAt - model.mssAt === lag * MS)) continue;
+      if (!formed.some(model => model.fvgAt - model.mssAt === lag * ms)) continue;
       const additional = rules.inspect({...input, ...options}).opportunities.filter(plan =>
         plan.formedAt === now && rules.qualifiesFocused(plan) &&
-        plan.modelEvidence[2] - plan.modelEvidence[1] === lag * MS);
+        plan.modelEvidence[2] - plan.modelEvidence[1] === lag * ms);
       positions.push([name, additional]);
     }
     for (const [name, plans] of positions) {
       for (const plan of plans) {
-        const record = lifecycle.create({...plan, frame: '15'}, now, {researchOnly: true});
-        period[name].push(lifecycle.advance(record, bars.slice(n, n + 24), Math.min(END, now + 24 * MS)));
+        const record = lifecycle.create({...plan, frame}, now, {researchOnly: true, maxBars});
+        period[name].push(lifecycle.advance(record, bars.slice(n, n + maxBars), Math.min(END, now + horizon)));
       }
     }
   }
@@ -183,32 +192,36 @@ async function main() {
   const archives = archive();
   console.log('Calendar snapshots:', archives.length, 'from commit history');
   if (!key) { console.log('Holdout prices unavailable without the licensed environment'); return; }
-  const combined = groups();
+  const combined = Object.fromEntries(FRAMES.map(([frame]) => [frame, groups()]));
   console.log('Research split:', new Date(SPLIT).toISOString());
   let requests = 0;
   for (const [symbol, market] of MARKETS) {
-    const marketPrices = [];
-    for (const interval of ['15min', '1h']) {
+    const marketPrices = new Map();
+    for (const interval of ['1h', ...FRAMES.map(([, interval]) => interval)]) {
       if (requests++) await new Promise(resolve => setTimeout(resolve, 12000));
-      marketPrices.push(await prices(symbol, interval, key));
+      marketPrices.set(interval, await prices(symbol, interval, key));
     }
-    const [entry, hourly] = marketPrices;
-    if (!entry.bars?.length || !hourly.bars?.length) {
-      console.log('Holdout', symbol, 'unavailable:', entry.failure || hourly.failure || 'empty');
-      continue;
+    const hourly = marketPrices.get('1h');
+    for (const [frame, interval] of FRAMES) {
+      const entry = marketPrices.get(interval);
+      if (!entry.bars?.length || !hourly.bars?.length) {
+        console.log('Holdout', symbol, frame, 'unavailable:', entry.failure || hourly.failure || 'empty');
+        continue;
+      }
+      const result = replay(archives, symbol.replace('/', ''), market, entry.bars, hourly.bars, frame);
+      for (const [period, buckets] of Object.entries(result.periods)) {
+        for (const [name, outcomes] of Object.entries(buckets)) combined[frame][period][name].push(...outcomes);
+      }
+      console.log('Holdout', symbol, frame, JSON.stringify({entryBars: entry.bars.length,
+        hourlyBars: hourly.bars.length, gateCounts: result.reasons, firstModelRejection: result.modelReasons}));
     }
-    const result = replay(archives, symbol.replace('/', ''), market, entry.bars, hourly.bars);
-    for (const [period, buckets] of Object.entries(result.periods)) {
-      for (const [name, outcomes] of Object.entries(buckets)) combined[period][name].push(...outcomes);
-    }
-    console.log('Holdout', symbol, JSON.stringify({entryBars: entry.bars.length, hourlyBars: hourly.bars.length,
-      selection: summarizePeriod(result.periods.selection), validation: summarizePeriod(result.periods.validation), gateCounts: result.reasons,
-      firstModelRejection: result.modelReasons, displacementFailures: result.displacementFailures}));
   }
-  for (const [period, buckets] of Object.entries(combined)) {
-    console.log('Holdout overall', period + ':', JSON.stringify(summarizePeriod(buckets)));
+  for (const [frame, periods] of Object.entries(combined)) {
+    for (const [period, buckets] of Object.entries(periods)) {
+      console.log('Holdout overall', frame, period + ':', JSON.stringify(summarizePeriod(buckets)));
+    }
   }
 }
 
 if (require.main === module) main().catch(error => { console.error(error.message); process.exitCode = 1; });
-module.exports = {newsAt, summarize, rejection};
+module.exports = {newsAt, summarize, rejection, replay};
