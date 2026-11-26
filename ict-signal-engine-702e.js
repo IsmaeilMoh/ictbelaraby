@@ -19,7 +19,7 @@ function researchState(bars,formedIndex,direction,zone,stop,ms){
  return state;
 }
 function evaluate(candles,frame,opts={}){
- if(!structure)throw Error('محرك 2D غير محمّل');const analysis=structure.analyze(candles,frame,{...opts,fullEvidence:true}),normalized=structure.normalize(candles,frame,opts.now||Date.now());
+ if(!structure)throw Error('محرك 2D غير محمّل');const analysis=structure.analyze(candles,frame,{...opts,fullEvidence:true,allowInsufficient:opts.displayCompleteModels}),normalized=structure.normalize(candles,frame,opts.now||Date.now());
  const bars=normalized.segments.at(-1)||[],ms=structure.FRAME_MS[String(frame)];
  if(!analysis.eligible)return {analysis,modelCount:0,models:[],reason:'الفترة الأخيرة لا تحتوي شموعًا متصلة كافية'};
  const indexes=new Map(bars.map((b,i)=>[b.start,i]));const events=analysis.events.filter(x=>indexes.has(x.at)),zones=analysis.zones.filter(x=>indexes.has(x.at));const models=[];const seen=new Set();
@@ -28,22 +28,24 @@ function evaluate(candles,frame,opts={}){
   const si=indexes.get(sweep.at),opposite=sweep.direction;
   for(const mss of events.filter(x=>x.type==='MSS'&&x.direction===opposite)){
    const mi=indexes.get(mss.at);if(mi<=si||mi-si>CONFIG.maxSweepToMSS)continue;
-   const zone=zones.find(z=>z.direction===opposite&&indexes.get(z.at)>si&&indexes.get(z.at)>=mi-2&&indexes.get(z.at)<=mi+CONFIG.maxFVGAfterMSS);
-   if(!zone)continue;const zi=indexes.get(zone.at),formedIndex=Math.max(mi,zi),formed=bars[formedIndex];
+   const compatible=zones.filter(z=>z.direction===opposite&&indexes.get(z.at)>si&&indexes.get(z.at)>=mi-2&&indexes.get(z.at)<=mi+CONFIG.maxFVGAfterMSS);
+   for(const zone of (opts.displayCompleteModels?compatible:compatible.slice(0,1))){
+   const zi=indexes.get(zone.at),formedIndex=Math.max(mi,zi),formed=bars[formedIndex];
    // The setup is not known until *all three* steps have closed; fixed entry/stop are only an illustrative trade plan.
    const zoneTouched=bars.slice(zi+1).some(b=>b.low<=zone.high&&b.high>=zone.low);
    const sweptBar=bars[si],entry=(zone.low+zone.high)/2,stop=opposite==='bull'?Math.min(sweptBar.low,sweep.level):Math.max(sweptBar.high,sweep.level),risk=Math.abs(entry-stop);
    const target=opposite==='bull'?entry+CONFIG.rewardMultiple*risk:entry-CONFIG.rewardMultiple*risk;
-   const validRisk=Number.isFinite(target)&&target>0&&(opposite==='bull'?stop<zone.low:stop>zone.high);
+   const validRisk=(opts.displayCompleteModels||Number.isFinite(target)&&target>0)&&(opposite==='bull'?stop<zone.low:stop>zone.high);
    const invalidAtFormation=bars.slice(si+1,formedIndex+1).some(b=>opposite==='bull'?b.low<=stop:b.high>=stop);
    const age=bars.length-1-formedIndex,invalid=bars.slice(si+1).some(b=>opposite==='bull'?b.low<=stop:b.high>=stop);
    const expired=age>CONFIG.maxSignalAgeBars;
    const status=!validRisk||risk<=0?'no-risk-plan':invalid?'invalidated':expired?'expired':zoneTouched?'retested':'watching';
    const key=[opts.market||'unknown',opts.symbol||'unknown',frame,sweep.at,mss.at,zone.at,opposite].join('|');if(seen.has(key))continue;seen.add(key);
    models.push({id:key,direction:opposite,status,research:!validRisk||invalidAtFormation?null:researchState(bars,formedIndex,opposite,zone,stop,ms),formedAt:formed.start+ms,sweepAt:sweep.at,mssAt:mss.at,fvgAt:zone.at,level:sweep.level,zone:{low:zone.low,high:zone.high},entry:validRisk?entry:null,stop:validRisk?stop:null,target:validRisk?target:null,rr:validRisk?CONFIG.rewardMultiple:null,ageBars:age,confirmation:'سحب سيولة ثم MSS معاكس ثم FVG من شموع مغلقة',sourceBars:analysis.sourceBars});
+   }
   }
  }
- return {analysis,modelCount:models.length,models:models.sort((a,b)=>b.formedAt-a.formedAt).slice(0,40),reason:models.length?'':'لم يكتمل النموذج المركب في العينة المتصلة الأخيرة'};
+ return {analysis,modelCount:models.length,models:models.sort((a,b)=>b.formedAt-a.formedAt).slice(0,opts.displayCompleteModels?models.length:40),reason:models.length?'':'لم يكتمل النموذج المركب في العينة المتصلة الأخيرة'};
 }
-return Object.freeze({CONFIG,evaluate});
+return Object.freeze({CONFIG,evaluate,researchState});
 });

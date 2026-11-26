@@ -314,6 +314,24 @@ async function testOpportunities() {
     { now: now + 3 * interval }]) {
     assert.ok(decision.inspect({ ...inputs, ...override }).opportunities.find(item => item.id === model.id).blocks.length > 0);
   }
+  vm.runInNewContext(await fs.readFile(path.join(__dirname, '../ict-advanced-validation-704c4.js'), 'utf8'), browser);
+  const displayInputs = {
+    ...inputs, candles15: bars, candles60: [], contextEngine: context, newsCovered: false,
+    signalEngine: browser.ICTSignalEngine, advancedEngine: browser.ICTAdvancedValidation4C4,
+    displayCompleteModels: true, includeTurtleSoup: true, includeIfvg: true
+  };
+  const display = decision.inspect(displayInputs);
+  assert.equal(display.context, null, 'missing context cannot abort a scan of usable entry candles');
+  const shown = display.opportunities.find(item => item.id === model.id);
+  assert.ok(shown, 'a composite remains visible without stricter filters and without complete calendar coverage');
+  assert.ok(shown.rr === null || shown.rr < 2, 'display does not require a 2R target');
+  assert.equal(decision.qualifiesFocused(shown), false);
+  assert.ok(display.opportunities.some(item => item.modelType === 'ote' && item.entry > item.zone.low && item.entry < item.zone.high));
+  const withOpenCandle = decision.inspect({...displayInputs, candles15: [...bars, wick]});
+  assert.equal(withOpenCandle.opportunities.find(item => item.id === model.id).research.phase, 'observed');
+  const afterInvalidation = decision.inspect({...displayInputs, candles15: [...bars, wick], now: now + interval});
+  assert.equal(afterInvalidation.opportunities.find(item => item.id === model.id).research.phase, 'invalidated');
+  assert.equal(decision.inspect({...displayInputs, candles15: []}).opportunities.length, 0);
   const latest = bars.at(-1);
   const response = { retCode: 0, time: now - 1, result: {
     symbol: 'BTCUSDT', list: [[latest.start, latest.open, latest.high, latest.low, latest.close, 1, 1]]
