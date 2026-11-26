@@ -20,9 +20,9 @@ function displacementLeg(model,bars,index,events){
  const high=bullish?Math.max(...leg.map(bar=>bar.high)):bars[sweep].high;
  return high>low?{low,high,midpoint:(low+high)/2,displacementAt:bar.start}:null;
 }
-function displacementRange(model,bars,index,events,maxFvgLag=1){
+function displacementRange(model,bars,index,events,maxFvgLag=1,minFvgLag=0){
  const mss=index.get(model.mssAt),fvg=index.get(model.fvgAt);
- if(mss==null||fvg==null||fvg<mss||fvg-mss>maxFvgLag)return null;
+ if(mss==null||fvg==null||fvg-mss<minFvgLag||fvg-mss>maxFvgLag)return null;
  return displacementLeg(model,bars,index,events);
 }
 function liquidityPlan(model,bars,structures,range){
@@ -110,7 +110,7 @@ function inversionFvg(bars,index,analysis,ms,market,symbol,frame){
  return candidates;
 }
 function inspect(input){
- const {market,symbol,frame='15',candles15=[],candles60=[],higherCandles,events=[],eventFeedsLoaded=0,newsChecked=false,newsCovered=false,now=Date.now(),rollHour=0,includeTurtleSoup=false,includeIfvg=false,allowDelayedFvgForResearch=false,structureEngine,signalEngine,contextEngine,scenarioEngine}=input;
+ const {market,symbol,frame='15',candles15=[],candles60=[],higherCandles,events=[],eventFeedsLoaded=0,newsChecked=false,newsCovered=false,now=Date.now(),rollHour=0,includeTurtleSoup=false,includeIfvg=false,allowDelayedFvgForResearch=false,allowEarlyFvgForResearch=false,structureEngine,signalEngine,contextEngine,scenarioEngine}=input;
  if(!knownMarkets.has(market)||!symbol||!['5','15',...(market==='kraken'?[]:['60','240'])].includes(String(frame)))throw Error('السوق أو الإطار المختار غير مدعوم');
  if(!structureEngine||!signalEngine||!contextEngine||!scenarioEngine)throw Error('محرك تحليلي أساسي مفقود');
  const warnings=[],blocks=[];
@@ -137,7 +137,7 @@ function inspect(input){
  const reversals=includeTurtleSoup&&evaluation.analysis.eligible?turtleSoup(bars,index,evaluation.analysis.events,ms,market,symbol,frame):[];
  const inversions=includeIfvg&&evaluation.analysis.eligible?inversionFvg(bars,index,evaluation.analysis,ms,market,symbol,frame):[];
  const opportunities=[...recent,...reversals,...inversions].flatMap(m=>{
-  const range=m.range||displacementRange(m,bars,index,evaluation.analysis.events,allowDelayedFvgForResearch?2:1);
+  const range=m.range||displacementRange(m,bars,index,evaluation.analysis.events,allowDelayedFvgForResearch?2:1,allowEarlyFvgForResearch?-1:0);
   const plan=liquidityPlan(m,bars,targetStructures,range);
   if(!plan)return [];
 
