@@ -172,3 +172,13 @@ assert.throws(()=>book.parseBook(orderbook,'BTCUSDT',now-1),/STALE/);
  assert.equal(result.periods.validation.baseline.length,0);
  assert.doesNotThrow(()=>replay([],dataset.symbol,'forex',[],[],'5'));
 }
+
+{
+ const {contextAt}=require('./ict-unseen-market-replay.cjs');
+ const hour=3600000, now=24*hour;
+ const hourly=[{start:now-hour},{start:now}];
+ const fourHour=[{start:now-4*hour},{start:now-hour}];
+ const daily=[{start:now-24*hour},{start:now-4*hour}];
+ assert.deepEqual(contextAt(hourly,fourHour,'60',now),{candles60:[hourly[0]],higherCandles:[fourHour[0]]});
+ assert.deepEqual(contextAt(hourly,daily,'240',now),{candles60:[hourly[0]],higherCandles:[daily[0]]});
+}

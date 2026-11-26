@@ -13,7 +13,8 @@ const calendar = require('../ict-economic-link-706a.js');
 const START = Date.parse('2026-11-18T14:00:00Z');
 const END = Date.parse('2026-11-26T12:00:00Z');
 const HOUR = 3600000;
-const FRAMES = [['5', '5min'], ['15', '15min']];
+const FRAMES = [['5', '5min'], ['15', '15min'], ['60', '1h'], ['240', '4h']];
+const PROVIDER_INTERVALS = new Map([...FRAMES, ['D', '1day']]);
 const MARKETS = [['XAU/USD', 'metals'], ...[
   'EUR/USD', 'GBP/USD', 'USD/JPY', 'EUR/JPY', 'GBP/JPY', 'EUR/GBP', 'AUD/JPY'
 ].map(symbol => [symbol, 'forex'])];
@@ -51,7 +52,7 @@ function newsAt(archives, now) {
 
 async function prices(symbol, interval, key) {
   const query = new URLSearchParams({symbol, interval, timezone: 'UTC', outputsize: '5000',
-    start_date: '2026-11-08 00:00:00', end_date: '2026-11-26 12:00:00', apikey: key});
+    start_date: interval === '1day' || interval === '4h' ? '2026-09-01 00:00:00' : '2026-11-08 00:00:00', end_date: '2026-11-26 12:00:00', apikey: key});
   let response;
   try {
     response = await fetch('https://api.twelvedata.com/time_series?' + query,
@@ -65,7 +66,7 @@ async function prices(symbol, interval, key) {
   if (payload.meta?.symbol?.replace('/', '') !== symbol.replace('/', '') || payload.meta?.interval !== interval) {
     return {failure: 'identity mismatch'};
   }
-  const frame = interval === '1h' ? '60' : interval === '5min' ? '5' : '15';
+  const frame = [...PROVIDER_INTERVALS].find(([, value]) => value === interval)[0];
   const ms = structure.FRAME_MS[frame];
   const normalized = structure.normalize(payload.values.map(row => ({
     start: Date.parse(String(row.datetime).replace(' ', 'T') + 'Z'),
@@ -109,9 +110,18 @@ function rejection(model, range, bars, structures, displayed) {
   return null;
 }
 
-function replay(archives, symbol, market, bars, hourly, frame) {
+function contextAt(hourly, higher, frame, now) {
+  const higherFrame = rules.contextFrame(frame);
+  const higherMs = structure.FRAME_MS[higherFrame];
+  return {
+    candles60: hourly.filter(bar => bar.start + HOUR <= now).slice(-1000),
+    higherCandles: higher.filter(bar => bar.start + higherMs <= now).slice(-120)
+  };
+}
+
+function replay(archives, symbol, market, bars, hourly, frame, higherBars = hourly) {
   const ms = structure.FRAME_MS[frame];
-  const horizon = 6 * HOUR;
+  const horizon = 24 * HOUR;
   const maxBars = horizon / ms;
   const periods = groups(), reasons = {}, modelReasons = {}, displacementFailures = {};
   const addReason = reason => { reasons[reason] = (reasons[reason] || 0) + 1; };
@@ -125,9 +135,10 @@ function replay(archives, symbol, market, bars, hourly, frame) {
     const news = newsAt(archives, now);
     if (!news.covered) { addReason('calendar unavailable'); continue; }
     if (rules.nearNews(news.events, market, symbol, now).length) { addReason('near scheduled news'); continue; }
-    const hourlyPrefix = hourly.filter(bar => bar.start + HOUR <= now).slice(-1000);
+    const higherFrame = rules.contextFrame(frame);
+    const histories = contextAt(hourly, higherBars, frame, now);
     let inspected;
-    const input = {market, symbol, frame, now, candles15: prefix, candles60: hourlyPrefix,
+    const input = {market, symbol, frame, now, candles15: prefix, ...histories,
       newsChecked: true, newsCovered: true, events: news.events, structureEngine: structure,
       signalEngine: signals, contextEngine: context, scenarioEngine: scenario};
     try {
@@ -142,9 +153,9 @@ function replay(archives, symbol, market, bars, hourly, frame) {
       addReason('entry qualification');
       const segment = structure.normalize(prefix, frame, now).segments.at(-1) || [];
       const index = new Map(segment.map((bar, i) => [bar.start, i]));
-      const higher = structure.analyze(hourlyPrefix, '60', {now, pivot: 2});
+      const higher = structure.analyze(higherFrame === '60' ? histories.candles60 : histories.higherCandles, higherFrame, {now, pivot: 2});
       const structures = [{pivots: raw.analysis.pivots, ms: ms, frame},
-        {pivots: higher.pivots, ms: HOUR, frame: '60'}];
+        {pivots: higher.pivots, ms: structure.FRAME_MS[higherFrame], frame: higherFrame}];
       for (const model of formed) {
         const range = rules.displacementRange(model, segment, index, raw.analysis.events);
         if (!range) {
@@ -197,23 +208,24 @@ async function main() {
   let requests = 0;
   for (const [symbol, market] of MARKETS) {
     const marketPrices = new Map();
-    for (const interval of ['1h', ...FRAMES.map(([, interval]) => interval)]) {
+    for (const interval of PROVIDER_INTERVALS.values()) {
       if (requests++) await new Promise(resolve => setTimeout(resolve, 12000));
       marketPrices.set(interval, await prices(symbol, interval, key));
     }
     const hourly = marketPrices.get('1h');
     for (const [frame, interval] of FRAMES) {
       const entry = marketPrices.get(interval);
-      if (!entry.bars?.length || !hourly.bars?.length) {
-        console.log('Holdout', symbol, frame, 'unavailable:', entry.failure || hourly.failure || 'empty');
+      const higher = marketPrices.get(PROVIDER_INTERVALS.get(rules.contextFrame(frame)));
+      if (!entry.bars?.length || !hourly.bars?.length || !higher.bars?.length) {
+        console.log('Holdout', symbol, frame, 'unavailable:', entry.failure || hourly.failure || higher.failure || 'empty');
         continue;
       }
-      const result = replay(archives, symbol.replace('/', ''), market, entry.bars, hourly.bars, frame);
+      const result = replay(archives, symbol.replace('/', ''), market, entry.bars, hourly.bars, frame, higher.bars);
       for (const [period, buckets] of Object.entries(result.periods)) {
         for (const [name, outcomes] of Object.entries(buckets)) combined[frame][period][name].push(...outcomes);
       }
       console.log('Holdout', symbol, frame, JSON.stringify({entryBars: entry.bars.length,
-        hourlyBars: hourly.bars.length, gateCounts: result.reasons, firstModelRejection: result.modelReasons}));
+        hourlyBars: hourly.bars.length, higherBars: higher.bars.length, gateCounts: result.reasons, firstModelRejection: result.modelReasons}));
     }
   }
   for (const [frame, periods] of Object.entries(combined)) {
@@ -224,4 +236,4 @@ async function main() {
 }
 
 if (require.main === module) main().catch(error => { console.error(error.message); process.exitCode = 1; });
-module.exports = {newsAt, summarize, rejection, replay};
+module.exports = {newsAt, summarize, rejection, replay, contextAt};
