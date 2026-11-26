@@ -275,12 +275,20 @@ root.addEventListener('ict:background-scanned',e=>{
   message:'انتهت حداثة الشموع المعروضة؛ بانتظار تقرير جديد.'
  }})),Math.max(0,expires-Date.now()));
 });
+function exclusionList(parent, entries, grouped=false){
+ if(!entries.length)return;
+ node('h4','لماذا لم تظهر فرصة؟',parent);
+ if(grouped)node('p','العدد بجانب السبب = عدد الفحوص (أصل × إطار). قد ينطبق أكثر من سبب على الفحص نفسه.',parent,'dc-muted');
+ const list=node('ul','',parent);
+ for(const [reason,count] of entries)node('li',reason+(grouped?' · '+count:''),list);
+}
 function show(res){
  clear(output);
  if(!res.opportunities.length){
   const empty=block('لا توجد نتائج مطابقة');empty.classList.add('dc-wide');
-  node('p',modelPhase.value||modelType.value?'لم يُرصد نموذج حديث يطابق نوع النموذج والحالة المختارين.':'لم يُرصد نموذج حديث ضمن الشموع التي فُحصت.',empty);
-  for(const message of res.blocks)node('p',message,empty);
+  node('p',[res.symbol,res.frame+' د',res.source].join(' · '),empty);
+  node('p','آخر شمعة مكتملة: '+(res.lastCompleteAt?dual(res.lastCompleteAt):'غير متاحة'),empty);
+  exclusionList(empty,res.exclusions.map(reason=>[reason,1]));
   return;
  }
  const info=block('حالة الفحص ومصادره');info.classList.add('dc-wide');node('p','الأصل: '+res.symbol+' | المصدر: '+res.source+' | إطار الدخول '+res.frame+' دقائق | الشموع المستخدمة: '+res.sourceBars,info);node('p','وقت الفحص: '+dual(res.checkedAt)+' | آخر إغلاق لإطار الفرصة: '+(res.lastCompleteAt?dual(res.lastCompleteAt):'غير متاح'),info);
@@ -331,7 +339,15 @@ function inspectContract(market,contract,tf,{entryBars,hourly,higherCandles},new
   newsCovered:econ.scheduleCovers(news.parts||[],now),eventFeedsLoaded:news.feedsLoaded,events:news.events,now,
   structureEngine:structure,signalEngine:signal,contextEngine:context,scenarioEngine:scenario});
  if(news.failures?.length)res.warnings.push('تعذر تحميل بعض الأجندات: '+news.failures.join('؛ '));
+ const reasons=new Set([...res.blocks,...res.exclusions]);
+ for(const plan of res.opportunities){
+  if(api.qualifiesFocused(plan))continue;
+  for(const block of plan.blocks)reasons.add(block);
+  if(plan.interveningLiquidity)reasons.add('توجد سيولة أقرب قبل بلوغ 2R.');
+  if(plan.research?.phase!=='observed')reasons.add('لم يعد النموذج في مرحلة رصد دخول جديد.');
+ }
  res.opportunities=res.opportunities.filter(api.qualifiesFocused);
+ const eligibleCount=res.opportunities.length;
  if(modelPhase.value)res.opportunities=res.opportunities.filter(plan=>plan.research?.phase===modelPhase.value);
  if(res.opportunities.length){
   const bars=structure.normalize(entryBars,tf,now).segments.at(-1)||[];
@@ -345,6 +361,8 @@ function inspectContract(market,contract,tf,{entryBars,hourly,higherCandles},new
   if(modelType.value==='breaker')for(const plan of res.opportunities)plan.blocks.push('إعادة اختبار Breaker معروضة كدليل بحثي. مستويات البطاقة تخص النموذج المركب.');
   if(modelType.value==='ote')for(const plan of res.opportunities)plan.blocks.push('مستوى OTE للبحث. الدخول المعروض للبطاقة هو الدخول المرجعي للنموذج المركب.');
  }
+ if(!res.opportunities.length&&eligibleCount)reasons.add('نوع النموذج أو حالته لا يطابقان الاختيار الحالي.');
+ res.exclusions=[...reasons];
  if(batch)for(const plan of res.opportunities)plan.blocks.push('الفحص الجماعي بحثي؛ افحص الأصل منفردًا للتحقق من قراءة Bid/Ask ومتابعة السعر.');
  return res;
 }
@@ -367,7 +385,8 @@ async function scanBatch(){
  const results=block('نتائج الفحص الجماعي',output);
  node('p',modelType.selectedOptions[0].textContent+' · حالة النموذج: '+(phases[modelPhase.value]||'جميع الحالات')+' · اختر أصلًا منفردًا لمتابعة سعره.',results);
  let checked=0,failed=0,models=0,halted=false;
- const matched=new Set();
+ const matched=new Set(),exclusions=new Map();
+ const addExclusion=reason=>exclusions.set(reason,(exclusions.get(reason)||0)+1);
  const stopPattern=isCrypto?/^BYBIT_(?:HTTP_(?:403|429|451)|CODE_(?:10006|429))$/:/^Biquote: HTTP (?:403|429|451)$/;
  try{
   setState('جارٍ تحميل الأجندة للفحص الجماعي…');
@@ -382,6 +401,7 @@ async function scanBatch(){
      if(signal.aborted)break;
      const res=inspectContract(market,asset,tf,data,news,true);
      checked++;
+     if(!res.opportunities.length)res.exclusions.forEach(addExclusion);
      if(res.opportunities.length){
       matched.add(asset);
       models+=res.opportunities.length;
@@ -399,7 +419,10 @@ async function scanBatch(){
    if(checked+failed<total)await new Promise(resolve=>setTimeout(resolve,200));
   }
   if(id===generation){
-   if(!models)node('p',checked?'لم يُرصد نموذج مطابق في الأصول التي اكتمل فحصها.':'لم يكتمل فحص أي أصل.',results);
+   if(!models){
+    node('p',checked?'لم تظهر فرصة تستوفي الشروط في الفحوص المكتملة.':'لم يكتمل فحص أي أصل.',results);
+    exclusionList(results,[...exclusions].sort((a,b)=>b[1]-a[1]),true);
+   }
    setState((halted?'توقف الفحص بسبب رفض '+venue+' أو حدود الطلبات. ':signal.aborted?'أُوقف الفحص. ':'انتهى الفحص. ')+
     'تم فحص '+checked+' من '+total+' (أصل × إطار) · أصول مطابقة '+matched.size+' · نماذج '+models+
     ' · تعذّر '+failed+' · لم تُفحص '+(total-checked-failed),halted||failed>0);
