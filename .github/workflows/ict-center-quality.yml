@@ -31,10 +31,11 @@ jobs:
           IFVG_FINE_FRAME: '1'
           TWELVEDATA_API_KEY: ${{ secrets.TWELVEDATA_API_KEY }}
         run: node monitor-service/ifvg-finer-replay.cjs | tee -a "$GITHUB_STEP_SUMMARY"
-      - name: Refine displayed IFVG cases with same-provider five-minute candles
-        if: github.event_name == 'pull_request' && github.head_ref == 'dev/ifvg-displayed-replay' && github.event.pull_request.head.repo.full_name == github.repository
+      - name: Refine displayed IFVG cases with same-provider candles
+        if: github.event_name == 'pull_request' && (github.head_ref == 'dev/ifvg-displayed-replay' || github.head_ref == 'dev/ifvg-displayed-one-minute') && github.event.pull_request.head.repo.full_name == github.repository
         env:
           IFVG_DISPLAYED: '1'
+          IFVG_FINE_FRAME: ${{ github.head_ref == 'dev/ifvg-displayed-one-minute' && '1' || '5' }}
           TWELVEDATA_API_KEY: ${{ secrets.TWELVEDATA_API_KEY }}
         run: |
           set -o pipefail
