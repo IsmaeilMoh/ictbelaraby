@@ -92,6 +92,12 @@ function testDisplacementRange() {
   const events = [{type: 'MSS', at: 13, direction: 'bull', level: 103}];
   const evidence = decision.displacementRange(model, bars, index, events);
   assert.deepEqual(evidence, {low: 95, high: 109, midpoint: 102, displacementAt: 13});
+  const early = {...model, sweepAt: 11, fvgAt: 12};
+  const earlyBars = bars.map(bar => bar.start === 11 ? {...bar, low: 95} : bar);
+  assert.equal(decision.displacementRange(early, earlyBars, index, events), null);
+  assert.deepEqual(decision.displacementRange(early, earlyBars, index, events, 1, -1), evidence);
+  assert.equal(decision.displacementRange({...early, fvgAt: 11}, earlyBars, index, events, 1, -1), null);
+  assert.equal(decision.displacementRange(early, earlyBars, index, [], 1, -1), null);
   const delayed = {...model, fvgAt: 15};
   assert.equal(decision.displacementRange(delayed, bars, index, events), null);
   assert.deepEqual(decision.displacementRange(delayed, bars, index, events, 2), evidence);

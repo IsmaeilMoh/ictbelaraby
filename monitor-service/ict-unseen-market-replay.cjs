@@ -14,7 +14,7 @@ const START = Date.parse('2026-11-19T00:00:00Z');
 const END = Date.parse('2026-11-26T00:00:00Z');
 const MS = 900000;
 const HOUR = 3600000;
-const MARKETS = [['EUR/GBP', 'forex'], ['AUD/JPY', 'forex']];
+const MARKETS = [['EUR/CHF', 'forex'], ['CAD/JPY', 'forex']];
 const COSTS = [0.05, 0.1, 0.2];
 
 function archive() {
@@ -140,9 +140,9 @@ function replay(archives, symbol, market, bars, hourly) {
         modelReasons[reason] = (modelReasons[reason] || 0) + 1;
       }
     }
-    const comparison = formed.some(model => model.fvgAt - model.mssAt === 2 * MS)
-      ? rules.inspect({...input, allowDelayedFvgForResearch: true}).opportunities.filter(plan =>
-        plan.formedAt === now && rules.qualifiesFocused(plan) && plan.modelEvidence[2] - plan.modelEvidence[1] === 2 * MS)
+    const comparison = formed.some(model => model.fvgAt - model.mssAt === -MS)
+      ? rules.inspect({...input, allowEarlyFvgForResearch: true}).opportunities.filter(plan =>
+        plan.formedAt === now && rules.qualifiesFocused(plan) && plan.modelEvidence[2] - plan.modelEvidence[1] === -MS)
       : [];
     for (const plan of [...qualified, ...comparison]) {
       const record = lifecycle.create({...plan, frame: '15'}, now, {researchOnly: true});
@@ -175,7 +175,7 @@ async function main() {
     combined.push(...result.outcomes);
     added.push(...result.additional);
     console.log('Holdout', symbol, JSON.stringify({entryBars: entry.bars.length, hourlyBars: hourly.bars.length,
-      baseline: summarize(result.outcomes), newFvgTimingOnly: summarize(result.additional), gateCounts: result.reasons,
+      baseline: summarize(result.outcomes), earlyFvgOnly: summarize(result.additional), gateCounts: result.reasons,
       firstModelRejection: result.modelReasons, displacementFailures: result.displacementFailures}));
   }
   console.log('Holdout overall:', JSON.stringify({baseline: summarize(combined),
