@@ -139,3 +139,16 @@ assert.throws(()=>book.parseBook(orderbook,'BTCUSDT',now-1),/STALE/);
  assert.deepEqual(summary,{models:3,touched:3,targets:1,stops:1,ambiguous:1,
   targetRate:50,netR:1.3,withoutLargestR:-1.1});
 }
+
+{
+ const {newsAt,summarize}=require('./ict-unseen-market-replay.cjs');
+ const now=Date.parse('2026-11-25T14:00:00Z');
+ const snapshot={file:'calendar-live.json',feed:'Forex Factory',availableAt:now+1,json:{
+  updatedAt:new Date(now-1000).toISOString(),source:'Forex Factory',coverage:'full',weekStart:'2026-11-23',
+  events:[{title:'Test',date:new Date(now).toISOString(),currency:'USD'}]
+ }};
+ assert.deepEqual(newsAt([snapshot],now),{events:[],covered:false});
+ assert.equal(newsAt([{...snapshot,availableAt:now}],now).covered,true);
+ assert.deepEqual(summarize([{state:'won',outcomeR:2},{state:'lost',outcomeR:-1}]).netR,
+  {'0.05':0.9,'0.1':0.8,'0.2':0.6});
+}
