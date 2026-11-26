@@ -31,6 +31,16 @@ function normalize(rows,ms,now=Date.now()){
  out.sort((a,b)=>a.start-b.start);return {rows:out,issues};
 }
 function aggregate(rows){return {high:Math.max(...rows.map(x=>x.high)),low:Math.min(...rows.map(x=>x.low)),open:rows[0].open,close:rows.at(-1).close,count:rows.length,from:rows[0].start,to:rows.at(-1).start}}
+// The provider's UTC-labelled daily candles are a separate reference from New York sessions.
+function priorProviderWeek(daily,now,continuous=false){
+ const key=shiftDay(nyWeek(nyDay(now)),-7);
+ const midnight=Date.parse(key+'T00:00:00Z');
+ const {rows}=normalize(daily,DAY,now);
+ const weekdays=Array.from({length:continuous?7:5},(_,i)=>midnight+i*DAY);
+ const week=rows.filter(bar=>bar.start>=midnight&&bar.start<midnight+7*DAY);
+ if(week.length!==weekdays.length||week.some((bar,i)=>bar.start!==weekdays[i]))return null;
+ return {...aggregate(week),key,start:midnight,days:week.length};
+}
 function build(unusedDaily,hourly,opts={}){
  const now=Number.isFinite(opts.now)?opts.now:Date.now(),market=opts.market||'forex',crypto=market==='crypto',rollHour=opts.rollHour===17?17:0;
  const h=normalize(hourly,HOUR,now),bars=h.rows; if(!bars.length){
@@ -72,5 +82,5 @@ function build(unusedDaily,hourly,opts={}){
  const below=price===null?null:levels.filter(x=>x.value<price).sort((a,b)=>b.value-a.value)[0]||null;
  return {sourceDay:'America/New_York '+String(rollHour).padStart(2,'0')+':00',previousDay,priorWeek,weekWarning,price,priceAt:recent?.start??null,position,nearestAbove:above,nearestBelow:below,liveStatus:recent?'آخر إغلاق ساعة ضمن نافذة الحداثة':'آخر إغلاق ساعة متأخر/غير متاح',nyDate:currentDay,quality:{daily:{invalid:0,unconfirmed:0,duplicate:0},hourly:h.issues,dayBars:priorCandidates.length,hourBars:bars.length,source:'1h'},sources:opts.sources||null,disclaimer:'PDH/PDL وPWH/PWL محسوبة من شموع الساعة المكتملة حسب إغلاق يوم نيويورك '+String(rollHour).padStart(2,'0')+':00، مع مراعاة التوقيت الصيفي. للمطابقة مع TradingView يجب توحيد رمز ومصدر الشموع وإعداد الجلسة (17:00 شائع في الفوركس، و00:00 مستخدم لمراجع ICT). لا تضمن الساعة وحدها تطابق مزودين مختلفين.'};
 }
-return Object.freeze({DAY,HOUR,normalize,aggregate,nyParts,nyDay,nyMidnight,nyWeek,sessionStart,build});
+return Object.freeze({DAY,HOUR,normalize,aggregate,nyParts,nyDay,nyMidnight,nyWeek,sessionStart,priorProviderWeek,build});
 });

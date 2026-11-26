@@ -8,9 +8,10 @@ const data=require('../historical-multi-market.json');
 
 const DAY=86400000;
 const displayed=process.env.IFVG_DISPLAYED==='1';
-const independent=process.env.IFVG_INDEPENDENT==='1';
+const matched=process.env.IFVG_MATCHED==='1';
+const independent=matched||process.env.IFVG_INDEPENDENT==='1';
 const boundary=Date.parse('2026-10-10T00:00:00Z');
-const replayStart=independent?Date.parse('2026-09-01T00:00:00Z'):boundary;
+const replayStart=matched?Date.parse('2026-10-04T00:00:00Z'):independent?Date.parse('2026-09-01T00:00:00Z'):boundary;
 const replayEnd=independent?boundary:Date.parse(data.updatedAt)+1;
 const fineFrame=process.env.IFVG_FINE_FRAME==='1'?'1':'5';
 const fineMs=lifecycle.FRAME[fineFrame];
@@ -24,6 +25,7 @@ const fields=['open','high','low','close'];
 function ambiguousCases(){
  const cases=[],settled={'15':[],'60':[]},coverage={'15':{scans:0},'60':{scans:0}};
  for(const [symbol,series] of Object.entries(data.assets)){
+  if(matched&&!['EURUSD','XAUUSD'].includes(symbol))continue;
   for(const [frame,key] of [['15','15m'],['60','1h']]){
    const ms=lifecycle.FRAME[frame],bars=rows(series[key]||[]).filter(bar=>!independent||bar.start+ms<replayEnd);
    for(let n=30;n<=bars.length;n++){

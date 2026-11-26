@@ -358,8 +358,7 @@ function show(res){
  if(!res.opportunities.length){
   const empty=block('لا توجد نتائج مطابقة');empty.classList.add('dc-wide');
   node('p',modelPhase.value||modelType.value?'لم يُرصد نموذج حديث يطابق نوع النموذج والحالة المختارين.':'لم يُرصد نموذج حديث ضمن الشموع التي فُحصت.',empty);
-  for(const message of res.blocks)node('p',message,empty);
-  return;
+
  }
  const info=block('حالة الفحص ومصادره');info.classList.add('dc-wide');node('p','الأصل: '+res.symbol+' | المصدر: '+res.source+' | إطار الدخول '+res.frame+' دقائق | الشموع المستخدمة: '+res.sourceBars,info);node('p','وقت الفحص: '+dual(res.checkedAt)+' | آخر إغلاق لإطار الفرصة: '+(res.lastCompleteAt?dual(res.lastCompleteAt):'غير متاح'),info);
  const quote=node('p','Bid/Ask حديث غير متاح لهذه القراءة. مستويات الفرصة مرجعية.',info);
@@ -368,7 +367,10 @@ function show(res){
   quoteExpiry=setTimeout(()=>{quote.textContent='انتهت حداثة قراءة Bid/Ask؛ أعد الفحص للحصول على تسعير جديد.'},Math.max(0,res.book.at+15000-Date.now()));
  }
 node('p','آخر إغلاق ساعة مرجعي: '+(res.price==null?'غير متاح':money(res.price))+' | '+(res.priceAt?dual(res.priceAt+3600000):'بيانات الساعة متأخرة'),info);
- const ctx=block('السياق بنيويورك');const day=res.context?.previousDay||{};node('p','PDH: '+money(day.high)+' | PDL: '+money(day.low),ctx);node('p',res.context?.priorWeek?'PWH: '+money(res.context.priorWeek.high)+' | PWL: '+money(res.context.priorWeek.low):'الأسبوع السابق غير مكتمل',ctx);node('p','نظام اليوم: '+(res.context?.sourceDay||'غير متاح'),ctx);
+ const ctx=block('السياق بنيويورك');const day=res.context?.previousDay||{};node('p','PDH: '+money(day.high)+' | PDL: '+money(day.low),ctx);const weekly=res.context?.priorWeek||res.providerWeek;
+ node('p',weekly?'PWH: '+money(weekly.high)+' | PWL: '+money(weekly.low):'بيانات الأسبوع السابق غير كافية لحساب PWH/PWL',ctx);
+ if(!res.context?.priorWeek&&res.providerWeek)node('p','مرجع الأسبوع السابق من الشموع اليومية لـ '+(res.market==='crypto'?'Bybit':'Biquote')+' بتواريخ UTC · '+res.providerWeek.key,ctx);
+ node('p','نظام اليوم: '+(res.context?.sourceDay||'غير متاح'),ctx);
  const safety=block('بوابات جودة البيانات والأخبار');const checks=[...res.blocks,...res.warnings];node('p',checks.length?'ملاحظات توقف اعتماد الخطة أو تحد من الوثوق:':'الفحوص العامة متاحة؛ كل نموذج يخضع أيضًا لشروطه الخاصة.',safety);if(checks.length){const ul=document.createElement('ul');safety.append(ul);checks.forEach(x=>node('li',x,ul))}if(res.nearbyNews.length){const ul=document.createElement('ul');safety.append(ul);res.nearbyNews.forEach(x=>node('li',x.title+' · '+dual(x.when),ul))}
  for(const o of res.opportunities)card(output,{
   ...o,frame:res.frame,source:res.source,marketType:res.market==='crypto'?'PERPETUAL':'PROVIDER_NATIVE',
@@ -387,7 +389,7 @@ async function loadNews(signal){
   return {events:[],feedsLoaded:0,failures:['تعذّر التحقق من الأخبار: '+error.message]};
  }
 }
-async function getCandles(market,contract,tf,signal,requests=new Map()){
+async function getCandles(market,contract,tf,signal,requests=new Map(),weeklyReference=false){
  const higher=api.contextFrame(tf);
  const instrument=market==='crypto'?null:traditional.resolve(market,contract);
  const history=(interval,limit)=>instrument?traditional.get(instrument,traditional.FRAME_BY_MINUTES[interval],{limit,signal}):live.fetchHistory({symbol:contract,interval,limit,signal});
@@ -396,18 +398,20 @@ async function getCandles(market,contract,tf,signal,requests=new Map()){
   return requests.get(interval);
  };
  const hourlyRequest=cached('60',1000);
- const [hourly,entryBars,higherCandles]=await Promise.all([
+ const [hourly,entryBars,higherCandles,weeklyDaily]=await Promise.all([
   hourlyRequest.catch(()=>[]),tf==='60'?hourlyRequest:cached(tf,250),
-  (higher==='60'?hourlyRequest:cached(higher,120)).catch(()=>[])
+  (higher==='60'?hourlyRequest:cached(higher,120)).catch(()=>[]),
+  weeklyReference?cached('D',higher==='D'?120:15).catch(()=>[]):[]
  ]);
- return {hourly,entryBars,higherCandles};
+ return {hourly,entryBars,higherCandles,weeklyDaily};
 }
-function inspectContract(market,contract,tf,{entryBars,hourly,higherCandles},news,batch=false){
+function inspectContract(market,contract,tf,{entryBars,hourly,higherCandles,weeklyDaily},news,batch=false){
  const now=Date.now();
  const res=api.inspect({market,symbol:contract,frame:tf,candles15:entryBars,candles60:hourly,higherCandles,
   rollHour:Number(roll.value),displayCompleteModels:true,includeTurtleSoup:true,includeIfvg:true,newsChecked:news.feedsLoaded>0,
   newsCovered:econ.scheduleCovers(news.parts||[],now),eventFeedsLoaded:news.feedsLoaded,events:news.events,now,
   structureEngine:structure,signalEngine:signal,contextEngine:context,scenarioEngine:scenario,advancedEngine:window.ICTAdvancedValidation4C4});
+ if(weeklyDaily?.length&&!res.context?.priorWeek)res.providerWeek=context.priorProviderWeek(weeklyDaily,now,market==='crypto');
  if(news.failures?.length)res.warnings.push('تعذر تحميل بعض الأجندات: '+news.failures.join('؛ '));
  if(modelPhase.value)res.opportunities=res.opportunities.filter(plan=>plan.research?.phase===modelPhase.value);
  if(res.opportunities.length){
@@ -489,7 +493,7 @@ async function scan(auto=false){if(busy||(symbol.value==='all'||frame.value==='a
   const contract=symbol.value,market=selectedMarket();
   const bookRequest=market==='crypto'?live.fetchBook(contract):traditional.getQuote(traditional.resolve(market,contract));
   const [data,news,book]=await Promise.all([
-   getCandles(market,contract,frame.value),loadNews(),bookRequest.catch(()=>null)
+   getCandles(market,contract,frame.value,undefined,new Map(),true),loadNews(),bookRequest.catch(()=>null)
   ]);
   if(id!==generation||selection!==[symbol.value,frame.value,roll.value].join('|'))return;
   const res=inspectContract(market,contract,frame.value,data,news);
