@@ -97,6 +97,13 @@ jobs:
             : 'unverified (no qualifying data)';
           async function probe() {
             console.log('### Biquote public source probe');
+            try {
+              const expanded = await api.loadCatalog({fetch: fromPages});
+              for (const [group, items] of Object.entries(expanded))
+                console.log(`- Catalog ${group}: ${items.length} symbols with quotes in the last 7 days`);
+            } catch (error) {
+              console.log('- Catalog unavailable: ' + (error.cause?.code || error.message));
+            }
             const instruments = Object.entries(api.MARKETS).flatMap(([market, rows]) => rows.map(([symbol]) => [market, symbol]));
             for (const [market, symbol] of instruments) {
               const instrument = api.resolve(market, symbol);

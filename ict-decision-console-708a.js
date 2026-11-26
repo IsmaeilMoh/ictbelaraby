@@ -4,6 +4,34 @@ const $=id=>document.getElementById(id),marketSelect=$('dc-market'),symbol=$('dc
 const api=window.ICTDecisionEngine708A,live=window.ICTLiveFeed,structure=window.ICTStructureEngine,signal=window.ICTSignalEngine,context=window.ICTContextEngine,scenario=window.ICTScenarioEngine,econ=window.ICTEconomicLink706A;
 const traditional=window.ICTPublicMarkets, bybitCatalog=$('dc-bybit-catalog');
 const selectedMarket=()=>marketSelect.value;
+const entryFrames=['5','15','60','240'];
+const traditionalStatus=$('dc-traditional-status');
+let traditionalCatalog;
+function displayTraditionalCatalog(preselected){
+ const market=selectedMarket();
+ if(market==='crypto')return;
+ const items=traditional.listed(market).map(([symbol])=>symbol);
+ selectOptions(symbol,[...items,'all'],preselected??symbol.value);
+ if(!items.includes(symbol.value)&&symbol.value!=='all')symbol.value=items[0]||'';
+}
+async function loadTraditionalCatalog(preselected){
+ const requestedMarket=selectedMarket();
+ traditionalStatus.textContent='جارٍ تحديث دليل Biquote…';
+ try{
+  const expanded=await (traditionalCatalog??=traditional.loadCatalog());
+  const market=selectedMarket();
+  if(market!==requestedMarket)return;
+  const old=symbol.value;
+  if(!busy)displayTraditionalCatalog(preselected&&old===traditional.MARKETS[market][0]?.[0]?preselected:old);
+  if(old!==symbol.value)selectionChanged();
+  traditionalStatus.textContent=expanded[market].length
+   ? expanded[market].length+' أصلًا في دليل Biquote بأسعار مسجلة خلال آخر 7 أيام.'
+   : 'لم يُرجع دليل Biquote أصولًا حديثة لهذه الفئة. تظهر القائمة الأساسية.';
+ }catch{
+  traditionalCatalog=null;
+  if(selectedMarket()===requestedMarket)traditionalStatus.textContent='تعذر تحديث دليل Biquote. تظهر القائمة الأساسية.';
+ }
+}
 const cancelBatch=$('dc-cancel-batch');
 let batchController=null;
 const bybitSearch=$('dc-bybit-search'),bybitStatus=$('dc-bybit-status');
@@ -123,10 +151,12 @@ function selectOptions(select,items,choose){clear(select);for(const item of item
 function initCatalog(preselected){
  const market=selectedMarket();
  bybitCatalog.hidden=market!=='crypto';
- selectOptions(symbol,market==='crypto'?crypto:[...traditional.MARKETS[market].map(row=>row[0]),'all'],preselected??(market==='crypto'?'BTCUSDT':undefined));
+ traditionalStatus.hidden=market==='crypto';
+ selectOptions(symbol,market==='crypto'?crypto:[...traditional.listed(market).map(row=>row[0]),'all'],preselected??(market==='crypto'?'BTCUSDT':undefined));
  roll.value='0';
  selectionChanged();
  if(market==='crypto')loadBybitCatalog(preselected);
+ else loadTraditionalCatalog(preselected);
 }
 function displayBybitSymbols(preselected){
  if(selectedMarket()!=='crypto')return;
@@ -269,14 +299,18 @@ async function loadNews(signal){
   return {events:[],feedsLoaded:0,failures:['تعذّر التحقق من الأخبار: '+error.message]};
  }
 }
-async function getCandles(market,contract,tf,signal){
+async function getCandles(market,contract,tf,signal,requests=new Map()){
  const higher=api.contextFrame(tf);
  const instrument=market==='crypto'?null:traditional.resolve(market,contract);
  const history=(interval,limit)=>instrument?traditional.get(instrument,traditional.FRAME_BY_MINUTES[interval],{limit,signal}):live.fetchHistory({symbol:contract,interval,limit,signal});
- const hourlyRequest=history('60',1000);
+ const cached=(interval,limit)=>{
+  if(!requests.has(interval))requests.set(interval,history(interval,interval==='240'?250:limit));
+  return requests.get(interval);
+ };
+ const hourlyRequest=cached('60',1000);
  const [hourly,entryBars,higherCandles]=await Promise.all([
-  hourlyRequest,tf==='60'?hourlyRequest:history(tf,250),
-  higher==='60'?hourlyRequest:history(higher,120)
+  hourlyRequest,tf==='60'?hourlyRequest:cached(tf,250),
+  higher==='60'?hourlyRequest:cached(higher,120)
  ]);
  return {hourly,entryBars,higherCandles};
 }
@@ -304,9 +338,11 @@ function inspectContract(market,contract,tf,{entryBars,hourly,higherCandles},new
 function cancelGroupedScan(){batchController?.abort()}
 async function scanBatch(){
  const market=selectedMarket(),isCrypto=market==='crypto';
- if(busy||(isCrypto&&!catalogLoaded))return;
- const assets=isCrypto?[...crypto]:traditional.MARKETS[market].map(([symbol])=>symbol);
- const tf=frame.value,id=++generation;
+ const allAssets=symbol.value==='all';
+ if(busy||(isCrypto&&allAssets&&!catalogLoaded)||!symbol.value)return;
+ const assets=allAssets?(isCrypto?[...crypto]:traditional.listed(market).map(([symbol])=>symbol)):[symbol.value];
+ const frames=frame.value==='all'?entryFrames:[frame.value];
+ const total=assets.length*frames.length,id=++generation;
  const venue=isCrypto?'Bybit':'Biquote';
  const controller=new AbortController(),{signal}=controller;
  batchController=controller;
@@ -317,47 +353,53 @@ async function scanBatch(){
  clear(output);
  const results=block('نتائج الفحص الجماعي',output);
  node('p',modelType.selectedOptions[0].textContent+' · حالة النموذج: '+(phases[modelPhase.value]||'جميع الحالات')+' · اختر أصلًا منفردًا لمتابعة سعره.',results);
- let checked=0,failed=0,matched=0,models=0,halted=false;
+ let checked=0,failed=0,models=0,halted=false;
+ const matched=new Set();
+ const stopPattern=isCrypto?/^BYBIT_(?:HTTP_(?:403|429|451)|CODE_(?:10006|429))$/:/^Biquote: HTTP (?:403|429|451)$/;
  try{
   setState('جارٍ تحميل الأجندة للفحص الجماعي…');
   const news=await loadNews(signal);
   for(const asset of assets){
-   if(signal.aborted)break;
-   setState('جارٍ فحص '+asset+' · '+(checked+failed+1)+' من '+assets.length);
-   try{
-    const data=await getCandles(market,asset,tf,signal);
+   const requests=new Map();
+   for(const tf of frames){
     if(signal.aborted)break;
-    const res=inspectContract(market,asset,tf,data,news,true);
-    checked++;
-    if(res.opportunities.length){
-     matched++;
-     models+=res.opportunities.length;
-     for(const opportunity of res.opportunities)card(results,{
-      ...opportunity,frame:tf,source:res.source,marketType:isCrypto?'PERPETUAL':'PROVIDER_NATIVE',detectedAt:res.checkedAt,lastCompleteAt:res.lastCompleteAt
-     },'فحص جماعي');
+    setState('جارٍ فحص '+asset+' · '+tf+' د · '+(checked+failed+1)+' من '+total);
+    try{
+     const data=await getCandles(market,asset,tf,signal,requests);
+     if(signal.aborted)break;
+     const res=inspectContract(market,asset,tf,data,news,true);
+     checked++;
+     if(res.opportunities.length){
+      matched.add(asset);
+      models+=res.opportunities.length;
+      for(const opportunity of res.opportunities)card(results,{
+       ...opportunity,frame:tf,source:res.source,marketType:isCrypto?'PERPETUAL':'PROVIDER_NATIVE',detectedAt:res.checkedAt,lastCompleteAt:res.lastCompleteAt
+      },'فحص جماعي');
+     }
+    }catch(error){
+     if(signal.aborted)break;
+     failed++;
+     if(stopPattern.test(error.message)){halted=true;break}
     }
-   }catch(error){
-    if(signal.aborted)break;
-    failed++;
-    const stopPattern=isCrypto?/^BYBIT_(?:HTTP_(?:403|429|451)|CODE_(?:10006|429))$/:/^Biquote: HTTP (?:403|429|451)$/;
-    if(stopPattern.test(error.message)){halted=true;break}
    }
-   if(checked+failed<assets.length)await new Promise(resolve=>setTimeout(resolve,200));
+   if(halted||signal.aborted)break;
+   if(checked+failed<total)await new Promise(resolve=>setTimeout(resolve,200));
   }
   if(id===generation){
    if(!models)node('p',checked?'لم يُرصد نموذج مطابق في الأصول التي اكتمل فحصها.':'لم يكتمل فحص أي أصل.',results);
    setState((halted?'توقف الفحص بسبب رفض '+venue+' أو حدود الطلبات. ':signal.aborted?'أُوقف الفحص. ':'انتهى الفحص. ')+
-    'تم فحص '+checked+' من '+assets.length+' · أصول مطابقة '+matched+' · نماذج '+models+
-    ' · تعذّر '+failed+' · لم تُفحص '+(assets.length-checked-failed),halted||failed>0);
+    'تم فحص '+checked+' من '+total+' (أصل × إطار) · أصول مطابقة '+matched.size+' · نماذج '+models+
+    ' · تعذّر '+failed+' · لم تُفحص '+(total-checked-failed),halted||failed>0);
   }
  }finally{
   batchController=null;
   busy=false;
+  if(selectedMarket()!=='crypto')displayTraditionalCatalog();
   cancelBatch.hidden=true;
   run.disabled=!symbol.value;
  }
 }
-async function scan(auto=false){if(busy||symbol.value==='all'||auto&&document.hidden)return;if(!api||!live||!structure||!signal||!context||!scenario||!econ){setState('بعض محركات المراحل السابقة غير محمّلة. تأكد من رفع ملفات 2A–7A.',true);return}if(!symbol.value){setState('اختر أصلًا متاحًا.',true);return}
+async function scan(auto=false){if(busy||(symbol.value==='all'||frame.value==='all')||auto&&document.hidden)return;if(!api||!live||!structure||!signal||!context||!scenario||!econ){setState('بعض محركات المراحل السابقة غير محمّلة. تأكد من رفع ملفات 2A–7A.',true);return}if(!symbol.value){setState('اختر أصلًا متاحًا.',true);return}
  const id=++generation,selection=[symbol.value,frame.value,roll.value].join('|');busy=true;run.disabled=true;clearScan();setState('جارٍ جلب شموع إطار التداول والسياق، وفحص الأجندة، ثم ربط الأدلة…');
  try{
   const contract=symbol.value,market=selectedMarket();
@@ -389,12 +431,12 @@ function selectionChanged(){
  clearScan();
  if(streamPanel){streamPanel.hidden=true;streamEvents.replaceChildren()}
  run.disabled=!symbol.value||busy;
- monitor.disabled=!symbol.value||symbol.value==='all';
+ monitor.disabled=!symbol.value||symbol.value==='all'||frame.value==='all';
  setState(symbol.value==='all'?(selectedMarket()==='crypto'?'الفحص الجماعي يشمل جميع العقود المتاحة، حتى عند استخدام البحث.':'الفحص الجماعي يشمل جميع أصول الفئة المختارة.'):'اختر الأصل واضغط فحص السوق.');
 }
 marketSelect.addEventListener('change',()=>initCatalog());
 for(const field of [frame,symbol,modelType,modelPhase,roll])field.addEventListener('change',selectionChanged);
-run.addEventListener('click',()=>symbol.value==='all'?scanBatch():scan(false));
+run.addEventListener('click',()=>symbol.value==='all'||frame.value==='all'?scanBatch():scan(false));
 cancelBatch.addEventListener('click',cancelGroupedScan);
 monitor.addEventListener('click',()=>{if(active){stop();return}active=true;monitor.textContent='إيقاف المراقبة';monitor.setAttribute('aria-pressed','true');scan(false);timer=setInterval(()=>scan(true),60000)});
 document.addEventListener('visibilitychange',()=>{if(document.hidden)stop()});

@@ -31,6 +31,27 @@ const b=bybit.parseHistory({retCode:0,result:{symbol:'BTCUSDT',list:[
 assert.equal(b.length,2);assert.equal(b[0].confirmed,true);
 
 (async()=>{
+ const metadata=[
+  {name:'EURJPY',type:'Forex',source:'MT5'},
+  {name:'USTEC',type:'Index',source:'MT5'},
+  {name:'XCUUSD',type:'Commodity',source:'MT5'},
+  {name:'THYAO',type:'Stock',source:'MATRIKS'},
+  {name:'BTCUSD',type:'Crypto',source:'MT5'},
+  {name:'../bad',type:'Stock',source:'MT5'}
+ ];
+ const catalog=await source.loadCatalog(asyncOptions());
+ assert.deepEqual(catalog.forex,[['EURJPY','EURJPY']]);
+ assert.deepEqual(catalog.indices,[['NAS100','USTEC']]);
+ assert.deepEqual(catalog.metals,[['XCUUSD','XCUUSD']]);
+ assert.deepEqual(catalog.stocks,[['THYAO','THYAO']]);
+ assert.equal(source.resolve('forex','EURJPY').quote,'JPY');
+ assert.equal(source.resolve('stocks','THYAO').quote,null);
+ assert.throws(()=>source.resolve('forex','BTCUSD'));
+ assert.throws(()=>source.parseCatalog([]));
+ function asyncOptions(){return {fetch:async url=>{
+  assert.equal(url,'https://biquote.io/api/symbols?quotedWithinDays=7');
+  return {ok:true,json:async()=>metadata};
+ }}}
  const mockFetch=async(url,opts)=>{
   assert.equal(opts.headers.Authorization,undefined);
   assert.equal(opts.cache,'no-store');

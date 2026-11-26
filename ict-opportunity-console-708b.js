@@ -7,7 +7,7 @@ function number(x){return Number.isFinite(x)?Number(x).toLocaleString('en-US',{m
 function stored(){try{const arr=JSON.parse(localStorage.getItem(storeKey)||'[]');return Array.isArray(arr)?arr:[]}catch{return []}}
 const traditional=window.ICTPublicMarkets;
 const supported=row=>row?.market==='crypto'?/^[A-Z0-9]{1,31}USDT$/.test(row.symbol):
- row?.source===traditional.SOURCE&&traditional.MARKETS[row.market]?.some(([symbol])=>symbol===row.symbol);
+ row?.source===traditional.SOURCE&&Object.hasOwn(traditional.MARKETS,row.market)&&traditional.validSymbol(row.symbol);
 function load(){return stored().filter(row=>supported(row)&&engine.valid(row)).slice(0,cap)}
 function save(rows){try{localStorage.setItem(storeKey,JSON.stringify([...rows.slice(0,cap),...stored().filter(row=>!supported(row))]));return true}catch(e){status.textContent='تعذر حفظ السجل محليًا: '+e.message;return false}}
 function announce(v){status.textContent=v}
