@@ -31,8 +31,8 @@ jobs:
           IFVG_FINE_FRAME: '1'
           TWELVEDATA_API_KEY: ${{ secrets.TWELVEDATA_API_KEY }}
         run: node monitor-service/ifvg-finer-replay.cjs | tee -a "$GITHUB_STEP_SUMMARY"
-      - name: Compare 5m and 15m with archived news and hourly context
-        if: github.event_name == 'pull_request' && github.head_ref == 'dev/ict-multi-frame-validation' && github.event.pull_request.head.repo.full_name == github.repository
+      - name: Compare all four entry frames with point-in-time news and market context
+        if: github.event_name == 'pull_request' && github.head_ref == 'dev/ict-all-frame-validation' && github.event.pull_request.head.repo.full_name == github.repository
         env:
           TWELVEDATA_API_KEY: ${{ secrets.TWELVEDATA_API_KEY }}
         run: |
