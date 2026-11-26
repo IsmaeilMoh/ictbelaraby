@@ -23,7 +23,7 @@ function publicForward(data,targets,now){
  for(const [id,target] of Object.entries(targets)){
   const records=Array.isArray(data.forward?.[id])?data.forward[id].slice(0,32):[];
   for(const row of records){
-   if(!row||target.error==='LEGACY_SPOT_PROXY'||/Binance|Kraken|Spot/i.test(row.source||'')||typeof row.id!=='string'||!row.id.startsWith(id+':')||!['BUY','SELL'].includes(row.side)||
+   if(!row||target.error==='LEGACY_SPOT_PROXY'||/Kraken|Spot/i.test(row.source||'')||typeof row.id!=='string'||!row.id.startsWith(id+':')||!['BUY','SELL'].includes(row.side)||
       !['waiting','active','won','lost','expired','ambiguous','gap','invalidated'].includes(row.state))continue;
    const {entry,stop,target:goal,observedAt,formedAt,updatedAt,closedAt}=row;
    if(![entry,stop,goal,observedAt,formedAt,updatedAt].every(v=>Number.isFinite(v)&&v>0)||
@@ -57,7 +57,7 @@ function publicSnapshot(data,now=Date.now()){
   const marketType='PERPETUAL';
   const source='Bybit V5 USDT perpetual';
   const last=Date.parse(val.lastCompleteAt||'');
-  const legacyProxy=/SPOT/i.test(val.marketType||'')||/Binance|Kraken/i.test(val.source||'');
+  const legacyProxy=/SPOT/i.test(val.marketType||'')||/Kraken/i.test(val.source||'');
   const status=val.status==='not_checked'?'not_checked':val.status==='research_data_valid'&&!legacyProxy?'research_data_valid':'blocked';
   const patternCounts=Object.fromEntries(['sweep','mss','fvg','composite','recent','valid'].map(k=>[k,Math.min(1000,Math.max(0,Number(val.patternCounts?.[k])||0))]));
   targets[id]={market,symbol,frame,source,marketType,status,patternCounts,

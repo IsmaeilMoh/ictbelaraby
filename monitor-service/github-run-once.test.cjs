@@ -24,7 +24,7 @@ assert.equal(publicSnapshot({...fixture,observations:[good],cycleError:'storage 
 assert.equal(publicSnapshot({...fixture,observations:[{...good,entry:'100'}]},now).observations.length,0);
 console.log('Public research observation sanitization: PASS');
 
-const proxy=publicSnapshot({...fixture,targets:{'crypto:BTCUSDT:15':{...fixture.targets['crypto:BTCUSDT:15'],source:'Binance Spot (research backup; NOT Bybit perpetual)',marketType:'SPOT_RESEARCH_PROXY'}}},now);
+const proxy=publicSnapshot({...fixture,targets:{'crypto:BTCUSDT:15':{...fixture.targets['crypto:BTCUSDT:15'],source:'Legacy spot research proxy',marketType:'SPOT_RESEARCH_PROXY'}}},now);
 assert.equal(proxy.targets['crypto:BTCUSDT:15'].status,'blocked');
 const retired=publicSnapshot({...fixture,targets:{
  'spot:BTCUSDT:15':{...fixture.targets['crypto:BTCUSDT:15'],market:'spot'},

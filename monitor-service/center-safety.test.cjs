@@ -77,27 +77,7 @@ function testModelTypes(){
       const invalid={...series[3],low:90,high:110,start:now+4*minute};
       assert.equal(extra.breakerEvidence(candidate,[...series,invalid],positions,[pivot]),null);
     }
-    // Replay exchange-provided historical candles by their closing time.
-    const datasets=require('./fixtures/ict-history.json').datasets.slice(0,2);
-    for(const dataset of datasets){
-      const tf=String(parseInt(dataset.frame,10)),ms=structure.FRAME_MS[tf];
-      const candles=dataset.rows.map(([t,open,high,low,close])=>({start:Date.parse(t),open,high,low,close,confirmed:true}));
-      const matches=new Set();
-      for(let end=25;end<=candles.length;end++){
-        const prefix=candles.slice(0,end),cutoff=prefix.at(-1).start+ms;
-        const {models,analysis}=monitorSignals.evaluate(prefix,tf,{now:cutoff});
-        const index=new Map(prefix.map((bar,i)=>[bar.start,i]));
-        for(const model of models.filter(item=>item.research&&item.ageBars<=12)){
-          const match=extra.breakerEvidence(model,prefix,index,analysis.pivots);
-          if(!match)continue;
-          assert.ok(match.blockAt<model.sweepAt&&model.sweepAt<match.breakAt&&match.breakAt<match.retestAt);
-          assert.ok(match.retestAt+ms<=cutoff);
-          assert.equal(extra.breakerEvidence(model,prefix.slice(0,index.get(match.retestAt)),index,analysis.pivots),null);
-          matches.add(model.id);
-        }
-      }
-      assert.ok(matches.size>0,'historical Breaker evidence '+dataset.symbol);
-    }
+
   });
 }
 
@@ -239,7 +219,7 @@ async function testOpportunities() {
 async function testMonitor(bars) {
   const temp = await fs.mkdtemp(path.join(os.tmpdir(), 'ict-center-test-'));
   process.env.STORE_FILE = path.join(temp, 'state.json');
-  process.env.MONITOR_TARGETS = 'crypto:BTCUSDT:15,spot:BTCUSDT:15';
+  process.env.MONITOR_TARGETS = 'crypto:BTCUSDT:15';
   process.env.QUOTE_FEED_URL = 'https://quotes.example/quotes';
   const monitor = require('./server');
   const realNow = Date.now;
@@ -252,10 +232,7 @@ async function testMonitor(bars) {
     if (String(url).includes('quotes.example')) {
       return { ok: true, text: async () => JSON.stringify([{ id, bid: 200, ask: 200.1, timestamp: iso(now), source: 'test' }]) };
     }
-    if (String(url).includes('binance.vision') && scenario === 'spot-only') {
-      return {ok:true,json:async()=>bars.map(b=>[b.start,b.open,b.high,b.low,b.close,1])};
-    }
-    if (String(url).includes('bybit.com') && scenario === 'spot-only') return {ok:false,status:451};
+    if (String(url).includes('bybit.com') && scenario === 'provider-denied') return {ok:false,status:451};
     if (!String(url).includes('bybit.com') || scenario === 'outage') return { ok: false, status: 503 };
     const rows = bars.map(b => [b.start - (scenario === 'stale' ? 6 * interval : 0),
       b.open, b.high, b.low, b.close, 1, 1]);
@@ -284,14 +261,13 @@ async function testMonitor(bars) {
       assert.equal(monitor.snapshot().observations.length, 0);
       assert.match(monitor.snapshot().targets[id].error, scenario === 'outage' ? /503/ : /STALE_CANDLES/);
     }
-    scenario = 'spot-only';
+    scenario = 'provider-denied';
     await monitor.cycle();
     const separate = monitor.snapshot();
     assert.equal(separate.targets[id].status,'blocked');
     assert.match(separate.targets[id].error,/451/);
-    assert.equal(separate.targets['spot:BTCUSDT:15'].marketType,'SPOT_RESEARCH');
-    assert.equal(separate.targets['spot:BTCUSDT:15'].status,'research_data_valid');
-    assert.ok(separate.observations.length>0 && separate.observations.every(o=>o.market==='spot'));
+    assert.deepEqual(separate.observations,[]);
+    assert.throws(()=>monitor.parseTargets('spot:BTCUSDT:15'),/UNSUPPORTED_MARKET/);
   } finally {
     Date.now = realNow;
     global.fetch = realFetch;

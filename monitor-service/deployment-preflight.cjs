@@ -4,7 +4,7 @@ const fs=require('node:fs');
 const path=require('node:path');
 const root=__dirname;
 const required=[
- 'server.js','oanda-practice.js','hourly-context.js','package.json','safety-gates.js','execution-quotes.js','crypto-spot-backup.js','kraken-perpetual.js',
+ 'server.js','oanda-practice.js','hourly-context.js','package.json','safety-gates.js','execution-quotes.js','kraken-perpetual.js',
  'ict-live-feed-702a.js',
  'ict_phase2d/ict-structure-engine-702d.js',
  'ict_phase2e/ict-signal-engine-702e.js',
@@ -15,7 +15,7 @@ function preflight(directory=root){
  for(const f of required){if(!fs.existsSync(path.join(directory,f)))errors.push('MISSING_FILE '+f)}
  const docker=fs.readFileSync(path.join(directory,'Dockerfile'),'utf8');
  const copyLines=docker.split('\n').filter(line=>/^COPY\s/.test(line.trim())).join(' ');
- for(const f of ['server.js','oanda-practice.js','hourly-context.js','safety-gates.js','execution-quotes.js','crypto-spot-backup.js','kraken-perpetual.js','ict-live-feed-702a.js']){
+ for(const f of ['server.js','oanda-practice.js','hourly-context.js','safety-gates.js','execution-quotes.js','kraken-perpetual.js','ict-live-feed-702a.js']){
   if(!copyLines.split(/\s+/).includes('monitor-service/'+f))errors.push('DOCKER_COPY_MISSING '+f);
  }
  for(const folder of ['ict_phase2d','ict_phase2e'])if(!docker.includes('COPY monitor-service/'+folder))errors.push('DOCKER_COPY_MISSING '+folder);
@@ -35,7 +35,7 @@ function preflight(directory=root){
  if(!caddy.includes('reverse_proxy monitor:8787'))errors.push('HTTPS_PROXY_MISSING');
  const manifest=JSON.parse(fs.readFileSync(path.join(directory,'package.json'),'utf8'));
  if(!manifest.scripts?.test)errors.push('TEST_SCRIPT_MISSING');
- for(const mod of ['server.js','safety-gates.js','execution-quotes.js','crypto-spot-backup.js','kraken-perpetual.js']){
+ for(const mod of ['server.js','safety-gates.js','execution-quotes.js','kraken-perpetual.js']){
   try{require(path.join(directory,mod))}catch(e){errors.push('IMPORT_FAILED '+mod+': '+String(e.message).slice(0,160))}
  }
  return {schema:'ict-deployment-preflight/1',passed:errors.length===0,errors,warnings,checkedFiles:required.length,executionApproved:false};

@@ -4,7 +4,7 @@
  const urlInput=document.getElementById('dc-bg-url'),save=document.getElementById('dc-bg-save'),check=document.getElementById('dc-bg-check'),status=document.getElementById('dc-bg-status'),results=document.getElementById('dc-bg-results');
  const bybitTarget=/^crypto:[A-Z0-9]{1,31}USDT:(5|15)$/;
  const bybitRow=row=>row?.market==='crypto'&&/^[A-Z0-9]{1,31}USDT$/.test(row.symbol);
- const isProxy=item=>/SPOT/i.test(item?.marketType||'')||/Binance|Kraken/i.test(item?.source||'');
+ const isProxy=item=>/SPOT/i.test(item?.marketType||'')||/Kraken/i.test(item?.source||'');
  const key='ict-background-service-url-v1';
  try{urlInput.value=localStorage.getItem(key)||''}catch(_){}
  function line(text){const p=document.createElement('p');p.textContent=text;results.append(p)}

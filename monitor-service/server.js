@@ -6,7 +6,6 @@ const path=require('node:path');
 const live=require('./ict-live-feed-702a.js');
 const oanda=require('./oanda-practice.js');
 const kraken=require('./kraken-perpetual.js');
-const cryptoSpotBackup=require('./crypto-spot-backup.js');
 const traditional=require('../ict-public-markets-702c2.js');
 const structure=require('./ict_phase2d/ict-structure-engine-702d.js');
 const signals=require('./ict_phase2e/ict-signal-engine-702e.js');
@@ -20,14 +19,13 @@ const port=Math.max(1,Math.min(65535,Number(process.env.PORT)||8787));
 const host=process.env.HOST||'127.0.0.1';
 const origin=process.env.ALLOWED_ORIGIN||'';
 const storage=path.resolve(process.env.STORE_FILE||path.join(__dirname,'monitor-data.json'));
-const publicMarket=market=>['crypto','spot','kraken'].includes(market);
+const publicMarket=market=>['crypto','kraken'].includes(market);
 const DEFAULT=['BTCUSDT','ETHUSDT'].flatMap(symbol=>['15','5'].map(frame=>'crypto:'+symbol+':'+frame)).join(',');
 function parseTargets(str){const parsed=[];for(const raw of str.split(',')){
  const parts=raw.trim().split(':');if(parts.length!==3)throw Error('INVALID_TARGET '+raw);
  const [market,symbol,tf]=parts;if(!['5','15'].includes(tf))throw Error('UNSUPPORTED_FRAME '+tf);
  if(market==='crypto'){if(!live.SYMBOLS.includes(symbol))throw Error('UNSUPPORTED_CRYPTO '+symbol)}
  else if(market==='kraken'){if(!kraken.SYMBOLS.includes(symbol))throw Error('UNSUPPORTED_KRAKEN_PERPETUAL '+symbol)}
- else if(market==='spot'){if(!cryptoSpotBackup.PAIRS.includes(symbol))throw Error('UNSUPPORTED_SPOT '+symbol)}
  else {if(!traditional.MARKETS[market]||!traditional.MARKETS[market].some(x=>x[0]===symbol))throw Error('UNSUPPORTED_MARKET_SYMBOL '+raw)}
  const id=[market,symbol,tf].join(':');if(!parsed.some(x=>x.id===id))parsed.push({id,market,symbol,tf});
  }if(!parsed.length||parsed.length>16)throw Error('TARGET_COUNT_MUST_BE_1_TO_16');return parsed}
@@ -108,7 +106,6 @@ function dataReason(error){
 async function fetchBars(target,now,getKrakenInstruments){
  if(target.market==='kraken')return kraken.fetchHistory(target.symbol,target.tf,{now,instruments:await getKrakenInstruments()});
  if(target.market==='crypto')return live.fetchHistory({symbol:target.symbol,interval:target.tf,limit:200,now});
- if(target.market==='spot')return cryptoSpotBackup.fetchHistory(target.symbol,target.tf,{now});
  const settings=oanda.config();
  if(!settings)throw Error('OANDA_PRIVATE_RESEARCH_REQUIRED');
  const ins=traditional.resolve(target.market,target.symbol);
@@ -145,9 +142,9 @@ function updateForward(previous,target,bars,observations,now){
 }
 async function check(target,draft,calendar,getKrakenInstruments,getHourly){const now=Date.now();
  const previousModels=new Map(draft.observations.filter(x=>x.id.startsWith(target.id+':')).map(x=>[x.id,x]));
- const previous=draft.targets[target.id]||{};const meta={market:target.market,symbol:target.symbol,frame:target.tf,lastAttempt:new Date(now).toISOString(),source:target.market==='crypto'?'Bybit V5 USDT':target.market==='spot'?cryptoSpotBackup.SOURCE:target.market==='kraken'?kraken.SOURCE:traditional.SOURCE,status:'unavailable',lastCompleteAt:null,modelCount:0};
+ const previous=draft.targets[target.id]||{};const meta={market:target.market,symbol:target.symbol,frame:target.tf,lastAttempt:new Date(now).toISOString(),source:target.market==='crypto'?'Bybit V5 USDT':target.market==='kraken'?kraken.SOURCE:traditional.SOURCE,status:'unavailable',lastCompleteAt:null,modelCount:0};
  try {const bars=validBars(await fetchBars(target,now,getKrakenInstruments),target.tf,now);const last=bars.at(-1);
- meta.source=last.source||meta.source;meta.marketType=target.market==='spot'?'SPOT_RESEARCH':['crypto','kraken'].includes(target.market)?'PERPETUAL':'PROVIDER_NATIVE';meta.lastCompleteAt=new Date(last.start+Number(target.tf)*60000).toISOString();meta.status='research_data_valid';
+ meta.source=last.source||meta.source;meta.marketType=['crypto','kraken'].includes(target.market)?'PERPETUAL':'PROVIDER_NATIVE';meta.lastCompleteAt=new Date(last.start+Number(target.tf)*60000).toISOString();meta.status='research_data_valid';
  meta.hourlyContext=await getHourly(target);
  const result=signals.evaluate(bars,target.tf,{now,market:target.market,symbol:target.symbol});
  const news=gates.checkNews(calendar.ok?calendar.feed:null,target,now);
@@ -231,7 +228,7 @@ function snapshot({publicOnly=false}={}){const now=Date.now(),last=state.lastCyc
   const v=state.targets[t.id],complete=Date.parse(v?.lastCompleteAt);
   if(!v)return [t.id,{market:t.market,symbol:t.symbol,frame:t.tf,status:'not_checked',stale:true}];
   const stale=!Number.isFinite(complete)||complete>now||now-complete>3*Number(t.tf)*60000;
-  const quote=quotesGuard.parseQuote(active&&t.market!=='spot'&&v.status==='research_data_valid'&&!stale?quoteFeed.quotes.get(t.id):null,now);
+  const quote=quotesGuard.parseQuote(active&&v.status==='research_data_valid'&&!stale?quoteFeed.quotes.get(t.id):null,now);
   return [t.id,{...v,sourceDelay:sourceDelay(v,now),stale,executionQuoteGate:quote.status,executionQuoteReason:quote.reason,
    quoteSpreadBps:Number.isFinite(quote.spreadBps)?Math.round(quote.spreadBps*100)/100:null,
    quoteSource:quote.source||null,accountRiskGate:'not_verified'}];
