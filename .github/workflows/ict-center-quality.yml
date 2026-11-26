@@ -212,7 +212,7 @@ jobs:
             const res = await fetch(url + '?probe=' + Date.now(), {signal: AbortSignal.timeout(12000)});
             if (!res.ok) throw Error('HTTP ' + res.status);
             const html = await res.text();
-            const found = html.includes('ict-decision-console-708a.js?v=7.0.47-batch-frame-model');
-            console.log('GitHub Pages frame/model filters revision:', found ? 'verified' : 'not found');
-          })().catch(error => console.log('GitHub Pages frame/model filters revision unverified:', error.message));
+            const found = html.includes('ict-decision-console-708a.js?v=7.0.48-branded-card');
+            console.log('GitHub Pages branded-card revision:', found ? 'verified' : 'not found');
+          })().catch(error => console.log('GitHub Pages branded-card revision unverified:', error.message));
           JS
