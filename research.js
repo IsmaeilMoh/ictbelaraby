@@ -392,7 +392,7 @@ function applyHistorySelection(){
  bars=chosen;results=[];metadata={symbol,timeframe:tf,timezone:'UTC',source:feedSources[symbol]?.source||publicFeed.source,updatedAt:feedSources[symbol]?.updatedAt||publicFeed.updatedAt,marketKind:kind};
  $('data-symbol').value=symbol;
  $('backtest-trades').textContent='';$('export-trades').disabled=true;$('research-stability').textContent='اضغط فحص الاستقرار لتحليل البيانات المختارة.';$('walk-forward-results').textContent='اضغط تشغيل Walk-Forward لبدء التحقق المتتابع.';$('market-regime-results').textContent='اضغط تحليل ظروف السوق لعرض التصنيف التاريخي.';resetReplay();
- setStatus('data-status',`تم التحقق من ${bars.length} شمعة حقيقية · ${symbol} · ${tf} · ${metadata.source} · تحديث الملف ${metadata.updatedAt}`);
+ setStatus('data-status',`تم التحقق من ${bars.length} شمعة حقيقية · ${symbol} · ${tf} · ${metadata.source} · وقت جلب البيانات ${metadata.updatedAt}`);
  results=backtest();showResults();
 }
 async function readHistoryFile(name,optional=false){
@@ -402,7 +402,33 @@ async function readHistoryFile(name,optional=false){
  if(!Number.isFinite(age)||age< -600000||age>48*3600000)throw Error('ملف '+name+' قديم أو يفتقد تاريخ تحديث صالح.');
  return feed;
 }
-async function loadPublicHistory(){
+async function readBybitHistory(){
+ const live=window.ICTLiveFeed;
+ if(!live)throw Error('موصل Bybit غير متاح في هذه الصفحة.');
+ const assets={};
+ const frames={'15m':'15','5m':'5','1h':'60','4h':'240','1d':'D'};
+ const now=Date.now();
+ let firstFailure;
+ for(const [tf,interval] of Object.entries(frames)){
+  const step=INTERVAL_MS[tf];
+  const group=await Promise.allSettled(live.SYMBOLS.map(async symbol=>{
+   const candles=await live.fetchHistory({symbol,interval,limit:1000,now});
+   const closed=candles.filter(bar=>bar.confirmed&&bar.start%step===0);
+   if(closed.length<60||closed.some((bar,i)=>i>0&&bar.start-closed[i-1].start!==step)){
+    throw Error('شموع Bybit المتصلة غير كافية');
+   }
+   if(now-(closed.at(-1).start+step)>=step)throw Error('آخر شمعة Bybit متأخرة');
+   (assets[symbol]??={})[tf]=closed.map(bar=>[bar.at,bar.open,bar.high,bar.low,bar.close]);
+  }));
+  firstFailure??=group.find(result=>result.status==='rejected')?.reason;
+  if(group.every(result=>result.status==='rejected'&&/^BYBIT_(?:HTTP_(?:403|429|451)|CODE_(?:429|10006))$/.test(result.reason?.message)))break;
+  // If no contract could be reached in the first group, avoid repeated retries on a disconnected client.
+  if(tf==='15m'&&group.every(result=>result.status==='rejected'&&/^(TypeError|AbortError|TimeoutError)$/.test(result.reason?.name)))break;
+ }
+ if(!Object.keys(assets).length)throw firstFailure||Error('لا توجد شموع مكتملة من Bybit.');
+ return {version:2,source:'Bybit V5 USDT perpetual',updatedAt:new Date(now).toISOString(),assets,direct:true};
+}
+async function loadPublicHistory({refresh=false}={}){
  if(feedBusy)return;
  feedBusy=true;const token=++loadToken;stopReplay();setStatus('data-status','جارٍ قراءة مصادر البيانات والتحقق من شموعها…');
  try{
@@ -410,7 +436,12 @@ async function loadPublicHistory(){
   const [primary,external]=await Promise.allSettled([
    readHistoryFile('historical-candles.json'),readHistoryFile('historical-multi-market.json',true)
   ]);
-  const crypto=primary.status==='fulfilled'?primary.value:null;
+  let crypto=primary.status==='fulfilled'&&primary.value?.source==='Bybit V5 USDT perpetual'?primary.value:null;
+  let directFailure;
+  if(refresh&&(!crypto||!Object.keys(availableCatalog(crypto)).length)){
+   setStatus('data-status','جارٍ جلب شموع عقود Bybit مباشرة من المتصفح…');
+   try{crypto=await readBybitHistory();}catch(error){directFailure=error.message;}
+  }
   const cross=external.status==='fulfilled'?external.value:null;
   const validCrypto=crypto?.source==='Bybit V5 USDT perpetual'&&Object.keys(availableCatalog(crypto)).length>0;
   const validCross=cross&&cross.version===2&&cross.source==='Twelve Data time_series'&&cross.assets&&typeof cross.assets==='object';
@@ -423,7 +454,7 @@ async function loadPublicHistory(){
     assets[name]=Object.fromEntries(allowed.map(tf=>[tf,rows[tf]]));
     sources[name]={source:'Twelve Data time_series',updatedAt:cross.updatedAt};markets[name]=cross.marketKinds?.[name]||'other';
   }}
-  const label=$('market-data-provenance');if(label)label.textContent=[validCrypto?'شموع عقود Bybit USDT متاحة.':'شموع عقود Bybit USDT غير متاحة حاليًا.',validCross?'بيانات Twelve Data متاحة بحسب تغطية الأصول.':'بيانات الأسواق الأخرى غير متاحة حاليًا.'].join(' ');
+  const label=$('market-data-provenance');if(label)label.textContent=[validCrypto?(crypto.direct?'شموع عقود Bybit USDT جُلبت من المتصفح مباشرة.':'شموع عقود Bybit USDT متاحة من الملف المنشور.'):'شموع عقود Bybit USDT غير متاحة حاليًا.'+(directFailure?' ('+directFailure+')':' اضغط تحديث بيانات الاختبار لجلبها من المتصفح.'),validCross?'بيانات Twelve Data متاحة بحسب تغطية الأصول.':'بيانات الأسواق الأخرى غير متاحة حاليًا.'].join(' ');
   if(!Object.keys(assets).length)throw Error('لا تتوفر شموع حديثة قابلة للاختبار من المصادر.');
   if(token!==loadToken)return;
   publicFeed={version:2,source:'Research verified multi-source',updatedAt:new Date().toISOString(),assets};feedSources=sources;feedMarkets=markets;
@@ -436,7 +467,7 @@ $('public-history-symbol').addEventListener('change',()=>{updateCatalog();useExi
 $('public-history-timeframe').addEventListener('change',useExistingHistory);
 $('public-history-from').addEventListener('change',useExistingHistory);
 $('public-history-to').addEventListener('change',useExistingHistory);
-$('refresh-public-history').addEventListener('click',loadPublicHistory);
+$('refresh-public-history').addEventListener('click',()=>loadPublicHistory({refresh:true}));
 loadPublicHistory();
 function stopReplay(){if(replayTimer){clearInterval(replayTimer);replayTimer=null;}$('replay-auto').textContent='تشغيل تلقائي';}
 function resetReplay(){stopReplay();if(!bars.length){replayAt=0;drawReplay();return;}const start=Number($('replay-start').value);replayAt=Math.max(1,Math.min(bars.length,Number.isFinite(start)?Math.round(start):50));drawReplay();}
