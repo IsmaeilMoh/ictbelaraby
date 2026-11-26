@@ -85,7 +85,10 @@ function ambiguousCases(assets){
       if(at!==null)starts.push(['confirmed',at]);
       else if(paired)continue;
      }
-     const pair=paired?{kind,frame,results:{}}:null;
+     const confirmationIndex=paired?n-1+(starts[1][1]-now)/ms:null;
+     const confirmationClose=paired?bars[confirmationIndex].close:null;
+     const distanceR=paired?Math.abs(confirmationClose-model.entry)/Math.abs(model.entry-model.stop):null;
+     const pair=paired?{kind,frame,distanceR,results:{}}:null;
      if(pair)pairs.push(pair);
      for(const [phase,at] of starts){
       const key=bucket(kind,frame,phase);
@@ -235,7 +238,10 @@ async function main(){
  console.log('IFVG refinement:',JSON.stringify(summary));
  if([...batches.values()].some(batch=>batch.bars))console.log('Net R from newly resolved '+fineFrame+'m cases:',netR.toFixed(2));
  if(comparePhases)console.log('Phase cohort sizes:',JSON.stringify(enrolled));
- if(paired)logPairs(pairs);
+ if(paired){
+  logPairs(pairs);
+  logConfirmationDistance(pairs);
+ }
  if(independent)for(const [frame,outcomes] of Object.entries(settled))logSettled('Settled '+frame+'m:',outcomes);
  if(!comparePhases)logSettled(compare?'Settled combined:':'Settled IFVG:',Object.values(settled).flat());
 }
@@ -262,6 +268,21 @@ function logPairs(pairs){
   group.totalDeltaR=Number(group.totalDeltaR.toFixed(2));
   console.log('Paired '+key+':',JSON.stringify(group));
  }
+}
+function logConfirmationDistance(pairs){
+ const bands=['<0.5R','0.5–<1R','1–<2R','≥2R'];
+ const groups=new Map();
+ for(const {kind,frame,distanceR,results:{confirmed}} of pairs){
+  const band=bands[Number(distanceR>=.5)+Number(distanceR>=1)+Number(distanceR>=2)];
+  const key=kind+' '+frame+'m '+band;
+  if(!groups.has(key))groups.set(key,{models:0,touched:0,endedWithoutTouch:0,unknown:0});
+  const group=groups.get(key);
+  group.models++;
+  if(confirmed.activationAt!==null)group.touched++;
+  else if(['expired','invalidated'].includes(confirmed.state))group.endedWithoutTouch++;
+  else group.unknown++;
+ }
+ for(const [key,group] of groups)console.log('Confirmation distance '+key+':',JSON.stringify(group));
 }
 function logSettled(label,settled){
  const total=settled.reduce((sum,value)=>sum+value,0),largest=Math.max(0,...settled);
