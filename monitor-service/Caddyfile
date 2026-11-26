@@ -1,12 +1,6 @@
 {$MONITOR_DOMAIN} {
-  @compressed not path /oanda-quotes
-  encode @compressed zstd gzip
-  handle /oanda-quotes {
-    reverse_proxy monitor:8787 {
-      flush_interval -1
-    }
-  }
-  @allowed path /health /snapshot /market-research /oanda-research /oanda-candles
+  encode zstd gzip
+  @allowed path /health /snapshot /market-research
   handle @allowed {
     reverse_proxy monitor:8787
   }

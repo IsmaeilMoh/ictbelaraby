@@ -1,7 +1,9 @@
 /* ICT بالعربي 8A — user-invoked multi-market decision research center */
 (function(){'use strict';const root=document.getElementById('ict-decision-8a');if(!root)return;
-const $=id=>document.getElementById(id),market='crypto',symbol=$('dc-symbol'),frame=$('dc-frame'),modelType=$('dc-model-type'),modelPhase=$('dc-model-phase'),roll=$('dc-roll'),run=$('dc-run'),monitor=$('dc-monitor'),status=$('dc-status'),output=$('dc-output'),archive=$('dc-archive');
+const $=id=>document.getElementById(id),marketSelect=$('dc-market'),symbol=$('dc-symbol'),frame=$('dc-frame'),modelType=$('dc-model-type'),modelPhase=$('dc-model-phase'),roll=$('dc-roll'),run=$('dc-run'),monitor=$('dc-monitor'),status=$('dc-status'),output=$('dc-output'),archive=$('dc-archive');
 const api=window.ICTDecisionEngine708A,live=window.ICTLiveFeed,structure=window.ICTStructureEngine,signal=window.ICTSignalEngine,context=window.ICTContextEngine,scenario=window.ICTScenarioEngine,econ=window.ICTEconomicLink706A;
+const traditional=window.ICTPublicMarkets, bybitCatalog=$('dc-bybit-catalog');
+const selectedMarket=()=>marketSelect.value;
 const cancelBatch=$('dc-cancel-batch');
 let batchController=null;
 const bybitSearch=$('dc-bybit-search'),bybitStatus=$('dc-bybit-status');
@@ -17,12 +19,38 @@ function closeStream(message){
  if(streamPrice)streamPrice.textContent='';
  if(message&&streamStatus)streamStatus.textContent=message;
 }
+function showReferenceQuotes(res){
+ if(!streamPanel||!active||document.hidden)return;
+ streamPanel.hidden=false;
+ $('dc-live-entry-title').textContent='متابعة أسعار Biquote المرجعية';
+ const instrument=traditional.resolve(res.market,res.symbol);
+ const controller=new AbortController();
+ let pending,expires;
+ stream={close(){controller.abort();clearTimeout(pending);clearTimeout(expires)}};
+ const label='Biquote · تحديث دوري للأسعار المرجعية أثناء فتح الصفحة.';
+ const unavailable='Biquote · تعذر التحقق من Bid/Ask حديث للسوق المختار.';
+ streamStatus.textContent=label;
+ async function refresh(){
+  const quote=await traditional.getQuote(instrument,{signal:controller.signal}).catch(()=>null);
+  if(controller.signal.aborted)return;
+  clearTimeout(expires);
+  streamStatus.textContent=quote?label:unavailable;
+  streamPrice.textContent=quote?res.symbol+' · Bid '+money(quote.bid)+' | Ask '+money(quote.ask)+' · '+new Date(quote.at).toISOString():'';
+  if(quote)expires=setTimeout(()=>{
+   streamPrice.textContent='';
+   streamStatus.textContent=unavailable;
+  },Math.max(0,quote.at+15000-Date.now()));
+  pending=setTimeout(refresh,5000);
+ }
+ refresh();
+}
 function showEntryStream(res,news){
  if(!streamPanel||!streamEngine||!streamEngine.subscription(res.market,res.symbol,live.contract(res.symbol))||document.hidden){
   if(streamPanel)streamPanel.hidden=true;
   return;
  }
  streamPanel.hidden=false;
+ $('dc-live-entry-title').textContent='مراقبة شرط الدخول لحظيًا';
  const keyFor=plan=>[res.market,res.symbol,res.frame,plan.id].join(':');
  const plans=res.opportunities.filter(plan=>!plan.blocks.length&&!reported.has(keyFor(plan)));
  if(!(res.entryFreshUntil>res.checkedAt)){
@@ -93,12 +121,15 @@ function clearScan(){
 function setState(v,bad=false){status.textContent=v;status.dataset.bad=bad?'1':'0'}
 function selectOptions(select,items,choose){clear(select);for(const item of items){const opt=document.createElement('option');opt.value=item;opt.textContent=item==='all'?'جميع عقود Bybit USDT':item;select.append(opt)}if(choose&&items.includes(choose))select.value=choose}
 function initCatalog(preselected){
- selectOptions(symbol,crypto,preselected);
+ const market=selectedMarket();
+ bybitCatalog.hidden=market!=='crypto';
+ selectOptions(symbol,market==='crypto'?crypto:traditional.MARKETS[market].map(row=>row[0]),preselected??(market==='crypto'?'BTCUSDT':undefined));
  roll.value='0';
  selectionChanged();
- loadBybitCatalog(preselected);
+ if(market==='crypto')loadBybitCatalog(preselected);
 }
 function displayBybitSymbols(preselected){
+ if(selectedMarket()!=='crypto')return;
  const query=bybitSearch.value.trim().toUpperCase();
  const items=crypto.filter(item=>item.includes(query));
  const selection=preselected==='all'&&catalogLoaded||items.includes(preselected)?preselected:items[0];
@@ -128,9 +159,9 @@ bybitSearch.addEventListener('input',()=>displayBybitSymbols(symbol.value));
 
 function strip(res){return {market:res.market,symbol:res.symbol,frame:res.frame,checkedAt:res.checkedAt,source:res.source,opportunities:res.opportunities.map(o=>({id:o.id,side:o.side,formedAt:o.formedAt,status:o.status,entry:o.entry,stop:o.stop,target:o.target,blocks:o.blocks})),warnings:res.warnings,blocks:res.blocks}}
 function archiveRows(){try{const x=JSON.parse(localStorage.getItem(STORAGE)||'[]');return Array.isArray(x)?x:[]}catch{return []}}
-const bybitRow=row=>row?.market===market&&/^[A-Z0-9]{1,31}USDT$/.test(row.symbol);
-function saved(){return archiveRows().filter(bybitRow).slice(0,30)}
-function record(res){try{let arr=saved();arr=arr.filter(x=>!(x.symbol===res.symbol&&x.market===res.market&&x.frame===res.frame&&x.checkedAt===res.checkedAt));arr.unshift(strip(res));localStorage.setItem(STORAGE,JSON.stringify([...arr.slice(0,30),...archiveRows().filter(row=>!bybitRow(row))]))}catch{}showArchive()}
+const marketRow=row=>row?.market===selectedMarket()&&(row.market==='crypto'?/^[A-Z0-9]{1,31}USDT$/.test(row.symbol):row.source===traditional.SOURCE);
+function saved(){return archiveRows().filter(marketRow).slice(0,30)}
+function record(res){try{let arr=saved();arr=arr.filter(x=>!(x.symbol===res.symbol&&x.market===res.market&&x.frame===res.frame&&x.checkedAt===res.checkedAt));arr.unshift(strip(res));localStorage.setItem(STORAGE,JSON.stringify([...arr.slice(0,30),...archiveRows().filter(row=>!marketRow(row))]))}catch{}showArchive()}
 function showArchive(){clear(archive);const arr=saved().slice(0,8);if(!arr.length){node('p','لا يوجد سجل فحوص محلي بعد.',archive);return}for(const x of arr){const b=node('div','',archive,'dc-archive-row');node('strong',x.symbol+' · '+x.opportunities.length+' نموذج/فرصة',b);node('small',dual(x.checkedAt)+' · فحص تاريخي محفوظ وليس عرضًا حيًا',b)}}
 function block(title,parent=output){const c=document.createElement('section');c.className='dc-card';node('h3',title,c);parent.append(c);return c}
 const phases={observed:'مرصودة',awaiting_confirmation:'بانتظار التأكيد',confirmed_research:'مؤكدة بحثيًا',invalidated:'ملغاة',expired:'منتهية الصلاحية'};
@@ -215,14 +246,14 @@ function show(res){
  const info=block('حالة الفحص ومصادره');info.classList.add('dc-wide');node('p','الأصل: '+res.symbol+' | المصدر: '+res.source+' | إطار الدخول '+res.frame+' دقائق | الشموع المستخدمة: '+res.sourceBars,info);node('p','وقت الفحص: '+dual(res.checkedAt)+' | آخر إغلاق لإطار الفرصة: '+(res.lastCompleteAt?dual(res.lastCompleteAt):'غير متاح'),info);
  const quote=node('p','Bid/Ask حديث غير متاح لهذه القراءة. مستويات الفرصة مرجعية.',info);
  if(res.book&&res.book.at<=res.checkedAt&&res.checkedAt-res.book.at<=15000){
-  quote.textContent='دفتر Bybit العام · Bid '+money(res.book.bid)+' | Ask '+money(res.book.ask)+' | '+dual(res.book.at);
+  quote.textContent=(res.market==='crypto'?'دفتر Bybit العام':'تسعير Biquote المرجعي')+' · Bid '+money(res.book.bid)+' | Ask '+money(res.book.ask)+' | '+dual(res.book.at);
   quoteExpiry=setTimeout(()=>{quote.textContent='انتهت حداثة قراءة Bid/Ask؛ أعد الفحص للحصول على تسعير جديد.'},Math.max(0,res.book.at+15000-Date.now()));
  }
 node('p','آخر إغلاق ساعة مرجعي: '+(res.price==null?'غير متاح':money(res.price))+' | '+(res.priceAt?dual(res.priceAt+3600000):'بيانات الساعة متأخرة'),info);
  const ctx=block('السياق بنيويورك');const day=res.context.previousDay;node('p','PDH: '+money(day.high)+' | PDL: '+money(day.low),ctx);node('p',res.context.priorWeek?'PWH: '+money(res.context.priorWeek.high)+' | PWL: '+money(res.context.priorWeek.low):'الأسبوع السابق غير مكتمل',ctx);node('p','نظام اليوم: '+res.context.sourceDay,ctx);
  const safety=block('بوابات جودة البيانات والأخبار');const checks=[...res.blocks,...res.warnings];node('p',checks.length?'ملاحظات توقف اعتماد الخطة أو تحد من الوثوق:':'الفحوص العامة متاحة؛ كل نموذج يخضع أيضًا لشروطه الخاصة.',safety);if(checks.length){const ul=document.createElement('ul');safety.append(ul);checks.forEach(x=>node('li',x,ul))}if(res.nearbyNews.length){const ul=document.createElement('ul');safety.append(ul);res.nearbyNews.forEach(x=>node('li',x.title+' · '+dual(x.when),ul))}
  for(const o of res.opportunities.slice(0,8))card(output,{
-  ...o,frame:res.frame,source:res.source,marketType:'PERPETUAL',
+  ...o,frame:res.frame,source:res.source,marketType:res.market==='crypto'?'PERPETUAL':'PROVIDER_NATIVE',
   detectedAt:res.checkedAt,lastCompleteAt:res.lastCompleteAt
  },'فحص يدوي');
  const note=block('حدود هذا الإصدار');note.classList.add('dc-wide');node('p',res.disclaimer,note);node('p','لا يتم تداول آلي ولا حفظ توصية كصفقة منفذة. المراقبة اليدوية المتكررة تعمل أثناء فتح الصفحة. سعر المرجع آخر إغلاق شمعة، وليس Bid/Ask مباشرًا.',note);
@@ -238,9 +269,10 @@ async function loadNews(signal){
   return {events:[],feedsLoaded:0,failures:['تعذّر التحقق من الأخبار: '+error.message]};
  }
 }
-async function getCandles(contract,tf,signal){
+async function getCandles(market,contract,tf,signal){
  const higher=api.contextFrame(tf);
- const history=(interval,limit)=>live.fetchHistory({symbol:contract,interval,limit,signal});
+ const instrument=market==='crypto'?null:traditional.resolve(market,contract);
+ const history=(interval,limit)=>instrument?traditional.get(instrument,traditional.FRAME_BY_MINUTES[interval],{limit,signal}):live.fetchHistory({symbol:contract,interval,limit,signal});
  const hourlyRequest=history('60',1000);
  const [hourly,entryBars,higherCandles]=await Promise.all([
   hourlyRequest,tf==='60'?hourlyRequest:history(tf,250),
@@ -248,7 +280,7 @@ async function getCandles(contract,tf,signal){
  ]);
  return {hourly,entryBars,higherCandles};
 }
-function inspectContract(contract,tf,{entryBars,hourly,higherCandles},news,batch=false){
+function inspectContract(market,contract,tf,{entryBars,hourly,higherCandles},news,batch=false){
  const now=Date.now();
  const res=api.inspect({market,symbol:contract,frame:tf,candles15:entryBars,candles60:hourly,higherCandles,
   rollHour:Number(roll.value),newsChecked:news.feedsLoaded>0,
@@ -290,9 +322,9 @@ async function scanBatch(){
    if(signal.aborted)break;
    setState('جارٍ فحص '+contract+' · '+(checked+failed+1)+' من '+contracts.length);
    try{
-    const data=await getCandles(contract,tf,signal);
+    const data=await getCandles('crypto',contract,tf,signal);
     if(signal.aborted)break;
-    const res=inspectContract(contract,tf,data,news,true);
+    const res=inspectContract('crypto',contract,tf,data,news,true);
     checked++;
     if(res.opportunities.length){
      matched++;
@@ -324,17 +356,20 @@ async function scanBatch(){
 async function scan(auto=false){if(busy||symbol.value==='all'||auto&&document.hidden)return;if(!api||!live||!structure||!signal||!context||!scenario||!econ){setState('بعض محركات المراحل السابقة غير محمّلة. تأكد من رفع ملفات 2A–7A.',true);return}if(!symbol.value){setState('اختر أصلًا متاحًا.',true);return}
  const id=++generation,selection=[symbol.value,frame.value,roll.value].join('|');busy=true;run.disabled=true;clearScan();setState('جارٍ جلب شموع إطار التداول والسياق، وفحص الأجندة، ثم ربط الأدلة…');
  try{
-  const contract=symbol.value;
+  const contract=symbol.value,market=selectedMarket();
+  const bookRequest=market==='crypto'?live.fetchBook(contract):traditional.getQuote(traditional.resolve(market,contract));
   const [data,news,book]=await Promise.all([
-   getCandles(contract,frame.value),loadNews(),live.fetchBook(contract).catch(()=>null)
+   getCandles(market,contract,frame.value),loadNews(),bookRequest.catch(()=>null)
   ]);
   if(id!==generation||selection!==[symbol.value,frame.value,roll.value].join('|'))return;
-  const res=inspectContract(contract,frame.value,data,news);
+  const res=inspectContract(market,contract,frame.value,data,news);
   const {entryBars}=data,now=res.checkedAt;
   res.book=book;
-  show(res);record(res);showEntryStream(res,news);
+  show(res);record(res);
+  if(market==='crypto')showEntryStream(res,news);
+  else showReferenceQuotes(res);
   if(res.entryFreshUntil>now)expiry=setTimeout(()=>{
-   closeStream('انتهت حداثة شمعة الدخول؛ يلزم فحص جديد.');
+   if(market==='crypto')closeStream('انتهت حداثة شمعة الدخول؛ يلزم فحص جديد.');
    root.dispatchEvent(new CustomEvent('ict:decision-cleared'));
    setState('أصبحت شموع الدخول قديمة؛ النتائج أدناه تخص وقت الفحص. أعد الفحص للتحديث.',true);
   },res.entryFreshUntil-now);
@@ -346,12 +381,14 @@ function selectionChanged(){
  generation++;
  cancelGroupedScan();
  stop();
+ showArchive();
  clearScan();
  if(streamPanel){streamPanel.hidden=true;streamEvents.replaceChildren()}
  run.disabled=!symbol.value||busy;
  monitor.disabled=!symbol.value||symbol.value==='all';
  setState(symbol.value==='all'?'الفحص الجماعي يشمل جميع العقود المتاحة، حتى عند استخدام البحث.':'اختر الأصل واضغط فحص السوق.');
 }
+marketSelect.addEventListener('change',()=>initCatalog());
 for(const field of [frame,symbol,modelType,modelPhase,roll])field.addEventListener('change',selectionChanged);
 run.addEventListener('click',()=>symbol.value==='all'?scanBatch():scan(false));
 cancelBatch.addEventListener('click',cancelGroupedScan);
@@ -416,7 +453,8 @@ function openLinkedDetails(){
 const params=new URLSearchParams(window.location.search);
 const requestedMarket=params.get('market');
 const requestedSymbol=params.get('symbol');
-const validSelection=(!requestedMarket||requestedMarket===market)&&/^[A-Z0-9]{1,31}USDT$/.test(requestedSymbol??'');
+if(Object.hasOwn(traditional.MARKETS,requestedMarket))marketSelect.value=requestedMarket;
+const validSelection=selectedMarket()==='crypto'?/^[A-Z0-9]{1,31}USDT$/.test(requestedSymbol??''):true;
 initCatalog(validSelection?requestedSymbol:undefined);
 showArchive();
 window.addEventListener('hashchange',openLinkedDetails);

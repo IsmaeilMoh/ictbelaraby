@@ -5,9 +5,11 @@ function elem(tag,text,parent,cls){const e=document.createElement(tag);if(cls)e.
 function local(t){if(!Number.isFinite(t))return '—';const f=zone=>new Intl.DateTimeFormat('ar-EG',{timeZone:zone,month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',hourCycle:'h23'}).format(new Date(t));return 'نيويورك '+f('America/New_York')+' · فلسطين '+f('Asia/Gaza')}
 function number(x){return Number.isFinite(x)?Number(x).toLocaleString('en-US',{maximumFractionDigits:6}):'—'}
 function stored(){try{const arr=JSON.parse(localStorage.getItem(storeKey)||'[]');return Array.isArray(arr)?arr:[]}catch{return []}}
-const bybit=row=>row?.market==='crypto'&&/^[A-Z0-9]{1,31}USDT$/.test(row.symbol);
-function load(){return stored().filter(row=>bybit(row)&&engine.valid(row)).slice(0,cap)}
-function save(rows){try{localStorage.setItem(storeKey,JSON.stringify([...rows.slice(0,cap),...stored().filter(row=>!bybit(row))]));return true}catch(e){status.textContent='تعذر حفظ السجل محليًا: '+e.message;return false}}
+const traditional=window.ICTPublicMarkets;
+const supported=row=>row?.market==='crypto'?/^[A-Z0-9]{1,31}USDT$/.test(row.symbol):
+ row?.source===traditional.SOURCE&&traditional.MARKETS[row.market]?.some(([symbol])=>symbol===row.symbol);
+function load(){return stored().filter(row=>supported(row)&&engine.valid(row)).slice(0,cap)}
+function save(rows){try{localStorage.setItem(storeKey,JSON.stringify([...rows.slice(0,cap),...stored().filter(row=>!supported(row))]));return true}catch(e){status.textContent='تعذر حفظ السجل محليًا: '+e.message;return false}}
 function announce(v){status.textContent=v}
 const label={waiting:'بانتظار الدخول',active:'لامس الدخول — قيد المتابعة',won:'وصل الهدف الافتراضي',lost:'وصل الوقف الافتراضي',invalidated:'أُلغي قبل الدخول',ambiguous:'غير حاسم',expired:'انتهت المدة',blocked:'معلق وقت الرصد',gap:'توقف — فجوة بيانات'};
 function refresh(){const rows=load(),s=engine.stats(rows);statsEl.textContent='المحفوظة: '+s.total+' · انتظار: '+s.waiting+' · متابعة: '+s.active+' · معلّقة: '+s.blocked+' · محسومة حسابيًا: '+s.settled+' · غير حاسمة/ناقصة: '+(s.ambiguous+s.gap)+' · النتيجة النظرية للمحسوم: '+number(s.totalR)+'R';records.replaceChildren();if(!rows.length){elem('p','لا توجد فرص محفوظة. افحص السوق ثم اختر حفظ فرصة من القائمة أعلاه.',records);return}

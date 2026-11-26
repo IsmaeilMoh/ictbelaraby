@@ -82,15 +82,6 @@ async function auditEquities(instruments){
  console.log('');
 }
 
-async function auditBrokerAccess(){
- const endpoint='https://api-fxpractice.oanda.com/v3/instruments/EUR_USD/candles?granularity=M15&count=2&price=BA';
- const result=await get(endpoint);
- console.log('### OANDA Practice candle access without credentials');
- console.log('EUR_USD · M15 · bid and ask candles: '+(result.failure??'HTTP success; feed not validated'));
- console.log('A v20 practice account and token are documented requirements. This probe measures access only, not quote latency or public display rights.');
- console.log('');
-}
-
 async function auditGold(){
  const feed='https://standardbullion.com/spot-prices.json';
  const history='https://standardbullion.com/api/v1/market/history?metal=XAU&range=24h';
@@ -146,7 +137,6 @@ async function main(){
  console.log('');
  await auditDiscovery(instruments);
  await auditEquities(instruments);
- await auditBrokerAccess();
  await auditGold();
  console.log('### Other free plans (documented limits)');
  console.log('| Provider | Relevant coverage | Limitation for this public site |');
@@ -162,14 +152,13 @@ async function main(){
  console.log('| [Dukascopy](https://www.dukascopy.com/swiss/english/about/faq/) | Historical Bid/Ask and live broker feed via FIX | Historical export is free; FIX access requires an account and approval. Public live display rights and end-to-end latency unverified |');
  console.log('| [Twelve Data](https://support.twelvedata.com/en/articles/5332349-commercial-and-personal-usage) | Real-time FX rates and historical candles | Basic access serves internal use; public display permissions and fresh Bid/Ask for all site instruments are unverified |');
  console.log('| [TradingView widgets](https://www.tradingview.com/widget-docs/faq/data/) | Embeddable forex, metals, indices, equities, energy prices depending on source | Display only. [Terms](https://www.tradingview.com/policies/) restrict non-display usage; the widget cannot supply ICT calculations or entry alerts |');
- console.log('| [OANDA Practice](https://help.oanda.com/us/en/faqs/api-user-guide.htm) | Broker candles and prices, with instrument coverage depending on account | Token and account required on the service. Public display permissions, full USD coverage and live freshness have not been established |');
  console.log('');
  try{
   const result=await fetch(page,{signal:AbortSignal.timeout(8000),cache:'no-store'});
   const html=result.ok?await result.text():'';
   const hasScanControls=html.includes('id="dc-run"')&&html.includes('id="dc-monitor"');
   const hasPublicChart=html.includes('id="dc-public-quote"');
-  const restored=hasScanControls&&!hasPublicChart&&!html.includes('id="dc-oanda-key"');
+  const restored=hasScanControls&&!hasPublicChart;
   console.log('GitHub Pages scan form: '+(restored?'restored layout verified':hasPublicChart?'earlier layout with embedded quote still deployed':'not verified (HTTP '+result.status+')'));
   const sections=['dc-scan-actions','dc-results','dc-lifecycle','dc-advanced'].map(id=>html.indexOf('id="'+id+'"'));
   const journey=sections.every((at,index)=>at>=0&&(index===0||at>sections[index-1]));

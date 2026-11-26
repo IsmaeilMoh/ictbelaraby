@@ -79,6 +79,35 @@ jobs:
           console.log(`- Economic calendar: ${news.ok ? news.eventCount + ' dated events received' : news.reason}`);
           console.log(`- Research observations: ${status.observations.length}. Execution approved: false.`);
           JS
+      - name: Probe Biquote coverage from the GitHub Pages origin
+        if: github.event_name == 'pull_request'
+        run: |
+          node <<'JS' >> "$GITHUB_STEP_SUMMARY"
+          const api = require('./ict-public-markets-702c2.js');
+          const origin = 'https://ismaeilmoh.github.io';
+          async function fromPages(url, options) {
+            const response = await fetch(url, {...options, headers: {...options.headers, Origin: origin}});
+            if (!response.ok) return response;
+            const cors = response.headers.get('access-control-allow-origin');
+            if (cors !== '*' && cors !== origin) throw Error('CORS unavailable');
+            return response;
+          }
+          async function probe() {
+            console.log('### Biquote public source probe');
+            for (const [market, symbol] of [['forex','EURUSD'],['metals','XAUUSD'],['indices','NAS100'],['stocks','AAPL'],['energy','USOIL']]) {
+              const instrument = api.resolve(market, symbol);
+              const [candles, quote] = await Promise.allSettled([
+                api.get(instrument, '15min', {fetch: fromPages, limit: 20}),
+                api.getQuote(instrument, {fetch: fromPages})
+              ]);
+              const closed = candles.status === 'fulfilled' && candles.value.filter(bar => bar.confirmed).at(-1);
+              const bars = closed ? new Date(closed.start + 900000).toISOString() : 'unverified';
+              const book = quote.status === 'fulfilled' && quote.value ? 'fresh at ' + new Date(quote.value.at).toISOString() : 'unverified';
+              console.log(`- ${symbol} (${instrument.providerSymbol}): last complete 15m close ${bars} | Bid/Ask ${book}`);
+            }
+          }
+          probe().catch(error => { console.error(error.message); process.exitCode = 1; });
+          JS
       - name: Check parser against a published BEA release
         if: github.event_name == 'pull_request'
         run: |

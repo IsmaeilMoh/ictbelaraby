@@ -105,43 +105,5 @@
   });
   return {close};
  }
- function connectPractice(url,key,callbacks){
-  const controller=new AbortController();
-  let stopped=false,deadline,latest;
-  function close(){if(!stopped){stopped=true;clearTimeout(deadline);controller.abort()}}
-  function fail(reason){if(!stopped){close();callbacks.failed(reason)}}
-  function arm(delay){clearTimeout(deadline);deadline=setTimeout(()=>fail('stale'),delay)}
-  arm(9000);
-  (async()=>{
-   const response=await fetch(url,{headers:{Authorization:'Bearer '+key},cache:'no-store',signal:controller.signal});
-   if(!response.ok||!response.body){fail('disconnected');return}
-   const reader=response.body.getReader(),decoder=new TextDecoder();
-   let buffer='';
-   try{
-    while(!stopped){
-     const {value,done}=await reader.read();
-     if(done)break;
-     buffer+=decoder.decode(value,{stream:true});
-     if(buffer.length>65536)throw Error('invalid quote stream');
-     let newline;
-     while(!stopped&&(newline=buffer.indexOf('\n'))>=0){
-      const quote=JSON.parse(buffer.slice(0,newline));
-      buffer=buffer.slice(newline+1);
-      if(quote.status==='closed'){fail('closed');break}
-      const now=Date.now(),status=quoteStatus(quote,now);
-      if(latest&&quote.at<=latest)continue;
-      if(!latest&&status==='invalid')continue;
-      if(status!=='ready'){fail(status);break}
-      if(latest&&quote.at-latest>MAX_AGE){fail('stale');break}
-      latest=quote.at;
-      arm(Math.max(1,quote.at+MAX_AGE-now));
-      callbacks.quote(quote,now);
-     }
-    }
-   }finally{reader.releaseLock()}
-   fail('disconnected');
-  })().catch(()=>fail('disconnected'));
-  return {close};
- }
- return Object.freeze({subscription,parse,quoteStatus,watch,connect,connectPractice});
+ return Object.freeze({subscription,parse,quoteStatus,watch,connect});
 });
