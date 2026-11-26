@@ -234,6 +234,7 @@ function card(parent,o,origin){
   (o.side==='BUY'?'سيولة فوق قمة مؤكدة':'سيولة تحت قاع مؤكد')+' · '+(o.liquidity.frame==='D'?'يومي':o.liquidity.frame+' د')+
    ' · '+dual(o.liquidity.at)+' | منتصف النطاق '+money(o.midpoint)+' · '+(o.side==='BUY'?'Discount':'Premium'),c);
  if(o.dealingRange)node('p','نطاق حركة السحب والإزاحة '+money(o.dealingRange.low)+' — '+money(o.dealingRange.high)+' · إغلاق الإزاحة '+dual(o.dealingRange.displacementAt+structure.FRAME_MS[o.frame]),c);
+ if(o.interveningLiquidity)node('p','سيولة أقرب قبل الهدف: '+money(o.interveningLiquidity.level)+' · '+o.interveningLiquidity.rr.toFixed(2)+'R',c);
  const evidence=(o.modelEvidence||[]).map((at,i)=>Number.isFinite(at)?['سحب السيولة','MSS','FVG'][i]+' · '+dual(at):null).filter(Boolean);
  if(evidence.length)node('p',evidence.join(' | '),c);
  if(o.modelMatches?.length){
@@ -320,6 +321,7 @@ function inspectContract(market,contract,tf,{entryBars,hourly,higherCandles},new
   newsCovered:econ.scheduleCovers(news.parts||[],now),eventFeedsLoaded:news.feedsLoaded,events:news.events,now,
   structureEngine:structure,signalEngine:signal,contextEngine:context,scenarioEngine:scenario});
  if(news.failures?.length)res.warnings.push('تعذر تحميل بعض الأجندات: '+news.failures.join('؛ '));
+ res.opportunities=res.opportunities.filter(api.qualifiesFocused);
  if(modelPhase.value)res.opportunities=res.opportunities.filter(plan=>plan.research?.phase===modelPhase.value);
  if(res.opportunities.length){
   const bars=structure.normalize(entryBars,tf,now).segments.at(-1)||[];
@@ -418,7 +420,7 @@ async function scan(auto=false){if(busy||(symbol.value==='all'||frame.value==='a
    root.dispatchEvent(new CustomEvent('ict:decision-cleared'));
    setState('أصبحت شموع الدخول قديمة؛ النتائج أدناه تخص وقت الفحص. أعد الفحص للتحديث.',true);
   },res.entryFreshUntil-now);
-  root.dispatchEvent(new CustomEvent('ict:decision-scanned',{detail:{result:res,bars:entryBars}}));setState(!res.opportunities.length?'اكتمل الفحص دون نماذج مطابقة.':'اكتمل التحليل البحثي. '+res.opportunities.length+' نموذج؛ '+(res.blocks.length?'راجع أسباب تعليق الفرص.':'راجع شروط الفرص.'),res.blocks.length>0);
+  root.dispatchEvent(new CustomEvent('ict:decision-scanned',{detail:{result:res,bars:entryBars}}));setState(!res.opportunities.length?'اكتمل الفحص دون فرص دخول تستوفي الشروط.':'اكتمل التحليل البحثي. '+res.opportunities.length+' نموذج؛ '+(res.blocks.length?'راجع أسباب تعليق الفرص.':'راجع شروط الفرص.'),res.blocks.length>0);
  }catch(e){if(id!==generation)return;clearScan();setState('تعذر تكوين خطة موثوقة: '+(e?.message||e)+'. لم تُنشأ توصية.',true)}finally{busy=false;run.disabled=!symbol.value}
 }
 function stop(){closeStream('توقفت مراقبة الأسعار.');active=false;if(timer)clearInterval(timer);timer=null;monitor.textContent='تشغيل المراقبة أثناء فتح الصفحة';monitor.setAttribute('aria-pressed','false')}
