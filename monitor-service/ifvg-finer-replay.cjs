@@ -8,13 +8,14 @@ const data=require('../historical-multi-market.json');
 
 const DAY=86400000;
 const displayed=process.env.IFVG_DISPLAYED==='1';
-const matched=process.env.IFVG_MATCHED==='1';
+const extended=process.env.IFVG_EXTENDED==='1';
+const matched=extended||process.env.IFVG_MATCHED==='1';
+const matchedSymbols=['EURUSD','XAUUSD'];
 const independent=matched||process.env.IFVG_INDEPENDENT==='1';
 const boundary=Date.parse('2026-10-10T00:00:00Z');
-const replayStart=matched?Date.parse('2026-10-04T00:00:00Z'):independent?Date.parse('2026-09-01T00:00:00Z'):boundary;
+const replayStart=matched&&!extended?Date.parse('2026-10-04T00:00:00Z'):independent?Date.parse('2026-09-01T00:00:00Z'):boundary;
 const replayEnd=independent?boundary:Date.parse(data.updatedAt)+1;
 const fineFrame=process.env.IFVG_FINE_FRAME==='1'?'1':'5';
-const fineMs=lifecycle.FRAME[fineFrame];
 const windowMs=(fineFrame==='1'?3:7)*DAY;
 const windowStart=time=>Math.floor(time/windowMs)*windowMs;
 const iso=time=>new Date(time).toISOString();
@@ -22,10 +23,10 @@ const utc=time=>iso(time).slice(0,19).replace('T',' ');
 const rows=series=>series.map(([time,open,high,low,close])=>({start:Date.parse(time),open,high,low,close,confirmed:true}));
 const fields=['open','high','low','close'];
 
-function ambiguousCases(){
+function ambiguousCases(assets){
  const cases=[],settled={'15':[],'60':[]},coverage={'15':{scans:0},'60':{scans:0}};
- for(const [symbol,series] of Object.entries(data.assets)){
-  if(matched&&!['EURUSD','XAUUSD'].includes(symbol))continue;
+ for(const [symbol,series] of Object.entries(assets)){
+  if(matched&&!matchedSymbols.includes(symbol))continue;
   for(const [frame,key] of [['15','15m'],['60','1h']]){
    const ms=lifecycle.FRAME[frame],bars=rows(series[key]||[]).filter(bar=>!independent||bar.start+ms<replayEnd);
    for(let n=30;n<=bars.length;n++){
@@ -78,10 +79,11 @@ function refine(item,fine,frame){
   barsExamined:item.before.barsExamined+1,lastProcessedStart:item.start},item.bars,item.bars.at(-1).start+item.ms);
 }
 
-async function getFine(symbol,start,key){
+async function getHistory(symbol,start,key,frame=fineFrame,duration=windowMs){
+ const step=lifecycle.FRAME[frame];
  const query=new URLSearchParams({
-  symbol:symbol.slice(0,3)+'/'+symbol.slice(3),interval:fineFrame+'min',timezone:'UTC',
-  start_date:utc(start),end_date:utc(start+windowMs-1),outputsize:String(windowMs/fineMs),apikey:key
+  symbol:symbol.slice(0,3)+'/'+symbol.slice(3),interval:frame+'min',timezone:'UTC',
+  start_date:utc(start),end_date:utc(start+duration-1),outputsize:String(Math.ceil(duration/step)),apikey:key
  });
  let response;
  try{response=await fetch('https://api.twelvedata.com/time_series?'+query,{signal:AbortSignal.timeout(12000)})}
@@ -90,13 +92,13 @@ async function getFine(symbol,start,key){
  const payload=await response.json().catch(()=>null);
  const code=Number(payload?.code);
  if(!Array.isArray(payload?.values))return {reason:Number.isInteger(code)?'provider '+code:'no data'};
- if(payload.meta?.symbol?.replace('/','')!==symbol||payload.meta?.interval!==fineFrame+'min')return {reason:'identity'};
+ if(payload.meta?.symbol?.replace('/','')!==symbol||payload.meta?.interval!==frame+'min')return {reason:'identity'};
  const bars=new Map();
  for(const row of payload.values){
   const stamp=Date.parse(String(row.datetime).replace(' ','T')+'Z');
   const bar={start:stamp,confirmed:true};
   for(const field of fields)bar[field]=Number(row[field]);
-  if(!Number.isSafeInteger(stamp)||stamp%fineMs!==0||stamp<start||stamp>=start+windowMs||
+  if(!Number.isSafeInteger(stamp)||stamp%step!==0||stamp<start||stamp>=start+duration||
      bars.has(stamp)||!fields.every(field=>Number.isFinite(bar[field])&&bar[field]>0)||
      bar.high<Math.max(bar.open,bar.close,bar.low)||bar.low>Math.min(bar.open,bar.close,bar.high)){
    return {reason:'invalid candles'};
@@ -108,7 +110,22 @@ async function getFine(symbol,start,key){
 
 async function main(){
  const key=process.env.TWELVEDATA_API_KEY;
- const {cases,settled,coverage}=ambiguousCases(),requests=new Map(),summary={};
+ const assets={...data.assets};
+ if(extended){
+  if(!key)throw Error('TWELVEDATA_API_KEY is not configured');
+  const warmup=replayStart-2*DAY;
+  for(const symbol of matchedSymbols){
+   const series=assets[symbol]['15m'];
+   const edge=Date.parse(series[0][0]);
+   const result=await getHistory(symbol,warmup,key,'15',edge-warmup);
+   if(!result.bars?.size)throw Error(symbol+' 15m history unavailable: '+result.reason);
+   const backfill=[...result.bars.values()].sort((a,b)=>a.start-b.start)
+    .map(bar=>[iso(bar.start),...fields.map(field=>bar[field])]);
+   assets[symbol]={...assets[symbol],'15m':[...backfill,...series]};
+   console.log('Same-provider backfill:',symbol,backfill.length);
+  }
+ }
+ const {cases,settled,coverage}=ambiguousCases(assets),requests=new Map(),summary={};
  console.log('Mode:',displayed?'nearest liquidity on entry frame':'focused','Fine frame:',fineFrame);
  console.log('Source:',data.source,'archive:',data.updatedAt,'ambiguous cases:',cases.length);
  if(independent){
@@ -118,7 +135,7 @@ async function main(){
   }
  }
  const pending=[];
- const archived=new Map(Object.entries(data.assets).map(([symbol,series])=>[symbol,new Map(rows(series['15m']||[]).map(bar=>[bar.start,bar]))]));
+ const archived=new Map(Object.entries(assets).map(([symbol,series])=>[symbol,new Map(rows(series['15m']||[]).map(bar=>[bar.start,bar]))]));
  for(const item of cases){
   const prior=item.frame==='60'?refine(item,archived.get(item.symbol),'15'):null;
   if(prior&&['won','lost','invalidated'].includes(prior.state)){
@@ -136,7 +153,7 @@ async function main(){
  const batches=new Map();
  if(key)for(const [id,{symbol,day}] of requests){
   if(batches.size)await new Promise(resolve=>setTimeout(resolve,8500));
-  const result=await getFine(symbol,day,key);
+  const result=await getHistory(symbol,day,key);
   batches.set(id,result);
   if(result.reason)console.log(symbol,iso(day).slice(0,10),result.reason);
   if(['HTTP 429','provider 429','HTTP 401','provider 401','HTTP 403','provider 403'].includes(result.reason))break;
@@ -160,5 +177,5 @@ function logSettled(label,settled){
  console.log(label,JSON.stringify({targets:settled.filter(value=>value>0).length,stops:settled.filter(value=>value<0).length,
   netR:Number(total.toFixed(2)),largestWinR:Number(largest.toFixed(2)),withoutLargestR:Number((total-largest).toFixed(2))}));
 }
-if(require.main===module)main().catch(()=>{console.error('IFVG refinement failed');process.exitCode=1});
+if(require.main===module)main().catch(error=>{console.error('IFVG refinement failed:',error.message);process.exitCode=1});
 module.exports={refine};
