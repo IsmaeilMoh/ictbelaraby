@@ -76,8 +76,37 @@ function turtleSoup(bars,index,events,ms,market,symbol,frame){
  }
  return candidates;
 }
+function inversionFvg(bars,index,analysis,ms,market,symbol,frame){
+ const shifts=new Map(analysis.events.filter(event=>event.type==='MSS').map(event=>[event.at,event.direction]));
+ const candidates=[];
+ for(const zone of analysis.zones){
+  const start=index.get(zone.at);
+  if(start==null||start<2)continue;
+  const bullish=zone.direction==='bear',direction=bullish?'bull':'bear';
+  const flips=bar=>bullish?bar.close>zone.high:bar.close<zone.low;
+  const offset=bars.slice(start+1,start+21).findIndex(flips);
+  if(offset<0)continue;
+  const inversion=start+1+offset;
+  if(bars.length-1-inversion>12)continue;
+  const candle=bars[inversion];
+  if(shifts.get(candle.start)!==direction)continue;
+  const entry=(zone.high+zone.low)/2,stop=bullish?zone.low:zone.high;
+  const leg=bars.slice(start-2,inversion+1);
+  const low=Math.min(...leg.map(bar=>bar.low)),high=Math.max(...leg.map(bar=>bar.high));
+  const tested=bars.slice(inversion+1).some(bar=>bullish?bar.low<=zone.high:bar.high>=zone.low);
+  const formedAt=candle.start+ms;
+  candidates.push({
+   id:[market,symbol,frame,'ifvg',zone.at,candle.start,direction].join('|'),
+   direction,entry,stop,formedAt,ageBars:bars.length-1-inversion,mssAt:candle.start,fvgAt:zone.at,
+   status:tested?'retested':'watching',research:{phase:'observed',at:formedAt},modelType:'ifvg',
+   confirmation:'IFVG · إغلاق يعكس الفجوة ويكسر الهيكل',zone:{low:zone.low,high:zone.high},
+   range:{low,high,midpoint:(low+high)/2,displacementAt:candle.start}
+  });
+ }
+ return candidates;
+}
 function inspect(input){
- const {market,symbol,frame='15',candles15=[],candles60=[],higherCandles,events=[],eventFeedsLoaded=0,newsChecked=false,newsCovered=false,now=Date.now(),rollHour=0,includeTurtleSoup=false,structureEngine,signalEngine,contextEngine,scenarioEngine}=input;
+ const {market,symbol,frame='15',candles15=[],candles60=[],higherCandles,events=[],eventFeedsLoaded=0,newsChecked=false,newsCovered=false,now=Date.now(),rollHour=0,includeTurtleSoup=false,includeIfvg=false,structureEngine,signalEngine,contextEngine,scenarioEngine}=input;
  if(!knownMarkets.has(market)||!symbol||!['5','15',...(market==='kraken'?[]:['60','240'])].includes(String(frame)))throw Error('السوق أو الإطار المختار غير مدعوم');
  if(!structureEngine||!signalEngine||!contextEngine||!scenarioEngine)throw Error('محرك تحليلي أساسي مفقود');
  const warnings=[],blocks=[];
@@ -102,7 +131,8 @@ function inspect(input){
   {pivots:higherStructure.pivots,ms:structureEngine.FRAME_MS[higher],frame:higher}
  ];
  const reversals=includeTurtleSoup&&evaluation.analysis.eligible?turtleSoup(bars,index,evaluation.analysis.events,ms,market,symbol,frame):[];
- const opportunities=[...recent,...reversals].flatMap(m=>{
+ const inversions=includeIfvg&&evaluation.analysis.eligible?inversionFvg(bars,index,evaluation.analysis,ms,market,symbol,frame):[];
+ const opportunities=[...recent,...reversals,...inversions].flatMap(m=>{
   const range=m.range||displacementRange(m,bars,index,evaluation.analysis.events);
   const plan=liquidityPlan(m,bars,targetStructures,range);
   if(!plan)return [];
@@ -118,7 +148,7 @@ function inspect(input){
   const side=m.direction==='bull'?'BUY':'SELL';
   // Never conflate a last-hour close with a live bid/ask or an executable quote.
   const status=localBlocks.length?'مراقبة فقط':'نموذج بحثي — ينتظر إعادة اختبار السعر';
-  return [{id:m.id,symbol,market,direction:m.direction,modelType:m.modelType,side,formedAt:m.formedAt,research:m.research,status,entry,stop:m.stop,target:plan.target,rr:plan.rr,liquidity:plan.liquidity,interveningLiquidity:plan.interveningLiquidity,midpoint:plan.range.midpoint,dealingRange:plan.range,zone:m.zone,model:m.confirmation,blocks:localBlocks,waiting:[m.modelType==='turtle-soup'?'إعادة اختبار المستوى المسترد دون إبطال':'عودة السعر إلى منطقة FVG دون إبطال','التحقق من سعر Bid/Ask والسبريد عند التنفيذ','تأكيد عدم تغيّر الهيكل بعد آخر شمعة'],evidence:matched?.evidence||[],modelEvidence:[m.sweepAt,m.mssAt,m.fvgAt],contextScore:matched?.score||0,ageBars:m.ageBars,referenceClose:price}];
+  return [{id:m.id,symbol,market,direction:m.direction,modelType:m.modelType,side,formedAt:m.formedAt,research:m.research,status,entry,stop:m.stop,target:plan.target,rr:plan.rr,liquidity:plan.liquidity,interveningLiquidity:plan.interveningLiquidity,midpoint:plan.range.midpoint,dealingRange:plan.range,zone:m.zone,model:m.confirmation,blocks:localBlocks,waiting:[m.modelType==='turtle-soup'?'إعادة اختبار المستوى المسترد دون إبطال':m.modelType==='ifvg'?'إعادة اختبار الفجوة المقلوبة دون إبطال':'عودة السعر إلى منطقة FVG دون إبطال','التحقق من سعر Bid/Ask والسبريد عند التنفيذ','تأكيد عدم تغيّر الهيكل بعد آخر شمعة'],evidence:matched?.evidence||[],modelEvidence:[m.sweepAt,m.mssAt,m.fvgAt],contextScore:matched?.score||0,ageBars:m.ageBars,referenceClose:price}];
  }).sort((a,b)=>b.formedAt-a.formedAt);
  if(!opportunities.length)warnings.push('لم يظهر نموذج حديث مع Premium/Discount وهدف سيولة يؤمّن 2R على الأقل');
  return {symbol,market,frame,checkedAt:now,source:market==='crypto'?'Bybit V5 · عقد دائم · USDT':market==='kraken'?'Kraken Futures · USD perpetual':traditional.SOURCE,sourceBars:evaluation.analysis.sourceBars,lastCompleteAt:Number.isFinite(latest)?latest+ms:null,entryFreshUntil:Number.isFinite(latest)?latest+2*ms:null,context,scenarios,opportunities,warnings,blocks,nearbyNews:nearby,newsChecked,newsCovered,eventFeedsLoaded,priceAt:context.priceAt,price:context.price,disclaimer:'هذه فرص بحثية مشروطة مستخرجة من إغلاقات شموع، وليست أسعار Bid/Ask لحظية أو أوامر تنفيذ. لا تعتمد الربحية ولا الملاءمة المالية ولا تتضمن سبريدًا أو انزلاقًا أو حجم عقد. تتوقف المراقبة بإغلاق الصفحة.'};
@@ -126,5 +156,5 @@ function inspect(input){
 function qualifiesFocused(plan){
  return plan.research?.phase==='observed'&&!plan.blocks.length&&!plan.interveningLiquidity;
 }
-return Object.freeze({turtleSoup,qualifiesFocused,inspect,nearNews,contextFrame,liquidityPlan,displacementRange});
+return Object.freeze({inversionFvg,turtleSoup,qualifiesFocused,inspect,nearNews,contextFrame,liquidityPlan,displacementRange});
 });
