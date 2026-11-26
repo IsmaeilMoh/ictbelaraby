@@ -152,3 +152,11 @@ assert.throws(()=>book.parseBook(orderbook,'BTCUSDT',now-1),/STALE/);
  assert.deepEqual(summarize([{state:'won',outcomeR:2},{state:'lost',outcomeR:-1}]).netR,
   {'0.05':0.9,'0.1':0.8,'0.2':0.6});
 }
+
+{
+ const {rejection}=require('./ict-unseen-market-replay.cjs');
+ const model={direction:'bull',entry:100,stop:95,formedAt:5};
+ assert.equal(rejection(model,null,[],[],null),'displacement or FVG timing');
+ assert.equal(rejection(model,{midpoint:99},[],[],null),'premium or discount');
+ assert.equal(rejection(model,{midpoint:105},[],[],null),'no eligible liquidity target at 2R');
+}

@@ -80,22 +80,38 @@ function summarize(outcomes) {
   };
 }
 
+function rejection(model, range, bars, structures, displayed) {
+  if (!range) return 'displacement or FVG timing';
+  if (model.direction === 'bull' ? model.entry >= range.midpoint : model.entry <= range.midpoint) {
+    return 'premium or discount';
+  }
+  const plan = rules.liquidityPlan(model, bars, structures, range);
+  if (!plan) return 'no eligible liquidity target at 2R';
+  if (!displayed) return 'invalid plan geometry';
+  if (displayed.blocks.length) return displayed.blocks[0];
+  if (displayed.interveningLiquidity) return 'intervening liquidity below 2R';
+  if (displayed.research?.phase !== 'observed') return 'not a new entry';
+  return null;
+}
+
 function replay(archives, symbol, market, bars, hourly) {
-  const outcomes = [], reasons = {};
+  const outcomes = [], reasons = {}, modelReasons = {};
   const addReason = reason => { reasons[reason] = (reasons[reason] || 0) + 1; };
   for (let n = 30; n <= bars.length; n++) {
     const now = bars[n - 1].start + MS;
     if (now < START || now >= END) continue;
     const prefix = bars.slice(Math.max(0, n - 250), n);
     const raw = signals.evaluate(prefix, '15', {market, symbol, now});
-    if (!raw.models.some(model => model.formedAt === now && model.status === 'watching' && model.research)) continue;
+    const formed = raw.models.filter(model => model.formedAt === now && model.status === 'watching' && model.research);
+    if (!formed.length) continue;
     const news = newsAt(archives, now);
     if (!news.covered) { addReason('calendar unavailable'); continue; }
     if (rules.nearNews(news.events, market, symbol, now).length) { addReason('near scheduled news'); continue; }
+    const hourlyPrefix = hourly.filter(bar => bar.start + HOUR <= now).slice(-1000);
     let inspected;
     try {
       inspected = rules.inspect({market, symbol, frame: '15', now, candles15: prefix,
-        candles60: hourly.filter(bar => bar.start + HOUR <= now).slice(-1000),
+        candles60: hourlyPrefix,
         newsChecked: true, newsCovered: true, events: news.events, structureEngine: structure,
         signalEngine: signals, contextEngine: context, scenarioEngine: scenario});
     } catch (error) {
@@ -104,13 +120,26 @@ function replay(archives, symbol, market, bars, hourly) {
       continue;
     }
     const qualified = inspected.opportunities.filter(plan => plan.formedAt === now && rules.qualifiesFocused(plan));
-    if (!qualified.length) addReason('entry qualification');
+    if (!qualified.length) {
+      addReason('entry qualification');
+      const segment = structure.normalize(prefix, '15', now).segments.at(-1) || [];
+      const index = new Map(segment.map((bar, i) => [bar.start, i]));
+      const higher = structure.analyze(hourlyPrefix, '60', {now, pivot: 2});
+      const structures = [{pivots: raw.analysis.pivots, ms: MS, frame: '15'},
+        {pivots: higher.pivots, ms: HOUR, frame: '60'}];
+      for (const model of formed) {
+        const range = rules.displacementRange(model, segment, index, raw.analysis.events);
+        const displayed = inspected.opportunities.find(plan => plan.id === model.id);
+        const reason = rejection(model, range, segment, structures, displayed) || 'diagnostic mismatch';
+        modelReasons[reason] = (modelReasons[reason] || 0) + 1;
+      }
+    }
     for (const plan of qualified) {
       const record = lifecycle.create({...plan, frame: '15'}, now, {researchOnly: true});
       outcomes.push(lifecycle.advance(record, bars.slice(n, n + 24), Math.min(END, now + 24 * MS)));
     }
   }
-  return {outcomes, reasons};
+  return {outcomes, reasons, modelReasons};
 }
 
 async function main() {
@@ -134,10 +163,10 @@ async function main() {
     const result = replay(archives, symbol.replace('/', ''), market, entry.bars, hourly.bars);
     combined.push(...result.outcomes);
     console.log('Holdout', symbol, JSON.stringify({entryBars: entry.bars.length, hourlyBars: hourly.bars.length,
-      ...summarize(result.outcomes), gateCounts: result.reasons}));
+      ...summarize(result.outcomes), gateCounts: result.reasons, firstModelRejection: result.modelReasons}));
   }
   console.log('Holdout overall:', JSON.stringify(summarize(combined)));
 }
 
 if (require.main === module) main().catch(error => { console.error(error.message); process.exitCode = 1; });
-module.exports = {newsAt, summarize};
+module.exports = {newsAt, summarize, rejection};
