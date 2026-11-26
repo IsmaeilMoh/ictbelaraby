@@ -24,7 +24,7 @@ const alternatives = [
   ['early', -1, {allowEarlyFvgForResearch: true}],
   ['late', 2, {allowDelayedFvgForResearch: true}]
 ];
-const groups = () => ({selection:{baseline:[],early:[],late:[]}, validation:{baseline:[],early:[],late:[]}});
+const groups = () => ({selection:{baseline:[],early:[],late:[],continuation:[]}, validation:{baseline:[],early:[],late:[],continuation:[]}});
 const COSTS = [0.05, 0.1, 0.2];
 
 function readWindow(start, split, end, now = Date.now()) {
@@ -44,7 +44,7 @@ function readWindow(start, split, end, now = Date.now()) {
 
 function priceWindows(interval, window) {
   const warmup = interval === '1day' || interval === '4h' ? 80 : 14;
-  const span = (interval === '5min' ? 14 : 40) * DAY;
+  const span = (interval === '5min' ? 14 : interval === '15min' ? 40 : 140) * DAY;
   const ranges = [];
   for (let from = Math.floor(window.start / DAY) * DAY - warmup * DAY; from < window.end; from += span) {
     ranges.push({from, to: Math.min(from + span, window.end)});
@@ -160,7 +160,11 @@ function replay(archives, symbol, market, bars, hourly, frame, higherBars = hour
     const prefix = bars.slice(Math.max(0, n - 250), n);
     const raw = signals.evaluate(prefix, frame, {market, symbol, now});
     const formed = raw.models.filter(model => model.formedAt === now && model.status === 'watching' && model.research);
-    if (!formed.length) continue;
+    const segment = structure.normalize(prefix, frame, now).segments.at(-1) || [];
+    const index = new Map(segment.map((bar, i) => [bar.start, i]));
+    const continuation = raw.analysis.eligible && rules.continuationCandidates(segment, index, raw.analysis, ms, market, symbol, frame)
+      .some(plan => plan.formedAt === now && plan.status === 'watching');
+    if (!formed.length && !continuation) continue;
     const news = newsAt(archives, now);
     if (!news.covered) { addReason('calendar unavailable'); continue; }
     if (rules.nearNews(news.events, market, symbol, now).length) { addReason('near scheduled news'); continue; }
@@ -168,7 +172,7 @@ function replay(archives, symbol, market, bars, hourly, frame, higherBars = hour
     const histories = contextAt(hourly, higherBars, frame, now);
     let inspected;
     const input = {market, symbol, frame, now, candles15: prefix, ...histories,
-      newsChecked: true, newsCovered: true, events: news.events, structureEngine: structure,
+      includeContinuationForResearch: continuation, newsChecked: true, newsCovered: true, events: news.events, structureEngine: structure,
       signalEngine: signals, contextEngine: context, scenarioEngine: scenario};
     try {
       inspected = rules.inspect(input);
@@ -177,11 +181,12 @@ function replay(archives, symbol, market, bars, hourly, frame, higherBars = hour
       addReason('hourly session unavailable');
       continue;
     }
-    const qualified = inspected.opportunities.filter(plan => plan.formedAt === now && rules.qualifiesFocused(plan));
-    if (!qualified.length) {
+    const qualified = inspected.opportunities.filter(plan => plan.modelType !== 'bos-fvg' && plan.formedAt === now && rules.qualifiesFocused(plan));
+    const usedZones = new Set(qualified.map(plan => plan.direction + ':' + plan.modelEvidence[2]));
+    const independentlyQualified = inspected.opportunities.filter(plan => plan.modelType === 'bos-fvg' &&
+      plan.formedAt === now && rules.qualifiesFocused(plan) && !usedZones.has(plan.direction + ':' + plan.modelEvidence[2]));
+    if (formed.length && !qualified.length) {
       addReason('entry qualification');
-      const segment = structure.normalize(prefix, frame, now).segments.at(-1) || [];
-      const index = new Map(segment.map((bar, i) => [bar.start, i]));
       const higher = structure.analyze(higherFrame === '60' ? histories.candles60 : histories.higherCandles, higherFrame, {now, pivot: 2});
       const structures = [{pivots: raw.analysis.pivots, ms: ms, frame},
         {pivots: higher.pivots, ms: structure.FRAME_MS[higherFrame], frame: higherFrame}];
@@ -199,11 +204,11 @@ function replay(archives, symbol, market, bars, hourly, frame, higherBars = hour
       }
     }
     const period = now < window.split ? periods.selection : periods.validation;
-    const positions = [['baseline', qualified]];
+    const positions = [['baseline', qualified], ['continuation', independentlyQualified]];
     for (const [name, lag, options] of alternatives) {
       if (!formed.some(model => model.fvgAt - model.mssAt === lag * ms)) continue;
       const additional = rules.inspect({...input, ...options}).opportunities.filter(plan =>
-        plan.formedAt === now && rules.qualifiesFocused(plan) &&
+        plan.modelType !== 'bos-fvg' && plan.formedAt === now && rules.qualifiesFocused(plan) &&
         plan.modelEvidence[2] - plan.modelEvidence[1] === lag * ms);
       positions.push([name, additional]);
     }
@@ -217,9 +222,11 @@ function replay(archives, symbol, market, bars, hourly, frame, higherBars = hour
   return {periods, reasons, modelReasons, displacementFailures};
 }
 
-function summarizePeriod({baseline, early, late}) {
+function summarizePeriod({baseline, early, late, continuation}) {
   return {
     baseline: summarize(baseline),
+    continuation: summarize(continuation),
+    withContinuation: summarize([...baseline, ...continuation]),
     earlyAdditional: summarize(early),
     lateAdditional: summarize(late),
     withEarly: summarize([...baseline, ...early]),
