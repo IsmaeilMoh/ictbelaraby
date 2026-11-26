@@ -218,10 +218,78 @@ function matchingModels(plan,bars,index,tf){
  }
  return matches;
 }
+async function saveCardImage(o,source,levelRows,status,evidence){
+ // Render from the same values used by the card so the export works offline and needs no external assets.
+ const canvas=document.createElement('canvas');
+ const ctx=canvas.getContext('2d');
+ if(!ctx)throw Error('Canvas unavailable');
+ const width=1080, margin=56, contentWidth=width-2*margin;
+ const family=getComputedStyle(root).fontFamily;
+ const wrap=(text,max)=>{
+  const lines=[];
+  let line='';
+  for(const word of String(text).split(/\s+/)){
+   if(line&&ctx.measureText(line+' '+word).width>max){lines.push(line);line=word;}
+   else line=line?line+' '+word:word;
+  }
+  if(line)lines.push(line);
+  return lines;
+ };
+ const groups=[
+  ['المصدر والأوقات',[source,'تكوّن النموذج · '+dual(o.formedAt),'وقت الرصد · '+dual(o.detectedAt),
+   o.lastCompleteAt?'آخر إغلاق · '+dual(o.lastCompleteAt):null]],
+  ['أدلة النموذج',[...(o.modelMatches||[]).map(m=>[m.label,m.evidence].filter(Boolean).join(' · ')),...evidence,...(o.evidence||[])]],
+  ['حالة التحقق',o.blocks||[]]
+ ];
+ ctx.font='25px '+family;
+ const details=groups.map(([title,texts])=>[title,texts.filter(Boolean).flatMap(text=>wrap(text,contentWidth-12))])
+  .filter(([,lines])=>lines.length);
+ canvas.width=width;
+ canvas.height=545+details.reduce((sum,[,lines])=>sum+57+lines.length*38,0);
+ const bg=ctx.createLinearGradient(0,0,width,canvas.height);
+ bg.addColorStop(0,'#213d42');bg.addColorStop(1,'#0c1b24');
+ ctx.fillStyle=bg;ctx.fillRect(0,0,width,canvas.height);
+ ctx.fillStyle='#86d8b8';ctx.fillRect(width-margin-80,48,80,5);
+ const print=(str,x,y,size,color,{bold=false,dir='rtl',max=contentWidth}={})=>{
+  ctx.font=(bold?'700 ':'')+size+'px '+family;ctx.fillStyle=color;
+  ctx.direction=dir;ctx.textAlign='right';ctx.fillText(str,x,y,max);
+ };
+ const right=width-margin;
+ print('ICT بالعربي  ·  مركز فرص التداول الذكي',right,99,30,'#a4dfcd',{bold:true});
+ print(o.symbol,right,178,64,'#f2fcfa',{bold:true,dir:'ltr'});
+ const side=o.side==='BUY'?'شراء':o.side==='SELL'?'بيع':o.side;
+ print([side,o.frame+' دقيقة',status].join('  ·  '),right,230,32,'#d6e9e9',{bold:true});
+ const col=(contentWidth-22)/2;
+ levelRows.forEach(([label,value],i)=>{
+  const x=i%2===0?right-col:margin,y=264+Math.floor(i/2)*100;
+  ctx.beginPath();ctx.roundRect(x,y,col,84,14);
+  ctx.fillStyle='#29484e';ctx.fill();
+  print(label,x+col-22,y+30,22,'#bde3d6',{max:col-44});
+  print(value,x+col-22,y+65,31,'#f2fcfa',{bold:true,dir:value==='غير متاح'?'rtl':'ltr',max:col-44});
+ });
+ let y=495;
+ for(const [title,lines] of details){
+  print(title,right,y,26,'#9adfc1',{bold:true});
+  y+=37;
+  for(const line of lines){print(line,right,y,25,'#e4f1ef');y+=38;}
+  y+=20;
+ }
+ print('قراءة بحثية من الشموع · الأسعار مرجعية · لا تصدر المنصة أوامر تداول',right,y,23,'#bde3d6');
+ const blob=await new Promise(resolve=>canvas.toBlob(resolve,'image/png'));
+ if(!blob)throw Error('PNG unavailable');
+ const url=URL.createObjectURL(blob);
+ const link=document.createElement('a');
+ link.href=url;
+ link.download=['ICT',o.symbol,o.frame+'m',o.formedAt].join('-').replace(/[^a-z0-9-]/gi,'-')+'.png';
+ document.body.append(link);link.click();link.remove();
+ setTimeout(()=>URL.revokeObjectURL(url),60000);
+}
 function card(parent,o,origin){
- const c=block([o.symbol,o.frame+' د',o.side,phases[o.research?.phase]||'رصد بحثي'].join(' · '),parent);
+ const status=phases[o.research?.phase]||'رصد بحثي';
+ const c=block([o.symbol,o.frame+' د',o.side,status].join(' · '),parent);
  c.classList.add('dc-wide');
- node('p',[origin,types[o.marketType],o.source].filter(Boolean).join(' · '),c);
+ const source=[origin,types[o.marketType],o.source].filter(Boolean).join(' · ');
+ node('p',source,c);
  const tradingView=traditional.tradingViewLink(o.market,o.symbol,o.frame);
  if(tradingView){
   const label=tradingView.ticker?'فتح الشارت على TradingView · '+tradingView.ticker:'صفحة الرمز على TradingView · '+o.symbol;
@@ -234,7 +302,8 @@ function card(parent,o,origin){
  if(o.research)node('p','وقت الحالة: '+dual(o.research.at)+' | تكوّن: '+dual(o.formedAt),c);
  if(o.research?.phase==='confirmed_research')node('p','تحقق شرط التأكيد في شموع مغلقة. التنفيذ يتطلب تحققًا مستقلًا.',c);
  const levels=node('div','',c,'dc-levels');
- for(const [name,value] of [[o.modelType==='turtle-soup'?'المستوى المسترد':o.modelType==='ifvg'?'منطقة IFVG':o.modelType==='ote'?'منطقة OTE':o.modelType==='breaker'?'منطقة Breaker':o.modelType==='amd'?'حد التراكم':'منطقة FVG',o.modelType==='turtle-soup'?money(o.entry):o.zone?money(o.zone.low)+' — '+money(o.zone.high):'غير متاحة'],['دخول مرجعي',money(o.entry)],['إبطال/وقف افتراضي',money(o.stop)],[o.liquidity?'هدف السيولة · '+o.rr.toFixed(2)+'R':'هدف مرجعي',money(o.target)]]){
+ const levelRows=[[o.modelType==='turtle-soup'?'المستوى المسترد':o.modelType==='ifvg'?'منطقة IFVG':o.modelType==='ote'?'منطقة OTE':o.modelType==='breaker'?'منطقة Breaker':o.modelType==='amd'?'حد التراكم':'منطقة FVG',o.modelType==='turtle-soup'?money(o.entry):o.zone?money(o.zone.low)+' — '+money(o.zone.high):'غير متاحة'],['دخول مرجعي',money(o.entry)],['إبطال/وقف افتراضي',money(o.stop)],[o.liquidity?'هدف السيولة · '+o.rr.toFixed(2)+'R':'هدف مرجعي',money(o.target)]];
+ for(const [name,value] of levelRows){
   const el=node('div','',levels);node('small',name,el);node('strong',value,el);
  }
 
@@ -254,6 +323,17 @@ function card(parent,o,origin){
  const list=document.createElement('ul');
  c.append(list);
  for(const text of [...(o.blocks||[]),...(o.waiting||[])])node('li',text,list);
+ const actions=node('div','',c,'dc-actions');
+ const save=node('button','حفظ البطاقة كصورة',actions,'secondary');save.type='button';
+ const feedback=node('p','',actions,'dc-muted');feedback.setAttribute('role','status');
+ save.addEventListener('click',async()=>{
+  save.disabled=true;feedback.textContent='';
+  try{
+   await saveCardImage(o,source,levelRows,status,evidence);
+   feedback.textContent='تم تجهيز صورة البطاقة للتنزيل.';
+  }catch{feedback.textContent='تعذر حفظ الصورة. جرّب مرة أخرى.';}
+  finally{save.disabled=false;}
+ });
 }
 const backgroundOutput=$('dc-background-output');
 let backgroundTimer;
