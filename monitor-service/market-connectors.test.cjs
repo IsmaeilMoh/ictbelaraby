@@ -33,6 +33,10 @@ assert.equal(b.length,2);assert.equal(b[0].confirmed,true);
 (async()=>{
  const metadata=[
   {name:'EURJPY',type:'Forex',source:'MT5'},
+  {name:'EURUSD',type:'forex',source:'MT5'},
+  {name:'USDTRY',type:'Forex',source:'MT5'},
+  {name:'EURSEK',type:'Forex',source:'MT5'},
+  {name:'CHFCHF',type:'Forex',source:'MT5'},
   {name:'USTEC',type:'Index',source:'MT5'},
   {name:'XCUUSD',type:'Commodity',source:'MT5'},
   {name:'THYAO',type:'Stock',source:'MATRIKS'},
@@ -40,7 +44,7 @@ assert.equal(b.length,2);assert.equal(b[0].confirmed,true);
   {name:'../bad',type:'Stock',source:'MT5'}
  ];
  const catalog=await source.loadCatalog(asyncOptions());
- assert.deepEqual(catalog.forex,[['EURJPY','EURJPY']]);
+ assert.deepEqual(catalog.forex,[['EURJPY','EURJPY'],['EURUSD','EURUSD']]);
  assert.deepEqual(catalog.indices,[['NAS100','USTEC']]);
  assert.deepEqual(catalog.metals,[['XCUUSD','XCUUSD']]);
  assert.deepEqual(catalog.stocks,[['THYAO','THYAO']]);

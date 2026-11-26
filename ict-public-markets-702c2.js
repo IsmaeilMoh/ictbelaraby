@@ -23,9 +23,17 @@ let catalog=MARKETS;
 const listed=group=>catalog[group]||[];
 const validSymbol=s=>typeof s==='string'&&/^[A-Z0-9][A-Z0-9._-]{0,29}$/.test(s);
 const metal=/^X(?:AU|AG|PT|PD|AL|CU|NI|PB|ZN)[A-Z]{3}$/;
+// The seven USD majors and the 21 crosses between their non-USD currencies.
+const minorForexPairs=new Set([
+ 'EURGBP','EURJPY','EURCHF','EURCAD','EURAUD','EURNZD',
+ 'GBPJPY','GBPCHF','GBPCAD','GBPAUD','GBPNZD',
+ 'AUDJPY','AUDCHF','AUDCAD','AUDNZD',
+ 'NZDJPY','NZDCHF','NZDCAD','CADJPY','CADCHF','CHFJPY'
+]);
+const majorForexPairs=new Set(MARKETS.forex.map(([symbol])=>symbol));
 function classify({name,type,description}){
  type=String(type).toLowerCase();
- if(type==='forex')return /^[A-Z]{6}$/.test(name)?'forex':null;
+ if(type==='forex')return (majorForexPairs.has(name)||minorForexPairs.has(name))?'forex':null;
  if(type==='stock')return 'stocks';
  if(type==='index')return 'indices';
  if(type!=='commodity')return null;
