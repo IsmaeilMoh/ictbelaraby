@@ -39,6 +39,17 @@ jobs:
         run: |
           set -o pipefail
           node monitor-service/ifvg-finer-replay.cjs | tee -a "$GITHUB_STEP_SUMMARY"
+      - name: Replay IFVG on a separate archived period
+        if: github.event_name == 'pull_request' && (github.head_ref == 'dev/ifvg-independent-replay' || github.head_ref == 'dev/ict-prior-week-and-matched-replay') && github.event.pull_request.head.repo.full_name == github.repository
+        env:
+          IFVG_DISPLAYED: '1'
+          IFVG_INDEPENDENT: '1'
+          IFVG_MATCHED: ${{ github.head_ref == 'dev/ict-prior-week-and-matched-replay' && '1' || '0' }}
+          IFVG_FINE_FRAME: '1'
+          TWELVEDATA_API_KEY: ${{ secrets.TWELVEDATA_API_KEY }}
+        run: |
+          set -o pipefail
+          node monitor-service/ifvg-finer-replay.cjs | tee -a "$GITHUB_STEP_SUMMARY"
       - name: Compare all four entry frames with point-in-time news and market context
         if: github.event_name == 'pull_request' && github.head_ref == 'dev/ict-continuation-research' && github.event.pull_request.head.repo.full_name == github.repository
         env:
@@ -143,6 +154,23 @@ jobs:
             }
           }
           probe().catch(error => { console.error(error.message); process.exitCode = 1; });
+          JS
+      - name: Verify prior-week references against public daily candles
+        if: github.event_name == 'pull_request' && github.head_ref == 'dev/ict-prior-week-and-matched-replay'
+        run: |
+          node <<'JS'
+          const context = require('./ict-context-engine-703a.js');
+          const markets = require('./ict-public-markets-702c2.js');
+          async function probe(group, symbol) {
+            try {
+              const candles = await markets.get(markets.resolve(group, symbol), '1day', {limit: 15});
+              const week = context.priorProviderWeek(candles, Date.now(), group);
+              console.log(symbol, 'PWH/PWL', week ? JSON.stringify({week:week.key, high:week.high, low:week.low}) : 'insufficient verified daily candles ' + JSON.stringify(candles.map(bar=>[new Date(bar.start).toISOString(), bar.confirmed])));
+            } catch (error) {
+              console.log(symbol, 'PWH/PWL unavailable:', error.cause?.code || error.message);
+            }
+          }
+          Promise.all([probe('metals','XAUUSD'),probe('forex','EURUSD'),probe('stocks','AAPL')]);
           JS
       - name: Check parser against a published BEA release
         if: github.event_name == 'pull_request'

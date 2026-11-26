@@ -399,8 +399,28 @@ async function testMonitor(bars) {
   }
 }
 
+function testProviderWeek(){
+  const monday=Date.parse('2026-11-16T00:00:00Z'),day=86400000;
+  const bars=Array.from({length:11},(_,i)=>({start:monday+i*day,open:100,close:101,
+    high:102+i,low:99-i,confirmed:true}));
+  const at=Date.parse('2026-11-26T15:00:00Z');
+  const equity=[...bars.slice(0,5),...bars.slice(7)];
+  assert.deepEqual([context.priorProviderWeek(equity,at).high,context.priorProviderWeek(equity,at).low],[106,95]);
+  assert.equal(context.priorProviderWeek(equity.slice(1),at),null);
+  assert.equal(context.priorProviderWeek(equity.map((bar,i)=>i===4?{...bar,confirmed:false}:bar),at),null);
+  assert.equal(context.priorProviderWeek(equity,at,'crypto'),null);
+  assert.equal(context.priorProviderWeek(bars,at,'crypto').high,108);
+  const sunday={...bars[0],start:monday-day,high:112,low:90};
+  const followingSunday={...sunday,start:monday+6*day,high:180,low:70};
+  const fx=context.priorProviderWeek([sunday,...equity,followingSunday],at,'forex');
+  assert.deepEqual([fx.high,fx.low,fx.days],[112,90,6]);
+  assert.equal(context.priorProviderWeek([...equity,followingSunday],at,'forex'),null);
+  assert.equal(context.priorProviderWeek(equity,Date.parse('2026-11-23T02:00:00Z')),null,'New York Sunday has not rolled into Monday');
+}
+
 (async () => {
   testSessions();
+  testProviderWeek();
   testContinuationCandidates();
   testTurtleSoup();
   testInversionFvg();
