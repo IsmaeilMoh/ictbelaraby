@@ -23,7 +23,7 @@
  function s(v){return v==null?'':String(v).trim()}
  function finite(v){if(v===null||v===undefined||s(v)==='')return null;const n=Number(v);return Number.isFinite(n)?n:null}
  function stamp(v){if(v==null||s(v)===''||v==='—')return null;if(typeof v==='number'){if(!Number.isFinite(v))return null;const d=new Date(v<1e11?v*1000:v);return Number.isFinite(d.getTime())?d.toISOString():null}const d=new Date(v);return Number.isFinite(d.getTime())?d.toISOString():null}
- function symbol(v){let raw=s(v).toUpperCase().replace(/^(?:FX:|OANDA:|FOREXCOM:|TVC:|BINANCE:|BYBIT:)/,'').replace(/(?:[._-]P|PERP)$/,'').replace(/[\s/._-]/g,'');raw=raw.replace(/(?:USDT|USD)PERP$/,'USD').replace(/USDT$/,'USD');if(!/^[A-Z0-9]{2,22}$/.test(raw))return null;return MAPPING[raw]||raw}
+ function symbol(v){let raw=s(v).toUpperCase().replace(/^(?:FX:|OANDA:|FOREXCOM:|TVC:|BYBIT:)/,'').replace(/(?:[._-]P|PERP)$/,'').replace(/[\s/._-]/g,'');raw=raw.replace(/(?:USDT|USD)PERP$/,'USD').replace(/USDT$/,'USD');if(!/^[A-Z0-9]{2,22}$/.test(raw))return null;return MAPPING[raw]||raw}
  function currency(v){let raw=s(v).toUpperCase();return CURRENCIES[raw]||raw||null}
  function status(updated,now,ttl){if(!updated)return 'unknown';const t=Date.parse(updated);if(!Number.isFinite(t))return 'invalid';if(t>now+5*60*1000)return 'future';if(ttl===null)return 'dated';return now-t>ttl?'stale':'fresh'}
  function issue(code,detail,level){return {code,detail,level:level||'warning'}}

@@ -349,14 +349,12 @@ const INTERVAL_LABEL={'5m':'5 دقائق','15m':'15 دقيقة','1h':'ساعة',
 let publicFeed=null,feedBusy=false,loadToken=0,feedSources={},feedMarkets={};
 function availableCatalog(feed){
  const catalog={};
- if(feed?.version===2&&['Binance spot public API','Research verified multi-source'].includes(feed?.source)&&feed?.assets&&typeof feed.assets==='object'){
+ if(feed?.version===2&&['Bybit V5 USDT perpetual','Research verified multi-source'].includes(feed?.source)&&feed?.assets&&typeof feed.assets==='object'){
   for(const [symbol,intervals] of Object.entries(feed.assets)){
    if(!/^[A-Z0-9_]{3,24}$/.test(symbol)||!intervals||typeof intervals!=='object'||Array.isArray(intervals))continue;
    const list=Object.keys(intervals).filter(tf=>INTERVAL_MS[tf]&&Array.isArray(intervals[tf])&&intervals[tf].length>=60);
    if(list.length)catalog[symbol]=list;
   }
- } else if(feed?.interval==='15m'&&feed?.source==='Binance spot public API'&&feed?.assets){
-  for(const [symbol,data] of Object.entries(feed.assets))if(/^[A-Z0-9]{3,15}$/.test(symbol)&&Array.isArray(data)&&data.length>=60)catalog[symbol]=['15m'];
  }
  return catalog;
 }
@@ -414,10 +412,10 @@ async function loadPublicHistory(){
   ]);
   const crypto=primary.status==='fulfilled'?primary.value:null;
   const cross=external.status==='fulfilled'?external.value:null;
-  const validCrypto=crypto&&Object.keys(availableCatalog(crypto)).length>0;
+  const validCrypto=crypto?.source==='Bybit V5 USDT perpetual'&&Object.keys(availableCatalog(crypto)).length>0;
   const validCross=cross&&cross.version===2&&cross.source==='Twelve Data time_series'&&cross.assets&&typeof cross.assets==='object';
   const sources={},markets={},assets={};
-  if(validCrypto){for(const [name,rows] of Object.entries(crypto.assets)){assets[name]=crypto.version===2?rows:{'15m':rows};sources[name]={source:crypto.source,updatedAt:crypto.updatedAt};markets[name]='crypto';}}
+  if(validCrypto){for(const [name,rows] of Object.entries(crypto.assets)){assets[name]=rows;sources[name]={source:crypto.source,updatedAt:crypto.updatedAt};markets[name]='crypto';}}
   if(validCross){for(const [name,rows] of Object.entries(cross.assets)){
     if(!/^[A-Z0-9_]{3,24}$/.test(name)||!rows||typeof rows!=='object'||Array.isArray(rows))continue;
     const allowed=Object.keys(rows).filter(tf=>INTERVAL_MS[tf]&&Array.isArray(rows[tf])&&rows[tf].length>=60);
@@ -425,10 +423,10 @@ async function loadPublicHistory(){
     assets[name]=Object.fromEntries(allowed.map(tf=>[tf,rows[tf]]));
     sources[name]={source:'Twelve Data time_series',updatedAt:cross.updatedAt};markets[name]=cross.marketKinds?.[name]||'other';
   }}
+  const label=$('market-data-provenance');if(label)label.textContent=[validCrypto?'شموع عقود Bybit USDT متاحة.':'شموع عقود Bybit USDT غير متاحة حاليًا.',validCross?'بيانات Twelve Data متاحة بحسب تغطية الأصول.':'بيانات الأسواق الأخرى غير متاحة حاليًا.'].join(' ');
   if(!Object.keys(assets).length)throw Error('لا تتوفر شموع حديثة قابلة للاختبار من المصادر.');
   if(token!==loadToken)return;
   publicFeed={version:2,source:'Research verified multi-source',updatedAt:new Date().toISOString(),assets};feedSources=sources;feedMarkets=markets;
-  const label=$('market-data-provenance');if(label)label.textContent=validCross?'مصادر متاحة: Binance Spot للعملات الرقمية وTwelve Data للذهب/الفوركس/مراجع المؤشرات بحسب التغطية الفعلية. أسماء مراجع المؤشرات النقدية ليست عقود NAS100/US500/DJ30.':'لم تُنشر بيانات الذهب والفوركس والمؤشرات بعد؛ يلزم تفعيل TWELVEDATA_API_KEY وتشغيل مهمة تحديث الأسواق المتعددة، مع صلاحية وترخيص مناسبين.';
   updateCatalog();try{applyHistorySelection();}catch(e){setHistoryFailure(e.message);}
  }catch(error){publicFeed=null;setHistoryFailure('البيانات غير متاحة تلقائيًا: '+error.message);}
  finally{feedBusy=false;}

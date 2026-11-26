@@ -1,6 +1,6 @@
 'use strict';
 
-// Public USD perpetuals. These instruments are distinct from Bybit USDT and Binance Spot.
+// Public USD perpetuals. These instruments are distinct from Bybit USDT.
 const BASE = 'https://futures.kraken.com';
 const SOURCE = 'Kraken Futures · USD perpetual';
 const SYMBOLS = Object.freeze(['PF_XBTUSD', 'PF_ETHUSD']);

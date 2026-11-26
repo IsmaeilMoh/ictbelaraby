@@ -17,7 +17,7 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-      - name: Retrieve real spot candles
+      - name: Retrieve closed Bybit USDT perpetual candles
         run: python scripts/update_historical_candles.py
       - name: Publish new verified observations
         run: |
