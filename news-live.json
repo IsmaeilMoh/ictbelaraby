@@ -1,7 +1,29 @@
 {
-  "updated_at": "2026-11-26T06:32:39Z",
+  "updated_at": "2026-11-26T08:00:53Z",
   "mode": "rss-attributed",
   "items": [
+    {
+      "id": "59e2056f6f0bdeb1f17a",
+      "title": "رسوم ترامب الجديدة تحاصر الصين وتهدد بتوسيع الحرب التجارية",
+      "tag": "اقتصاد",
+      "src": "CNN Business Arabic",
+      "date": "2026-11-26T07:58:00Z",
+      "url": "https://cnnbusinessarabic.com/sectors/1153441/%D8%B1%D8%B3%D9%88%D9%85-%D8%AA%D8%B1%D8%A7%D9%85%D8%A8-%D8%A7%D9%84%D8%AC%D8%AF%D9%8A%D8%AF%D8%A9-%D8%AA%D8%AD%D8%A7%D8%B5%D8%B1-%D8%A7%D9%84%D8%B5%D9%8A%D9%86-%D9%88%D8%AA%D9%87%D8%AF%D8%AF-%D8%A8%D8%AA%D9%88%D8%B3%D9%8A%D8%B9-%D8%A7%D9%84%D8%AD%D8%B1%D8%A8-%D8%A7%D9%84%D8%AA%D8%AC%D8%A7%D8%B1%D9%8A%D8%A9",
+      "priority": 2,
+      "language": "ar",
+      "image": "https://cnnbusinessarabic.com/businesscnn/uploads/images/2026/11/26/1712909.webp"
+    },
+    {
+      "id": "6c4d2c1ea86b6de54d4f",
+      "title": "قادة الاتحاد الأوروبي أمام معركة ميزانية بـ1.58 تريليون يورو وتمويل أوكرانيا",
+      "tag": "اقتصاد",
+      "src": "CNN Business Arabic",
+      "date": "2026-11-26T07:39:00Z",
+      "url": "https://cnnbusinessarabic.com/sectors/1153440/%D9%82%D8%A7%D8%AF%D8%A9-%D8%A7%D9%84%D8%A7%D8%AA%D8%AD%D8%A7%D8%AF-%D8%A7%D9%84%D8%A3%D9%88%D8%B1%D9%88%D8%A8%D9%8A-%D8%A3%D9%85%D8%A7%D9%85-%D9%85%D8%B9%D8%B1%D9%83%D8%A9-%D9%85%D9%8A%D8%B2%D8%A7%D9%86%D9%8A%D8%A9-%D8%A8158-%D8%AA%D8%B1%D9%8A%D9%84%D9%8A%D9%88%D9%86-%D9%8A%D9%88%D8%B1%D9%88-%D9%88%D8%AA%D9%85%D9%88%D9%8A%D9%84-%D8%A3%D9%88%D9%83%D8%B1%D8%A7%D9%86%D9%8A%D8%A7",
+      "priority": 2,
+      "language": "ar",
+      "image": "https://cnnbusinessarabic.com/businesscnn/uploads/images/2026/11/26/1712911.webp"
+    },
     {
       "id": "6e29e77e48018c978723",
       "title": "237 مليار دولار ديون فنزويلا.. هل تنجح خطة العودة للأسواق العالمية؟",
@@ -364,28 +386,6 @@
       "priority": 2,
       "language": "ar",
       "image": "https://cnnbusinessarabic.com/businesscnn/uploads/images/2026/11/21/1712497.webp"
-    },
-    {
-      "id": "3f966b1b74a723f514b2",
-      "title": "ترامب: سأبرم اتفاقاً دائماً مع إيران",
-      "tag": "اقتصاد",
-      "src": "CNN Business Arabic",
-      "date": "2026-11-21T16:40:00Z",
-      "url": "https://cnnbusinessarabic.com/sectors/1153131/%D8%AA%D8%B1%D8%A7%D9%85%D8%A8-%D8%B3%D8%A3%D8%A8%D8%B1%D9%85-%D8%A7%D8%AA%D9%81%D8%A7%D9%82%D8%A7-%D8%AF%D8%A7%D8%A6%D9%85%D8%A7-%D9%85%D8%B9-%D8%A5%D9%8A%D8%B1%D8%A7%D9%86",
-      "priority": 2,
-      "language": "ar",
-      "image": "https://cnnbusinessarabic.com/businesscnn/uploads/images/2026/11/21/1712495.webp"
-    },
-    {
-      "id": "3ec7e560484ccbc1a963",
-      "title": "الاتحاد الأوروبي وإندونيسيا يوقعان اتفاقية تجارية بعد مفاوضات استمرت 10 سنوات",
-      "tag": "اقتصاد",
-      "src": "CNN Business Arabic",
-      "date": "2026-11-21T14:11:00Z",
-      "url": "https://cnnbusinessarabic.com/sectors/1153124/%D8%A7%D9%84%D8%A7%D8%AA%D8%AD%D8%A7%D8%AF-%D8%A7%D9%84%D8%A3%D9%88%D8%B1%D9%88%D8%A8%D9%8A-%D9%88%D8%A5%D9%86%D8%AF%D9%88%D9%86%D9%8A%D8%B3%D9%8A%D8%A7-%D9%8A%D9%88%D9%82%D8%B9%D8%A7%D9%86-%D8%A7%D8%AA%D9%81%D8%A7%D9%82%D9%8A%D8%A9-%D8%AA%D8%AC%D8%A7%D8%B1%D9%8A%D8%A9-%D8%A8%D8%B9%D8%AF-%D9%85%D9%81%D8%A7%D9%88%D8%B6%D8%A7%D8%AA-%D8%A7%D8%B3%D8%AA%D9%85%D8%B1%D8%AA-10-%D8%B3%D9%86%D9%88%D8%A7%D8%AA",
-      "priority": 2,
-      "language": "ar",
-      "image": "https://cnnbusinessarabic.com/businesscnn/uploads/images/2026/11/21/1712486.webp"
     }
   ],
   "source_count": 1,
