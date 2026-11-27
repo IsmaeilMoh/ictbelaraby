@@ -1,0 +1,28 @@
+{
+  "status": "ok",
+  "updatedAt": "2026-11-27T14:19:31.310482+00:00",
+  "events": [
+    {
+      "indicator": "jp-tokyo-core-cpi-yoy",
+      "title": "Tokyo Core CPI y/y",
+      "currency": "JPY",
+      "period": "2026-11",
+      "releaseAt": "2026-11-26T23:30:00+00:00",
+      "actual": 2.9,
+      "unit": "%",
+      "source": "Statistics Bureau of Japan",
+      "sourceUrl": "https://www.stat.go.jp/data/cpi/sokuhou/tsuki/index-t.html"
+    },
+    {
+      "indicator": "us-gdp-second",
+      "title": "Prelim GDP q/q",
+      "currency": "USD",
+      "period": "2026-Q3",
+      "releaseAt": "2026-11-25T13:30:00+00:00",
+      "actual": 4.3,
+      "unit": "%",
+      "source": "BEA",
+      "sourceUrl": "https://www.bea.gov/news/2026/gdp-second-estimate-and-corporate-profits-3rd-quarter-2026"
+    }
+  ]
+}

@@ -18,6 +18,10 @@ const known={
 const absIndicators={
  'au-cpi-mom':'CPI m/m','au-cpi-yoy':'CPI y/y','au-trimmed-cpi-mom':'Trimmed Mean CPI m/m'
 };
+const exactIndicators={
+ 'us-gdp-second':{currency:'USD',source:'BEA',title:'Prelim GDP q/q'},
+ 'jp-tokyo-core-cpi-yoy':{currency:'JPY',source:'Statistics Bureau of Japan',title:'Tokyo Core CPI y/y'}
+};
 const beaIndicators=new Set(['core-pce-mom','personal-income-mom','personal-spending-mom']);
 const storageKey='ict-consensus-snapshots-v6848';
 let calendar=[],snapshots={};
@@ -27,6 +31,10 @@ function parsed(raw){const m=normal(raw).replace(/,/g,'').match(/^([+-]?(?:\d+(?
 function monthAfter(period){if(!/^20\d\d-(0[1-9]|1[0-2])$/.test(String(period)))return null;const [y,m]=period.split('-').map(Number);return m===12?`${y+1}-01`:`${y}-${String(m+1).padStart(2,'0')}`}
 function releaseMonth(date){return validTime(date)?new Date(date).toISOString().slice(0,7):null}
 function matches(ev,obs){
+ const exact=exactIndicators[obs?.indicator];
+ if(exact)return ev&&obs.source===exact.source&&obs.currency===exact.currency&&
+  String(ev.country||ev.currency||'').toUpperCase()===exact.currency&&normal(ev.title).toLowerCase()===exact.title.toLowerCase()&&
+  validTime(obs.releaseAt)&&Date.parse(obs.releaseAt)===Date.parse(ev.date);
  if(obs?.source==='ABS')return String(ev?.country||ev?.currency||'').toUpperCase()==='AUD'&&obs.currency==='AUD'&&
   Object.hasOwn(absIndicators,obs.indicator)&&normal(ev.title).toLowerCase()===absIndicators[obs.indicator].toLowerCase()&&
   validTime(obs.releaseAt)&&Date.parse(obs.releaseAt)===Date.parse(ev.date);
@@ -78,11 +86,12 @@ function resultFor(ev,observations=[],time=Date.now()){
  const stamp=Date.parse(ev.date);
  const currency=String(ev.currency||ev.country||'').toUpperCase();
  const key=eventKey(ev);
-  const indicator=currency==='USD'?indicators.find(id=>known[id].some(pattern=>pattern.test(normal(ev.title)))):
-   currency==='AUD'?Object.keys(absIndicators).find(id=>absIndicators[id].toLowerCase()===normal(ev.title).toLowerCase()):null;
+  const exact=Object.keys(exactIndicators).find(id=>exactIndicators[id].currency===currency&&exactIndicators[id].title.toLowerCase()===normal(ev.title).toLowerCase());
+  const indicator=exact||(currency==='USD'?indicators.find(id=>known[id].some(pattern=>pattern.test(normal(ev.title)))):
+   currency==='AUD'?Object.keys(absIndicators).find(id=>absIndicators[id].toLowerCase()===normal(ev.title).toLowerCase()):null);
   const obs=indicator?observations.find(o=>o&&o.indicator===indicator&&o.unit&&matches(ev,o)&&
    o.actual!==null&&o.actual!==''&&Number.isFinite(Number(o.actual))&&
-   (currency==='AUD'?o.source==='ABS':beaIndicators.has(indicator)?o.source==='BEA':o.source==='BLS')):null;
+   (exact?o.source===exactIndicators[exact].source:currency==='AUD'?o.source==='ABS':beaIndicators.has(indicator)?o.source==='BEA':o.source==='BLS')):null;
   const isFuture=stamp>time;
   const official=!isFuture&&Boolean(obs);
   const calendarActual=parsed(ev.actual);
