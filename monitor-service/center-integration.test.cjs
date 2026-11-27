@@ -75,3 +75,36 @@ assert.doesNotMatch(html,/id="dc-quality"/,'entry qualification needs no new con
 assert.doesNotMatch(decision,/res\.opportunities=res\.opportunities\.filter\(api\.qualifiesFocused\)/);
 assert.match(decision,/displayCompleteModels:true,includeTurtleSoup:true,includeIfvg:true/);
 assert.match(decision,/const plans=res\.opportunities\.filter\(plan=>api\.qualifiesFocused\(plan\)/);
+
+async function testCalendarWeekSelection(){
+ const app=read('app.js');
+ let time=Date.parse('2026-11-27T10:00:00Z');
+ class Clock extends Date {
+  constructor(...args){super(...(args.length?args:[time]));}
+  static now(){return time;}
+ }
+ const feeds={};
+ const calendar=vm.createContext({Date:Clock,S:{calendarWeek:'current'},load:async url=>feeds[url.split('?')[0]]});
+ vm.runInContext(app.slice(app.indexOf('function normalizeEvent('),app.indexOf('// In-page reminders')),calendar);
+ const payload=(weekStart,date)=>({weekStart,updatedAt:new Date(time).toISOString(),coverage:'full',events:[{title:'Release',date}]});
+ const current=()=>calendar.calendarView('current');
+ feeds['calendar-live.json']=payload('2026-11-16','2026-11-20T13:30:00Z');
+ await calendar.fetchLiveCalendar();
+ assert.equal(current().status,'unavailable','a new timestamp cannot validate the wrong week');
+ feeds['calendar-live.json']=payload('2026-11-23','2026-11-27T13:30:00Z');
+ feeds['calendar-live.json'].events.push({title:'Outside the reported week',date:'2026-11-30T13:30:00Z'});
+ await calendar.fetchLiveCalendar();
+ assert.equal(current().status,'fresh');
+ assert.equal(current().coverage,'partial');
+ assert.equal(current().events.length,1);
+ time+=25*3600000;
+ assert.equal(current().status,'stale','an open page recalculates freshness');
+ feeds['calendar-next.json']=payload('2026-11-30','2026-11-30T13:30:00Z');
+ await calendar.fetchNextCalendar();
+ assert.equal(calendar.calendarView('next').events.length,1);
+ time=Date.parse('2026-11-29T22:30:00Z');
+ assert.equal(current().week,'2026-11-30','switch weeks at midnight in Gaza');
+ assert.equal(current().events.length,1,'reuse a matching feed after the week changes');
+ console.log('Calendar week identity, partial coverage, tab freshness and local rollover: PASS');
+}
+testCalendarWeekSelection().catch(error=>{console.error(error);process.exitCode=1;});

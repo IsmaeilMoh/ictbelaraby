@@ -16,7 +16,7 @@ function render(result){report.replaceChildren();const warn=el('p','cm-warning',
  }
  async function run(){exportable=null;report.replaceChildren();$('cm-run').disabled=true;status.textContent='جارٍ جلب الشموع المكتملة واختبار النموذج المركب…';try{const s=symbol.value,m=market.value,tf=frame.value;let rows,src;
  if(m==='crypto'){if(!window.ICTLiveFeed)throw Error('موصل Bybit غير متاح');rows=await window.ICTLiveFeed.fetchHistory({symbol:s,interval:tf,limit:800});src='Bybit V5 / USDT perpetual'}else{if(!window.ICTPublicMarkets)throw Error('موصل الأسواق التقليدية غير متاح');const ins=window.ICTPublicMarkets.resolve(m,s);rows=await window.ICTPublicMarkets.get(ins,{'5':'5min','15':'15min','60':'1h'}[tf]);src=ins.source||'Biquote'}
- if(!window.ICTCompositeValidation4C||!window.ICTStructureEngine)throw Error('محرك 2D أو محرك 4C المركب غير متاح');
+ if(!window.ICTCompositeValidation4C||!window.ICTStructureEngine)throw Error('تعذر تحميل أدوات اختبار النموذج. حدّث الصفحة وحاول مجددًا.');
  const closed=(rows||[]).filter(c=>c.confirmed===true);const result=window.ICTCompositeValidation4C.validate(closed,tf,{costR:Number(cost.value)});
  exportable={schema:'ICT-4C-Composite-Research-v1',timestamp:new Date().toISOString(),symbol:s,market:m,frame:tf,source:src,completedCandles:closed.length,result};render(result);status.textContent='انتهى الفحص: '+result.candidates.length+' نموذجًا مركبًا مرصودًا في '+result.coverage.bars+' شمعة متصلة. '+(result.status==='insufficient_evidence'?'الدليل غير كافٍ.':'النتائج بحثية فقط.');
  }catch(e){status.textContent='تعذر اختبار النموذج: '+(e&&e.message||'خطأ غير معروف')+' — لم تُنشأ بيانات افتراضية.'}finally{$('cm-run').disabled=false}}

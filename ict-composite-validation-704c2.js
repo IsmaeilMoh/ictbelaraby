@@ -31,7 +31,7 @@ function classify(candidate,bars,formedIndex){const {direction,entry,stop,target
  return {...candidate,outcome,reason,entryAt:active<0?null:bars[active].start,evaluatedThrough:bars[checked]?.start??candidate.formedAt};
 }
 function derive(candles,frame,now=Date.now()){
- if(!structure||!structure.analyze||!structure.normalize)throw Error('محرك هيكل السوق 2D غير متاح');
+ if(!structure||!structure.analyze||!structure.normalize)throw Error('تعذّر تجهيز بيانات الاختبار.');
  const parsed=structure.normalize(candles,frame,now);if(parsed.rows.length<35)throw Error('نحتاج 35 شمعة مكتملة على الأقل');
  const analysis=structure.analyze(candles,frame,{pivot:RULES.pivot,now});
  const bars=parsed.segments.at(-1)||[],index=new Map(bars.map((c,i)=>[c.start,i]));

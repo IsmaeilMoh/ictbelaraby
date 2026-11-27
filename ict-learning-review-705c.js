@@ -23,7 +23,7 @@ function mount(){const replayRoot=$('ict-replay-5b');if(!replayRoot||!$('app')?.
  const s=document.createElement('section');s.id='ict-learning-5c';s.className='ict-learning5c card';s.setAttribute('aria-label','دراسات الحالات وتقييم القرارات');
  s.innerHTML=`<div class="ict-learning5c-head"><span>ICT ACADEMY · 5C</span><h2>مراجعة قراراتك — من الحالة إلى الدرس</h2><p>وثّق لماذا اتخذت القرار قبل رؤية المستقبل، ثم راجع نتيجته دون الخلط بين الربح وجودة التنفيذ. الحالات المحفوظة على هذا الجهاز فقط.</p></div>
  <div class="ict-learning5c-metrics" id="ict-lr-metrics"></div>
- <div class="ict-learning5c-grid"><div class="ict-learning5c-panel"><h3>مراجعة قرار من المحاكي 5B</h3><label>القرار المسجل خلال الجلسة<select id="ict-lr-decisions"></select></label><p id="ict-lr-current" role="status">ابدأ المحاكاة وسجّل قرارًا أولًا.</p>
+ <div class="ict-learning5c-grid"><div class="ict-learning5c-panel"><h3>مراجعة قرار من محاكي الشموع</h3><label>القرار المسجل خلال الجلسة<select id="ict-lr-decisions"></select></label><p id="ict-lr-current" role="status">ابدأ المحاكاة وسجّل قرارًا أولًا.</p>
  <label>النموذج الذي كنت تراقبه<select id="ict-lr-model">${labelOptions(models)}</select></label>
  <fieldset><legend>الأدلة المتوفرة وقت اتخاذ القرار (تقييم ذاتي)</legend><label><input type="checkbox" id="ict-lr-liq"> مستوى سيولة معروف</label><label><input type="checkbox" id="ict-lr-mss"> تأكيد هيكل السوق</label><label><input type="checkbox" id="ict-lr-risk"> إبطال ومخاطرة محددان</label></fieldset>
  <label>أبرز خطأ أو نقطة تحسين<select id="ict-lr-error">${labelOptions(errors)}</select></label>
@@ -38,7 +38,7 @@ function mount(){const replayRoot=$('ict-replay-5b');if(!replayRoot||!$('app')?.
  $('ict-lr-decisions').addEventListener('change',()=>{chosen=getValue('ict-lr-decisions');$('ict-lr-feedback').textContent='';updateDecisions()});
  $('ict-lr-save').addEventListener('click',save);
  $('ict-lr-export').addEventListener('click',exportJSON);
- $('ict-lr-clear').addEventListener('click',()=>{if(!confirm('حذف مراجعات المرحلة 5C المخزنة في هذا المتصفح فقط؟'))return;localStorage.removeItem(STORE);renderSummary()});
+ $('ict-lr-clear').addEventListener('click',()=>{if(!confirm('حذف مراجعات القرارات المخزنة في هذا المتصفح فقط؟'))return;localStorage.removeItem(STORE);renderSummary()});
  renderQuiz();updateDecisions();renderSummary();
 }
 function save(){const d=decisions().find(x=>keyOf(x)===chosen);if(!d)return;
@@ -55,7 +55,7 @@ function renderQuiz(){const e=exercises[qSelected],box=$('ict-lr-quiz');if(!box)
 function renderSummary(){if(!$('ict-lr-metrics'))return;const arr=read(),n=arr.length,avg=n?(arr.reduce((a,x)=>a+(Number(x.score)||0),0)/n).toFixed(1):'—';const errorsCount={};arr.forEach(x=>{if(x.error&&x.error!=='none')errorsCount[x.error]=(errorsCount[x.error]||0)+1});const worst=Object.entries(errorsCount).sort((a,b)=>b[1]-a[1])[0];
  $('ict-lr-metrics').innerHTML=`<span><b>${n}</b> مراجعة محفوظة</span><span><b>${avg}</b> / 3 متوسط الأدلة الموثّقة ذاتيًا</span><span><b>${worst?esc(errors.find(x=>x[0]===worst[0])?.[1]||worst[0]):'لا يوجد'}</b> أكثر نقطة تحتاج متابعة</span>`;
  $('ict-lr-list').innerHTML=arr.length?`<div class="ict-learning5c-records">${arr.slice(-12).reverse().map(x=>`<div><strong>${esc(x.key)} · ${esc(x.side==='buy'?'شراء':x.side==='sell'?'بيع':'انتظار')}</strong><small>${esc(fmt(x.decisionAt))} · ${esc(x.model)} · ${x.score}/3</small><p>${esc(x.note)}</p><small>الملاحظة عند الحفظ: ${esc(x.observedOutcome||'غير محدد')}</small></div>`).join('')}</div>`:'<p class="ict-learning5c-muted">لا توجد مراجعات محفوظة بعد. شغّل محاكي 5B واتخذ قرارًا ثم احفظ مراجعته هنا.</p>';
- try{const obj=JSON.parse(localStorage.getItem('ict-cases-reviewed-704b')||'{}');const values=Object.values(obj);$('ict-lr-archive').textContent=`أرشيف 4B على هذا الجهاز: ${values.length} مراجعة، منها ${values.filter(v=>v?.review==='confirmed').length} مراجعة موسومة يدويًا بأنها مستوفية لشروط نموذج. لا تدخل هذه الأعداد في درجة 5C.`}catch(_){$('ict-lr-archive').textContent='لا تتوفر مراجعات أرشيف 4B محليًا.'}
+ try{const obj=JSON.parse(localStorage.getItem('ict-cases-reviewed-704b')||'{}');const values=Object.values(obj);$('ict-lr-archive').textContent=`الحالات التاريخية على هذا الجهاز: ${values.length} مراجعة، منها ${values.filter(v=>v?.review==='confirmed').length} مراجعة موسومة يدويًا بأنها مستوفية لشروط نموذج. لا تدخل هذه الأعداد في درجة 5C.`}catch(_){$('ict-lr-archive').textContent='لا تتوفر مراجعات الحالات التاريخية محليًا.'}
 }
 function exportJSON(){const doc={schema:'ICT-Academy-5C-v1',exportedAt:new Date().toISOString(),timezone:'America/New_York',note:'Self-reported educational reviews, not live trades or verified signals.',reviews:read()};const blob=new Blob([JSON.stringify(doc,null,2)],{type:'application/json'}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download='ICT_Arabic_Academy_5C_Reviews.json';document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),1000)}
 document.addEventListener('ict-replay-5b-state',event=>{const x=event.detail||{};replay={key:x.key||'',history:Array.isArray(x.history)?x.history:[],shownAt:x.shownAt??null};if($('ict-learning-5c'))updateDecisions()});

@@ -24,7 +24,7 @@ function displacementEvidence(candidate,bars,index){const i=index.get(candidate.
 function summarize(rows,costR,rr){const wins=rows.filter(r=>r.outcome==='win').length,losses=rows.filter(r=>r.outcome==='loss').length,settled=wins+losses,net=(wins*rr-losses)-(settled*costR);return {total:rows.length,settled,wins,losses,misses:rows.filter(r=>r.outcome==='miss').length,invalid:rows.filter(r=>r.outcome==='invalid').length,uncertain:rows.filter(r=>r.outcome==='uncertain').length,winRate:settled?wins/settled*100:null,avgR:settled?net/settled:null,netR:settled?net:null}}
 function evalRows(rows,costR,rr){rows=rows.slice().sort((a,b)=>a.formedAt-b.formedAt);const cut=Math.max(1,Math.floor(rows.length*.7)),testStart=rows[cut]?.formedAt??null,raw=rows.slice(0,cut),train=testStart==null?[]:raw.filter(r=>r.evaluatedThrough<testStart),test=rows.slice(cut);const tr=summarize(train,costR,rr),te=summarize(test,costR,rr);return {train:tr,test:te,purged:raw.length-train.length,testStart,status:tr.settled>=10&&te.settled>=10?'exploratory_only':'insufficient_evidence',candidates:rows}}
 function validate(candles,frame,opts={}){
- if(!base||!base.derive||!structure||!structure.normalize)throw Error('يجب تحميل محركي 2D و4C.2 قبل 4C.3');
+ if(!base||!base.derive||!structure||!structure.normalize)throw Error('تعذّر تجهيز بيانات الاختبار.');
  const costR=Number(opts.costR??.1),now=Number(opts.now??Date.now());if(!num(costR)||costR<0||costR>2)throw Error('التكلفة يجب أن تكون بين 0 و2 R');
  const scan=base.derive(candles,frame,now),parsed=structure.normalize(candles,frame,now),bars=parsed.segments.at(-1)||[],index=new Map(bars.map((b,i)=>[b.start,i]));
  const silver=scan.candidates.filter(silverBulletMatch).map(r=>({...r,model:'silver-bullet'}));

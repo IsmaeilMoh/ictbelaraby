@@ -14,7 +14,7 @@ function stats(arr,costR){const settled=arr.filter(x=>x.status==='win'||x.status
 function validate(rows,opts){opts=opts||{};const costR=Number(opts.costR??0.10),fraction=Number(opts.trainFraction??0.7),minimum=Number(opts.minSample??10);
  if(!finite(costR)||costR<0||costR>2)throw Error('تكلفة R يجب أن تكون بين 0 و2');if(!finite(fraction)||fraction<0.5||fraction>0.85)throw Error('تقسيم التدريب غير صالح');
  const sorted=(rows||[]).slice().sort((a,b)=>a.detectedAt-b.detectedAt);if(!sorted.length)return {version:VERSION,method:METHOD,status:'no_data',train:stats([],costR),test:stats([],costR),costR,groups:[],notes:['لا توجد حالات FVG من شموع مكتملة']};
- for(let i=0;i<sorted.length;i++){const x=sorted[i];if(!finite(x.detectedAt)||!['win','loss','miss','uncertain'].includes(x.status)||x.method!==METHOD||x.modelValidated!==false||(i&&x.detectedAt===sorted[i-1].detectedAt&&x.dir===sorted[i-1].dir))throw Error('حالات البحث لا تطابق تعريف 4B أو تحتوي تكرارًا')}
+ for(let i=0;i<sorted.length;i++){const x=sorted[i];if(!finite(x.detectedAt)||!['win','loss','miss','uncertain'].includes(x.status)||x.method!==METHOD||x.modelValidated!==false||(i&&x.detectedAt===sorted[i-1].detectedAt&&x.dir===sorted[i-1].dir))throw Error('تعذّر تجهيز بيانات الاختبار.')}
  const firstTest=Math.max(1,Math.floor(sorted.length*fraction));const testStart=sorted[firstTest]?.detectedAt;
  // Purge any training observation whose label can use candles from the validation period.
  const train=sorted.slice(0,firstTest).filter(x=>x.closedAt!=null&&testStart!=null&&x.closedAt<testStart);

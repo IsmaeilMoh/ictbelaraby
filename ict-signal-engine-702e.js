@@ -19,7 +19,7 @@ function researchState(bars,formedIndex,direction,zone,stop,ms){
  return state;
 }
 function evaluate(candles,frame,opts={}){
- if(!structure)throw Error('محرك 2D غير محمّل');const analysis=structure.analyze(candles,frame,{...opts,fullEvidence:true,allowInsufficient:opts.displayCompleteModels}),normalized=structure.normalize(candles,frame,opts.now||Date.now());
+ if(!structure)throw Error('تعذّر تحميل أداة هيكل السوق.');const analysis=structure.analyze(candles,frame,{...opts,fullEvidence:true,allowInsufficient:opts.displayCompleteModels}),normalized=structure.normalize(candles,frame,opts.now||Date.now());
  const bars=normalized.segments.at(-1)||[],ms=structure.FRAME_MS[String(frame)];
  if(!analysis.eligible)return {analysis,modelCount:0,models:[],reason:'الفترة الأخيرة لا تحتوي شموعًا متصلة كافية'};
  const indexes=new Map(bars.map((b,i)=>[b.start,i]));const events=analysis.events.filter(x=>indexes.has(x.at)),zones=analysis.zones.filter(x=>indexes.has(x.at));const models=[];const seen=new Set();

@@ -69,13 +69,13 @@ def main():
         match=re.search(r'const CORE\s*=\s*(\[[^;]*\]);',text,re.S)
         if match:
             try:
-                entries=re.findall(r"'([^']+)'",match.group(1))
+                entries=json.loads(match.group(1))
                 dup=[k for k,c in collections.Counter(entries).items() if c>1]
                 if dup:errors.append(f'sw.js: duplicate precache paths: {dup}')
                 for ref in entries:
-                    target=ref.removeprefix('./')
+                    target=urlsplit(ref).path.removeprefix('./')
                     if target and not (ROOT/target).is_file():errors.append(f'sw.js: precache resource missing: {ref}')
-            except Exception as exc:warnings.append(f'Could not inspect service worker precache: {exc}')
+            except (TypeError, ValueError) as exc:errors.append(f'Could not inspect service worker precache: {exc}')
     print(f'Checked {len(htmls)} production HTML pages, {len(scripts)} JS files, {len(list(ROOT.glob("*.json")))} JSON files')
     for warning in warnings:print('WARNING:',warning)
     for error in errors:print('ERROR:',error)
