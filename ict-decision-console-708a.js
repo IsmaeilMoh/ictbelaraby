@@ -577,16 +577,19 @@ async function scanBatch(){
  node('p',modelType.selectedOptions[0].textContent+' · حالة النموذج: '+(phases[modelPhase.value]||'جميع الحالات')+' · اختر أصلًا منفردًا لمتابعة سعره.',results);
  const filterControls=node('div','',results);
  filterControls.hidden=true;
- const filters=node('div','',filterControls,'dc-form');
+ const filters=node('div','',filterControls,'dc-form dc-result-filters');
+ filters.setAttribute('role','group');
+ filters.setAttribute('aria-label','فلترة نتائج الفحص الجماعي');
  const addFilter=(label,all,options)=>{
   const select=node('select','',node('label',label,filters));
+  select.setAttribute('aria-label',label);
   node('option',all,select).value='';
   for(const option of options)node('option',option.textContent,select).value=option.value;
   return select;
  };
- const phaseFilter=addFilter('فلترة النتائج حسب الحالة','جميع الحالات',[...modelPhase.options].filter(o=>o.value));
- const frameFilter=addFilter('فلترة النتائج حسب إطار الدخول','كل الأطر الزمنية',[...frame.options].filter(o=>frames.includes(o.value)));
- const typeFilter=addFilter('فلترة النتائج حسب نوع النموذج','جميع النماذج',[...modelType.options].filter(o=>o.value));
+ const phaseFilter=addFilter('الحالة','جميع الحالات',[...modelPhase.options].filter(o=>o.value));
+ const frameFilter=addFilter('إطار الدخول','كل الأطر الزمنية',[...frame.options].filter(o=>frames.includes(o.value)));
+ const typeFilter=addFilter('نوع النموذج','جميع النماذج',[...modelType.options].filter(o=>o.value));
  const filterStatus=node('p','',filterControls,'dc-muted');
  filterStatus.setAttribute('role','status');
  const cards=[];
