@@ -108,3 +108,37 @@ async function testCalendarWeekSelection(){
  console.log('Calendar week identity, partial coverage, tab freshness and local rollover: PASS');
 }
 testCalendarWeekSelection().catch(error=>{console.error(error);process.exitCode=1;});
+
+async function testSharedMarketCatalog(){
+ let cryptoCalls=0,traditionalCalls=0;
+ const window={
+  ICTLiveFeed:{
+   SYMBOLS:['BTCUSDT'],
+   fetchPerpetuals:async()=>{
+    if(++cryptoCalls===1)throw Error('provider unavailable');
+    return [{symbol:'BTCUSDT'},{symbol:'ARBUSDT'}];
+   }
+  },
+  ICTPublicMarkets:{
+   listed:market=>market==='forex'?[['EURGBP','EURGBP']]:[],
+   loadCatalog:async()=>{
+    traditionalCalls++;
+    return {forex:[['EURGBP','EURGBP']],metals:[]};
+   }
+  }
+ };
+ vm.runInNewContext(read('ict-market-catalog.js'),{
+  window,document:{addEventListener(){},getElementById(){return null}},URLSearchParams
+ });
+ const catalog=window.ICTMarketCatalog;
+ await assert.rejects(catalog.loadCrypto(),/provider unavailable/);
+ assert.deepEqual(Array.from(catalog.list('crypto')),['BTCUSDT']);
+ await Promise.all([catalog.load('crypto'),catalog.loadCrypto()]);
+ assert.deepEqual(Array.from(catalog.list('crypto')),['BTCUSDT','ARBUSDT']);
+ assert.equal(cryptoCalls,2,'retry after outage and share the in-flight request');
+ assert.deepEqual(await Promise.all([catalog.load('forex'),catalog.load('metals')]),[true,false]);
+ assert.equal(traditionalCalls,1,'traditional categories share one catalogue request');
+ assert.equal(catalog.marketUrl('crypto','ARBUSDT'),'decision-center.html?market=crypto&symbol=ARBUSDT');
+ console.log('Shared market catalog, identity, request reuse and fallback: PASS');
+}
+testSharedMarketCatalog().catch(error=>{console.error(error);process.exitCode=1;});
