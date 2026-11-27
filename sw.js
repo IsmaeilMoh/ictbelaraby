@@ -1,5 +1,5 @@
 /* ICT بالعربي 6.8.74: prioritize the home offline shell; other pages cache when visited. */
-const CACHE='ict-shell-2026-11-27-center-rollback';
+const CACHE='ict-shell-2026-11-27-prototype-rollback';
 const PREFIX='ict-shell-';
 const CORE=[
  "./",
