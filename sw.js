@@ -1,5 +1,5 @@
 /* ICT بالعربي 6.8.74: prioritize the home offline shell; other pages cache when visited. */
-const CACHE='ict-shell-2026-11-27-home-tools';
+const CACHE='ict-shell-2026-11-27-desktop-navigation';
 const PREFIX='ict-shell-';
 const CORE=[
  "./",
@@ -76,9 +76,6 @@ const CORE=[
  "./ict-decision-center-708a.css?v=7.0.56-result-cards",
  "./ict-decision-console-708a.js?v=7.0.56-result-cards",
  "./ict-decision-engine-708a.js?v=7.0.45-prior-week",
- "./ict-desktop-more-7013.css?v=7.0.13",
- "./ict-desktop-more-7013.css?v=7.0.17-visual",
- "./ict-desktop-more-7013.js?v=7.0.55-tools-label",
  "./ict-economic-compare-706c.js?v=7.0.6c.1",
  "./ict-economic-compare-console-706c.css?v=7.0.6c.1",
  "./ict-economic-compare-console-706c.js?v=7.0.53-audit",
@@ -178,7 +175,7 @@ const CORE=[
  "./notify-luxury.js?v=6.8.30",
  "./ops-room-fix.css?v=6.8.5",
  "./platform.css?v=5.4.0",
- "./platform.js?v=5.4.0",
+ "./platform.js?v=5.4.1-navigation",
  "./push-config.js",
  "./push.js",
  "./recs-command-6916.css?v=6.9.17",
@@ -193,7 +190,7 @@ const CORE=[
  "./site-typography-nav-fix.css?v=6.8.31",
  "./site-unity.css?v=6.8.34",
  "./site-unity.css?v=6.9.19.4",
- "./site-unity.js?v=7.0.55-tools-label",
+ "./site-unity.js?v=7.0.58-navigation",
  "./site-visual-system.css?v=7.0.51-shared-design",
  "./smart-desk.html",
  "./smart-desk.js",
@@ -211,7 +208,7 @@ const CORE=[
  "./ui-icons.css?v=6.8.22",
  "./ui-icons.css?v=6.8.27",
  "./ui-icons.css?v=6.8.30",
- "./ui-icons.js?v=7.0.51-shared-design",
+ "./ui-icons.js?v=7.0.58-navigation",
  "./unified-theme.css?v=7.0.53-audit",
  "./unified-theme.js?v=6.8.31",
  "./value-engine-6918.css?v=6.9.18",
