@@ -157,3 +157,18 @@ testSharedMarketCatalog().catch(error=>{console.error(error);process.exitCode=1;
  assert.equal(bridge.resultFor(event,[{...official,releaseAt:'2026-11-25T14:30:00Z'}],releaseAt).stage,'awaiting');
  console.log('Agenda official reading source, time and previous value: PASS');
 }
+
+{
+ const window={};
+ vm.runInNewContext(read('economic-calendar-bridge.js'),{window});
+ const bridge=window.ICTCalendarConsensus;
+ const row={indicator:'au-cpi-yoy',source:'ABS',currency:'AUD',period:'2026-10',releaseAt:'2026-11-25T00:30:00Z',unit:'%',actual:4.9};
+ const rows=[row];
+ const release=Date.parse(row.releaseAt);
+ const event={title:'CPI y/y',currency:'AUD',date:row.releaseAt,forecast:'4.7%'};
+ assert.equal(bridge.resultFor(event,rows,release).actual,'4.9%');
+ assert.equal(bridge.resultFor(event,rows,release-1).stage,'upcoming');
+ assert.equal(bridge.resultFor({...event,currency:'NZD'},rows,release).stage,'awaiting');
+ assert.equal(bridge.resultFor({...event,date:new Date(release-60000).toISOString()},rows,release).stage,'awaiting');
+ console.log('ABS reading requires matching indicator, currency and release timestamp: PASS');
+}

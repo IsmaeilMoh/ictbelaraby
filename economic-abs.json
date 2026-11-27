@@ -1,0 +1,40 @@
+{
+  "source": "ABS",
+  "status": "ok",
+  "updatedAt": "2026-11-27T14:13:08.969802+00:00",
+  "events": [
+    {
+      "indicator": "au-trimmed-cpi-mom",
+      "title": "Trimmed Mean CPI m/m",
+      "currency": "AUD",
+      "period": "2026-10",
+      "releaseAt": "2026-11-25T00:30:00+00:00",
+      "actual": 0.5,
+      "unit": "%",
+      "source": "ABS",
+      "sourceUrl": "https://www.abs.gov.au/statistics/economy/price-indexes-and-inflation/consumer-price-index-australia/oct-2026"
+    },
+    {
+      "indicator": "au-cpi-yoy",
+      "title": "CPI y/y",
+      "currency": "AUD",
+      "period": "2026-10",
+      "releaseAt": "2026-11-25T00:30:00+00:00",
+      "actual": 4.9,
+      "unit": "%",
+      "source": "ABS",
+      "sourceUrl": "https://www.abs.gov.au/statistics/economy/price-indexes-and-inflation/consumer-price-index-australia/oct-2026"
+    },
+    {
+      "indicator": "au-cpi-mom",
+      "title": "CPI m/m",
+      "currency": "AUD",
+      "period": "2026-10",
+      "releaseAt": "2026-11-25T00:30:00+00:00",
+      "actual": 0.5,
+      "unit": "%",
+      "source": "ABS",
+      "sourceUrl": "https://www.abs.gov.au/statistics/economy/price-indexes-and-inflation/consumer-price-index-australia/oct-2026"
+    }
+  ]
+}

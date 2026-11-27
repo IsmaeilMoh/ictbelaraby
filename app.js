@@ -621,7 +621,7 @@ document.addEventListener('click',event=>{
 async function fetchOfficialEconomicResults(force=false){
  // Reload the same calendar data even when the BLS feed is temporarily unavailable.
  await window.ICTCalendarConsensus?.load().catch(()=>{});
- const feeds=await Promise.all([['economic-official.json','BLS'],['economic-bea.json','BEA']].map(async ([file,source])=>{
+ const feeds=await Promise.all([['economic-official.json','BLS'],['economic-bea.json','BEA'],['economic-abs.json','ABS']].map(async ([file,source])=>{
   try{
    const response=await fetch(file+'?t='+Date.now(),{cache:'no-store'});
    if(!response.ok)return null;
@@ -629,7 +629,8 @@ async function fetchOfficialEconomicResults(force=false){
    if(data?.source!==source||data.status!=='ok'||!Array.isArray(data.events))return null;
    return {updatedAt:data.updatedAt,events:data.events.filter(e=>e?.source===source&&e.period&&
     e.actual!==null&&e.actual!==''&&Number.isFinite(Number(e.actual))&&['%','K'].includes(e.unit)&&
-    (source!=='BEA'||['core-pce-mom','personal-income-mom','personal-spending-mom'].includes(e.indicator)&&Date.parse(e.releaseAt)<=Date.now()))};
+    (source==='BLS'||Date.parse(e.releaseAt)<=Date.now())&&
+    (source!=='ABS'||e.currency==='AUD'&&['au-cpi-mom','au-cpi-yoy','au-trimmed-cpi-mom'].includes(e.indicator)))};
   }catch{return null}
  }));
  const available=feeds.filter(Boolean);
@@ -653,7 +654,7 @@ function economicIntelligence(){
  const clusterCards=clusterReports.length?`<h2>قراءة التقارير الاقتصادية المتزامنة</h2>${reportOverview}<div class="intel-grid macro-report-grid">${clusterReports.map(x=>`<article class="intel-event macro-report-card"><div class="intel-event-top"><span class="intel-currency">${escapeHTML(x.currency)}</span><span class="intel-date">${escapeHTML(showDate(new Date(x.date),'date'))}</span></div><h3>${escapeHTML(x.headline)}</h3><ul class="macro-report-items">${x.items.map(i=>`<li><span>${escapeHTML(i.name)}</span><small>${escapeHTML(i.status)}</small></li>`).join('')}</ul><p class="intel-note">${escapeHTML(x.detail)}</p></article>`).join('')}</div>`:'';
  const newsStages=filterUi+clusterCards+(relevant.length?`<h2>الأخبار العالمية القادمة وحالة النتائج</h2><div class="notice">أخبار العملات المتاحة في أجندتك الحالية والأسبوع القادم. النتائج الرسمية تُعرض من BLS أو BEA للمؤشرات المدعومة. وتُذكر الأجندة كمصدر للنتائج التي تنقلها.</div><div class="intel-grid">${relevant.map(e=>`<article class="intel-event"><div class="intel-event-top"><span class="intel-currency">${escapeHTML(e.currency)}</span><span class="intel-impact">${e.impact==='high'?'تأثير مرتفع':e.impact==='medium'?'تأثير متوسط':e.impact==='low'?'تأثير منخفض':'تأثير غير محدد'}</span><span class="intel-impact">${e.stage==='upcoming'?'قادم':e.stage==='released'?'صدرت النتيجة':'بانتظار النتيجة'}</span><span class="intel-date">${escapeHTML(showDate(new Date(e.date),'date'))} · ${escapeHTML(showDate(new Date(e.date)))}</span></div><h3>${escapeHTML(e.title)}</h3><div class="intel-numbers"><div><small>السابق</small><strong dir="ltr">${escapeHTML(e.previous)}</strong></div><div><small>المتوقع</small><strong dir="ltr">${escapeHTML(e.forecast)}</strong></div><div><small>الفعلي</small><strong dir="ltr">${escapeHTML(e.actual)}</strong></div></div>${e.stage==='upcoming'?'<p class="intel-note">لم يحن موعد الخبر بعد.</p>':economicReading(e,eligible)}</article>`).join('')}</div>`:`<div class="notice">لا توجد حاليًا أحداث قادمة أو نتائج منتظرة في الأجندة الأسبوعية المتاحة. ${priority==='important'?'جرّب خيار «الكل» لعرض الأخبار الأقل تأثيرًا.':'تأكد من تحديث ملفات الأسبوع الحالي والقادم.'}</div>`);
  const officialBlock=official.length
-  ? `<div class="notice">نتائج رسمية أمريكية (BLS وBEA بحسب المؤشر) · آخر جلب ${escapeHTML(String(officialEconomicFeed.updatedAt||'غير متاح'))} · الفترة المكتوبة هي فترة الإحصاء لا موعد النشر. التوقعات تؤخذ من السجل التحريري الموثق أو من الأجندة الحالية عند تطابق الخبر والفترة؛ وتُميَّز التوقعات التي لم يُحفظ وقتها قبل الصدور.</div><div class="intel-grid">${officialIndicatorCards([...new Set(official.map(row=>row.indicator))].map(indicator=>official.find(row=>row.indicator===indicator)))}</div>`
+  ? `<div class="notice">نتائج رسمية بحسب المؤشر (BLS وBEA وABS) · آخر جلب ${escapeHTML(String(officialEconomicFeed.updatedAt||'غير متاح'))} · الفترة المكتوبة هي فترة الإحصاء لا موعد النشر. التوقعات تؤخذ من السجل التحريري الموثق أو من الأجندة الحالية عند تطابق الخبر والفترة؛ وتُميَّز التوقعات التي لم يُحفظ وقتها قبل الصدور.</div><div class="intel-grid">${officialIndicatorCards([...new Set(official.map(row=>row.indicator))].map(indicator=>official.find(row=>row.indicator===indicator)))}</div>`
   : `<div class="notice">لا تتوفر الآن نتائج رسمية محدثة. ستظهر تلقائيًا بعد نجاح مهمة GitHub الرسمية. لا نعرض أرقامًا افتراضية.</div>`;
 
  // Economic news is supplied by the site; no visitor uploads or private archives required.
