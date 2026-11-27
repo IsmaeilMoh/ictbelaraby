@@ -1,7 +1,29 @@
 {
-  "updated_at": "2026-11-27T19:37:23Z",
+  "updated_at": "2026-11-27T20:59:19Z",
   "mode": "rss-attributed",
   "items": [
+    {
+      "id": "4f919be5d95ec830f395",
+      "title": "جوهانسبرغ تنتخب هيرمان ماشابا عمدة باتفاق ائتلافي مدعوم بموازنة 5.8 مليار دولار",
+      "tag": "اقتصاد",
+      "src": "CNN Business Arabic",
+      "date": "2026-11-27T19:35:00Z",
+      "url": "https://cnnbusinessarabic.com/sectors/1153573/%D8%AC%D9%88%D9%87%D8%A7%D9%86%D8%B3%D8%A8%D8%B1%D8%BA-%D9%81%D9%8A-%D8%AC%D9%86%D9%88%D8%A8-%D8%A5%D9%81%D8%B1%D9%8A%D9%82%D9%8A%D8%A7-%D8%AA%D9%86%D8%AA%D8%AE%D8%A8-%D9%87%D9%8A%D8%B1%D9%85%D8%A7%D9%86-%D9%85%D8%A7%D8%B4%D8%A7%D8%A8%D8%A7-%D8%B9%D9%85%D8%AF%D8%A9-%D8%A8%D8%A7%D8%AA%D9%81%D8%A7%D9%82-%D8%A7%D8%A6%D8%AA%D9%84%D8%A7%D9%81%D9%8A-%D9%85%D8%AF%D8%B9%D9%88%D9%85-%D9%85%D9%86-%D8%AD%D8%B2%D8%A8-%D8%A7%D9%84%D9%85%D8%A4%D8%AA%D9%85%D8%B1-%D8%A7%D9%84%D9%88%D8%B7%D9%86%D9%8A",
+      "priority": 2,
+      "language": "ar",
+      "image": "https://cnnbusinessarabic.com/businesscnn/uploads/images/2026/11/27/1713089.webp"
+    },
+    {
+      "id": "64d1ba33dd219a599026",
+      "title": "حكم إيطالي يلزم «ريكيمونت» بإعادة توظيف 6 عمال في سابقة قضائية",
+      "tag": "اقتصاد",
+      "src": "CNN Business Arabic",
+      "date": "2026-11-27T19:13:00Z",
+      "url": "https://cnnbusinessarabic.com/sectors/1153572/%D8%AD%D9%83%D9%85-%D8%A5%D9%8A%D8%B7%D8%A7%D9%84%D9%8A-%D9%8A%D9%84%D8%B2%D9%85-%D8%B1%D9%8A%D9%83%D9%8A%D9%85%D9%88%D9%86%D8%AA-%D8%A8%D8%A5%D8%B9%D8%A7%D8%AF%D8%A9-%D8%AA%D9%88%D8%B8%D9%8A%D9%81-6-%D8%B9%D9%85%D8%A7%D9%84-%D9%81%D9%8A-%D8%B3%D8%A7%D8%A8%D9%82%D8%A9-%D9%82%D8%B6%D8%A7%D8%A6%D9%8A%D8%A9",
+      "priority": 2,
+      "language": "ar",
+      "image": "https://cnnbusinessarabic.com/businesscnn/uploads/images/2026/11/27/1713086.webp"
+    },
     {
       "id": "0b9acc35f43e324b278c",
       "title": "انبعاثات الكربون تضع شركات الصلب البريطانية في أزمة تنافسية أمام نظيرتها الأوربية",
@@ -364,28 +386,6 @@
       "priority": 2,
       "language": "ar",
       "image": "https://cnnbusinessarabic.com/businesscnn/uploads/images/2026/11/24/1712725.webp"
-    },
-    {
-      "id": "81cdb141f8f7b621d66a",
-      "title": "فرنسا تخطط لإنشاء مخزون استراتيجي من المعادن الأرضية النادرة",
-      "tag": "اقتصاد",
-      "src": "CNN Business Arabic",
-      "date": "2026-11-24T11:41:00Z",
-      "url": "https://cnnbusinessarabic.com/sectors/1153299/%D9%81%D8%B1%D9%86%D8%B3%D8%A7-%D8%AA%D8%AE%D8%B7%D8%B7-%D9%84%D8%A5%D9%86%D8%B4%D8%A7%D8%A1-%D9%85%D8%AE%D8%B2%D9%88%D9%86-%D8%A7%D8%B3%D8%AA%D8%B1%D8%A7%D8%AA%D9%8A%D8%AC%D9%8A-%D9%85%D9%86-%D8%A7%D9%84%D9%85%D8%B9%D8%A7%D8%AF%D9%86-%D8%A7%D9%84%D8%A3%D8%B1%D8%B6%D9%8A%D8%A9-%D8%A7%D9%84%D9%86%D8%A7%D8%AF%D8%B1%D8%A9",
-      "priority": 2,
-      "language": "ar",
-      "image": "https://cnnbusinessarabic.com/businesscnn/uploads/images/2026/11/24/1712713.webp"
-    },
-    {
-      "id": "fed822be407c30ca9317",
-      "title": "قيود أوروبية جديدة على السيارات الهجينة.. والصين تلوّح بالتصعيد",
-      "tag": "اقتصاد",
-      "src": "CNN Business Arabic",
-      "date": "2026-11-24T10:34:00Z",
-      "url": "https://cnnbusinessarabic.com/sectors/1153290/%D9%82%D9%8A%D9%88%D8%AF-%D8%A3%D9%88%D8%B1%D9%88%D8%A8%D9%8A%D8%A9-%D8%AC%D8%AF%D9%8A%D8%AF%D8%A9-%D8%B9%D9%84%D9%89-%D8%A7%D9%84%D8%B3%D9%8A%D8%A7%D8%B1%D8%A7%D8%AA-%D8%A7%D9%84%D9%87%D8%AC%D9%8A%D9%86%D8%A9-%D9%88%D8%A7%D9%84%D8%B5%D9%8A%D9%86-%D8%AA%D9%84%D9%88%D8%AD-%D8%A8%D8%A7%D9%84%D8%AA%D8%B5%D8%B9%D9%8A%D8%AF",
-      "priority": 2,
-      "language": "ar",
-      "image": "https://cnnbusinessarabic.com/businesscnn/uploads/images/2026/11/24/1712701.webp"
     }
   ],
   "source_count": 1,
