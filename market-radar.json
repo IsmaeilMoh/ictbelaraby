@@ -1,31 +1,108 @@
 {
-  "updatedAt": "2026-11-27T12:47:17.728653Z",
+  "updatedAt": "2026-11-27T14:06:12.057845Z",
   "source": "Yahoo Finance public chart feed (unofficial)",
   "intervalMinutes": 5,
   "windowBasis": "5-minute chart close comparisons",
   "isRealtime": false,
   "items": [
     {
+      "symbol": "EURUSD",
+      "label": "يورو / دولار",
+      "category": "forex",
+      "proxy": false,
+      "quotedAt": "2026-11-27T14:05:46Z",
+      "price": 1.09541023,
+      "5": 0.0,
+      "15": 0.0,
+      "60": -0.04382
+    },
+    {
+      "symbol": "GBPUSD",
+      "label": "جنيه / دولار",
+      "category": "forex",
+      "proxy": false,
+      "quotedAt": "2026-11-27T14:05:46Z",
+      "price": 1.31185389,
+      "5": -0.00919,
+      "15": -0.0223,
+      "60": -0.02624
+    },
+    {
+      "symbol": "USDJPY",
+      "label": "دولار / ين",
+      "category": "forex",
+      "proxy": false,
+      "quotedAt": "2026-11-27T14:06:10Z",
+      "price": 159.55700684,
+      "5": 0.01003,
+      "15": 0.01192,
+      "60": 0.01693
+    },
+    {
+      "symbol": "USDCHF",
+      "label": "دولار / فرنك",
+      "category": "forex",
+      "proxy": false,
+      "quotedAt": "2026-11-27T14:06:09Z",
+      "price": 0.83552998,
+      "5": 0.02514,
+      "15": 0.03233,
+      "60": -0.01556
+    },
+    {
+      "symbol": "USDCAD",
+      "label": "دولار / كندي",
+      "category": "forex",
+      "proxy": false,
+      "quotedAt": "2026-11-27T14:06:11Z",
+      "price": 1.42408001,
+      "5": 0.01826,
+      "15": -0.00211,
+      "60": -0.02106
+    },
+    {
       "symbol": "AUDUSD",
       "label": "أسترالي / دولار",
       "category": "forex",
       "proxy": false,
-      "quotedAt": "2026-11-27T12:45:44Z",
-      "price": 0.66720039,
-      "5": -0.04003,
-      "15": -0.01335,
-      "60": 0.02001
+      "quotedAt": "2026-11-27T14:05:46Z",
+      "price": 0.66635573,
+      "5": -0.01333,
+      "15": -0.00666,
+      "60": -0.09329
     },
     {
       "symbol": "NZDUSD",
       "label": "نيوزيلندي / دولار",
       "category": "forex",
       "proxy": false,
-      "quotedAt": "2026-11-27T12:45:44Z",
-      "price": 0.54881728,
-      "5": -0.01647,
-      "15": 0.01097,
-      "60": 0.03293
+      "quotedAt": "2026-11-27T14:05:46Z",
+      "price": 0.54788518,
+      "5": -0.02192,
+      "15": 0.00548,
+      "60": -0.06574
+    },
+    {
+      "symbol": "BTCUSD",
+      "label": "Bitcoin",
+      "category": "crypto",
+      "proxy": false,
+      "quotedAt": "2026-11-27T14:06:08Z",
+      "price": 61382.6484375,
+      "5": -0.02456,
+      "15": -0.15469,
+      "60": -0.10673
+    },
+    {
+      "symbol": "ETHUSD",
+      "label": "Ethereum",
+      "category": "crypto",
+      "proxy": false,
+      "quotedAt": "2026-11-27T14:06:06Z",
+      "price": 1721.60998535,
+      "5": -0.08763,
+      "15": -0.28727,
+      "60": 0.08837
     }
   ]
 }
