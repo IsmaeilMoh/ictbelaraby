@@ -128,15 +128,7 @@
   document.querySelectorAll('.go-home,.ws-back,.back').forEach(a=>prependOnce(a,'uii-backbox',boxed('back','uii-inlinebox')));
 
   document.querySelectorAll('.ict54-hub-links a').forEach(a=>{
-    let key='more'; const href=a.getAttribute('href')||'';
-    if(href.includes('#home')) key='home';
-    else if(href.includes('workspace')) key='workspace';
-    else if(href.includes('intelligence')) key='intelligence';
-    else if(href.includes('research')) key='research';
-    else if(href.includes('smart-desk')) key='smartdesk';
-    else if(href.includes('#recs')) key='recs';
-    else if(href.includes('#agenda')) key='agenda';
-    prependOnce(a,'uii-hublink',boxed(key,'ict54-link-icon'));
+    prependOnce(a,'uii-hublink',boxed(a.dataset.navIcon||'more','ict54-link-icon'));
   });
 
   const tabMap={dashboard:'dashboard',guardian:'guardian',checklist:'checklist',radar:'radar',xray:'xray',news:'news',strategy:'strategy',replay:'replay',patterns:'patterns',live:'live',dna:'dna',assistant:'assistant'};
