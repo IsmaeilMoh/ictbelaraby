@@ -27,3 +27,17 @@ class BeaTest(TestCase):
         for html in [HTML.replace('0.0', '—'), HTML + HTML[HTML.index('<table>'):]]:
             with self.assertRaises(ValueError):
                 parse_release(html, PERIOD, RELEASE, 'https://www.bea.gov/')
+
+    def test_personal_income_and_spending_use_their_own_rows(self):
+        table = HTML.replace('</table>', '''
+<tr><th>Personal income</th><td>0.4</td><td>0.5</td></tr>
+<tr><th>Personal consumption expenditures</th><td>0.2</td><td>0.3</td></tr>
+</table>''')
+        for indicator, expected in [('personal-income-mom', (0.5, 0.4)),
+                                    ('personal-spending-mom', (0.3, 0.2))]:
+            with self.subTest(indicator=indicator):
+                row = parse_release(table, PERIOD, RELEASE, 'https://www.bea.gov/', indicator)
+                self.assertEqual((row['actual'], row['previous']), expected)
+                self.assertEqual(row['indicator'], indicator)
+                with self.assertRaises(ValueError):
+                    parse_release(HTML, PERIOD, RELEASE, 'https://www.bea.gov/', indicator)

@@ -6,6 +6,8 @@
 'use strict';
 const known={
  'core-pce-mom':[/^core pce price index m\/m$/i],
+ 'personal-income-mom':[/^personal income m\/m$/i],
+ 'personal-spending-mom':[/^personal spending m\/m$/i],
  'cpi-yoy':[/^cpi y\/y$/i,/^headline cpi y\/y$/i],
  'cpi-mom':[/^cpi m\/m$/i,/^headline cpi m\/m$/i],
  'core-cpi-mom':[/^core cpi m\/m$/i],
@@ -13,6 +15,7 @@ const known={
  'payroll-change':[/^non-farm employment change$/i,/^nonfarm payrolls$/i,/^non-farm payrolls$/i],
  'ppi-mom':[/^ppi m\/m$/i,/^producer price index m\/m$/i]
 };
+const beaIndicators=new Set(['core-pce-mom','personal-income-mom','personal-spending-mom']);
 const storageKey='ict-consensus-snapshots-v6848';
 let calendar=[],snapshots={};
 function normal(s){return String(s??'').trim().replace(/\s+/g,' ')}
@@ -20,7 +23,7 @@ function validTime(s){return typeof s==='string'&&Number.isFinite(Date.parse(s))
 function parsed(raw){const m=normal(raw).replace(/,/g,'').match(/^([+-]?(?:\d+(?:\.\d+)?|\.\d+))\s*(%|K|M|B|T)?$/i);if(!m)return null;const n=Number(m[1]),u=(m[2]||'').toUpperCase();return Number.isFinite(n)?{value:n,unit:u}:null}
 function monthAfter(period){if(!/^20\d\d-(0[1-9]|1[0-2])$/.test(String(period)))return null;const [y,m]=period.split('-').map(Number);return m===12?`${y+1}-01`:`${y}-${String(m+1).padStart(2,'0')}`}
 function releaseMonth(date){return validTime(date)?new Date(date).toISOString().slice(0,7):null}
-function matches(ev,obs){return ev&&obs&&obs.currency==='USD'&&String(ev.country||ev.currency||'').toUpperCase()==='USD'&&known[obs.indicator]?.some(r=>r.test(normal(ev.title)))&&(obs.indicator==='core-pce-mom'?obs.source==='BEA'&&validTime(obs.releaseAt)&&Date.parse(obs.releaseAt)===Date.parse(ev.date):obs.source!=='BEA'&&releaseMonth(ev.date)===monthAfter(obs.period))}
+function matches(ev,obs){return ev&&obs&&obs.currency==='USD'&&String(ev.country||ev.currency||'').toUpperCase()==='USD'&&known[obs.indicator]?.some(r=>r.test(normal(ev.title)))&&(beaIndicators.has(obs.indicator)?obs.source==='BEA'&&validTime(obs.releaseAt)&&Date.parse(obs.releaseAt)===Date.parse(ev.date):obs.source!=='BEA'&&releaseMonth(ev.date)===monthAfter(obs.period))}
 function unitOK(v,obs){return v&&(obs.unit==='%'?v.unit==='%':obs.unit==='K'?v.unit==='K':'')}
 function eventKey(ev){return String(ev.date)+'|'+normal(ev.title)+'|'+String(ev.country||ev.currency)}
 function readSnapshots(){try{const obj=JSON.parse(root.localStorage?.getItem(storageKey)||'{}');return obj&&typeof obj==='object'&&!Array.isArray(obj)?obj:{}}catch{return {}}}
@@ -45,7 +48,7 @@ function interpretation(obs){const c=comparison(obs);if(!c)return 'لا يمكن
 // 6.8.50: global release lifecycle. Calendar facts are always labelled as calendar data;
 // official observations are used only when their indicator, period and source match.
 const indicators=Object.keys(known);
-const labels={'core-pce-mom':'Core PCE الأساسي الشهري','cpi-yoy':'CPI العام السنوي','cpi-mom':'CPI العام الشهري','core-cpi-mom':'CPI الأساسي الشهري','unemployment':'معدل البطالة','payroll-change':'الوظائف غير الزراعية','ppi-mom':'أسعار المنتجين الشهرية'};
+const labels={'personal-income-mom':'الدخل الشخصي الشهري','personal-spending-mom':'الإنفاق الشخصي الشهري','core-pce-mom':'Core PCE الأساسي الشهري','cpi-yoy':'CPI العام السنوي','cpi-mom':'CPI العام الشهري','core-cpi-mom':'CPI الأساسي الشهري','unemployment':'معدل البطالة','payroll-change':'الوظائف غير الزراعية','ppi-mom':'أسعار المنتجين الشهرية'};
 function differenceOf(actual,forecast){
  const a=parsed(actual),f=parsed(forecast);
  if(!a||!f||a.unit!==f.unit)return null;
@@ -71,7 +74,7 @@ function resultFor(ev,observations=[],time=Date.now()){
   const indicator=currency==='USD'?indicators.find(id=>known[id].some(pattern=>pattern.test(normal(ev.title)))):null;
   const obs=indicator?observations.find(o=>o&&o.indicator===indicator&&o.unit&&matches(ev,o)&&
    o.actual!==null&&o.actual!==''&&Number.isFinite(Number(o.actual))&&
-   (indicator==='core-pce-mom'?o.source==='BEA':o.source==='BLS')):null;
+   (beaIndicators.has(indicator)?o.source==='BEA':o.source==='BLS')):null;
   const isFuture=stamp>time;
   const official=!isFuture&&Boolean(obs);
   const calendarActual=parsed(ev.actual);
@@ -87,7 +90,7 @@ function resultFor(ev,observations=[],time=Date.now()){
   const difference=published&&chosen?differenceOf(actual,String(chosen.value)+chosen.unit):null;
   return {key,indicator,title:indicator?labels[indicator]:ev.title,eventTitle:ev.title,currency,impact:impactLevel(ev.impact),date:ev.date,period:obs?.period||null,
    stage:isFuture?'upcoming':published?'released':'awaiting',
-   previous:normal(ev.previous)||((obs?.previous!=null)?String(obs.previous)+obs.unit:'—'),
+   previous:parsed(ev.previous)?normal(ev.previous):official&&obs.previous!=null?String(obs.previous)+obs.unit:normal(ev.previous)||'—',
    forecast:chosen?String(chosen.value)+chosen.unit:(normal(ev.forecast)||'—'),actual,difference,unit:currentUnit,
    verifiedBeforeRelease:Boolean(before&&canUse(before)),
    forecastSource:'الأجندة الحالية',officialSource:official?obs.source:null,sourceUrl:official?obs.sourceUrl:null,

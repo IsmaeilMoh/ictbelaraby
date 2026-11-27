@@ -931,3 +931,11 @@ footer{padding-bottom:105px}
 
 .econ-reading{display:block;font-size:.875em;direction:rtl;text-align:start;white-space:normal;font-weight:400;overflow-wrap:anywhere}
 .econ-reading summary{cursor:pointer;margin-block:4px}
+
+.agenda-release {padding:8px 12px;border-block-end:1px solid var(--ict-border);overflow-wrap:anywhere}
+.agenda-release > summary {cursor:pointer;width:fit-content;font-weight:700}
+.agenda-release p {margin-block:6px}
+.agenda-impact-form {display:flex;align-items:end;gap:8px;flex-wrap:wrap;margin-block:12px 6px}
+.agenda-impact-form label {display:grid;gap:4px;flex:1 1 130px;min-width:0}
+.agenda-impact-form select {width:100%;min-height:44px}
+.agenda-impact-form button {min-height:44px}

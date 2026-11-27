@@ -3,6 +3,7 @@ on:
   workflow_dispatch:
   schedule:
     - cron: '53 */6 * * *'
+    - cron: '45,58 12,13 * * 1-5'
 permissions:
   contents: write
 concurrency:

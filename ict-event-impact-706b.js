@@ -26,12 +26,13 @@ function measure(eventTime,bars,now=Date.now()){
 }
 async function getMinuteCandles(market,symbol,eventTime,fetcher,opts={}){
  const now=opts.now??Date.now(),t=Math.floor(eventTime/MINUTE)*MINUTE;
- if(!Number.isFinite(t)||t>now)throw Error('لم يصدر الخبر بعد');
+ if(!Number.isFinite(t)||eventTime>now)throw Error('لم يصدر الخبر بعد');
  if(market==='crypto'){
-  if(!['BTCUSDT','ETHUSDT'].includes(symbol))throw Error('رمز كريبتو غير مدعوم');
+  const feed=opts.bybit||(typeof window!=='undefined'?window.ICTLiveFeed:null);
+  if(!feed?.contract(symbol))throw Error('رمز عقد غير مدعوم');
   const url=new URL('https://api.bybit.com/v5/market/kline');url.searchParams.set('category','linear');url.searchParams.set('symbol',symbol);url.searchParams.set('interval','1');url.searchParams.set('start',String(t-2*MINUTE));url.searchParams.set('end',String(t+62*MINUTE));url.searchParams.set('limit','100');
-  const res=await fetcher(url.toString(),{cache:'no-store'});if(!res.ok)throw Error('Bybit HTTP '+res.status);const body=await res.json();if(body.retCode!==0||!Array.isArray(body.result?.list))throw Error('استجابة Bybit غير متوقعة');
-  const bars=body.result.list.map(r=>({start:Number(r[0]),open:Number(r[1]),high:Number(r[2]),low:Number(r[3]),close:Number(r[4]),confirmed:Number(r[0])+MINUTE<=now}));
+  const res=await fetcher(url.toString(),{cache:'no-store'});if(!res.ok)throw Error('Bybit HTTP '+res.status);const body=await res.json();if(body.retCode!==0||body.result?.symbol!==symbol||body.result?.category!=='linear'||!Array.isArray(body.result.list))throw Error('استجابة Bybit غير متوقعة');
+  const bars=feed.parseHistory(body,symbol,'1',now);
   return {bars,provider:'Bybit V5 — عقود USDT الدائمة',historyConstraint:'يمكن طلب نافذة تاريخية محددة ضمن حدود واجهة Bybit'};
  }
  const adapter=opts.adapter||(typeof window!=='undefined'?window.ICTPublicMarkets:null);if(!adapter)throw Error('محرك الأسواق التقليدية غير متاح');const instrument=adapter.resolve(market,symbol);
