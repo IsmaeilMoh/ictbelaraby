@@ -1,5 +1,5 @@
 {
-  "updatedAt": "2026-11-27T10:25:02.506233Z",
+  "updatedAt": "2026-11-27T13:38:05.338277Z",
   "weekStart": "2026-11-23",
   "source": "Forex Factory",
   "sourceUrl": "https://www.forexfactory.com/calendar",
@@ -706,9 +706,9 @@
       "actual": "—"
     },
     {
-      "id": "2026-11-27T10:33:00+00:00-EUR-Italian 10-y Bond Auction",
+      "id": "2026-11-27T10:05:00+00:00-EUR-Italian 10-y Bond Auction",
       "title": "Italian 10-y Bond Auction",
-      "date": "2026-11-27T10:33:00Z",
+      "date": "2026-11-27T10:05:00Z",
       "country": "EUR",
       "impact": "Low",
       "forecast": "—",
