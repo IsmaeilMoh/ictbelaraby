@@ -1,7 +1,18 @@
 {
-  "updated_at": "2026-11-27T16:05:54Z",
+  "updated_at": "2026-11-27T17:15:18Z",
   "mode": "rss-attributed",
   "items": [
+    {
+      "id": "df4e9a1d70783dcb4526",
+      "title": "طموحات الاتحاد الأوروبي الخضراء تصطدم بتحديات التمويل",
+      "tag": "اقتصاد",
+      "src": "CNN Business Arabic",
+      "date": "2026-11-27T16:45:00Z",
+      "url": "https://cnnbusinessarabic.com/sectors/1153560/%D8%B7%D9%85%D9%88%D8%AD%D8%A7%D8%AA-%D8%A7%D9%84%D8%A7%D8%AA%D8%AD%D8%A7%D8%AF-%D8%A7%D9%84%D8%A3%D9%88%D8%B1%D9%88%D8%A8%D9%8A-%D8%A7%D9%84%D8%AE%D8%B6%D8%B1%D8%A7%D8%A1-%D8%AA%D8%B5%D8%B7%D8%AF%D9%85-%D8%A8%D8%AA%D8%AD%D8%AF%D9%8A%D8%A7%D8%AA-%D8%A7%D9%84%D8%AA%D9%85%D9%88%D9%8A%D9%84",
+      "priority": 2,
+      "language": "ar",
+      "image": "https://cnnbusinessarabic.com/businesscnn/uploads/images/2026/11/27/1713072.webp"
+    },
     {
       "id": "62769f9087c5414283a6",
       "title": "فولكسفاغن تستعين بمنافسيها مرسيدس وبي إم دبليو في معركتها الضريبية بالهند",
@@ -375,17 +386,6 @@
       "priority": 2,
       "language": "ar",
       "image": "https://cnnbusinessarabic.com/businesscnn/uploads/images/2026/11/24/1712703.webp"
-    },
-    {
-      "id": "c6f5e83a5512b9c1a53f",
-      "title": "قبيل القمة الأوروبية.. ألمانيا أكبر مساهم في تمويل ميزانية التكتل",
-      "tag": "اقتصاد",
-      "src": "CNN Business Arabic",
-      "date": "2026-11-24T09:51:00Z",
-      "url": "https://cnnbusinessarabic.com/sectors/1153286/%D9%82%D8%A8%D9%8A%D9%84-%D8%A7%D9%84%D9%82%D9%85%D8%A9-%D8%A7%D9%84%D8%A3%D9%88%D8%B1%D9%88%D8%A8%D9%8A%D8%A9-%D8%A3%D9%84%D9%85%D8%A7%D9%86%D9%8A%D8%A7-%D8%A3%D9%83%D8%A8%D8%B1-%D9%85%D8%B3%D8%A7%D9%87%D9%85-%D9%81%D9%8A-%D8%AA%D9%85%D9%88%D9%8A%D9%84-%D9%85%D9%8A%D8%B2%D8%A7%D9%86%D9%8A%D8%A9-%D8%A7%D9%84%D8%AA%D9%83%D8%AA%D9%84",
-      "priority": 2,
-      "language": "ar",
-      "image": "https://cnnbusinessarabic.com/businesscnn/uploads/images/2026/11/24/1712696.webp"
     }
   ],
   "source_count": 1,
