@@ -1,7 +1,29 @@
 {
-  "updated_at": "2026-11-27T14:59:03Z",
+  "updated_at": "2026-11-27T16:05:54Z",
   "mode": "rss-attributed",
   "items": [
+    {
+      "id": "62769f9087c5414283a6",
+      "title": "فولكسفاغن تستعين بمنافسيها مرسيدس وبي إم دبليو في معركتها الضريبية بالهند",
+      "tag": "اقتصاد",
+      "src": "CNN Business Arabic",
+      "date": "2026-11-27T15:30:00Z",
+      "url": "https://cnnbusinessarabic.com/sectors/1153556/%D9%81%D9%88%D9%84%D9%83%D8%B3%D9%81%D8%A7%D8%BA%D9%86-%D8%AA%D8%B3%D8%AA%D8%B9%D9%8A%D9%86-%D8%A8%D9%85%D9%86%D8%A7%D9%81%D8%B3%D9%8A%D9%87%D8%A7-%D9%85%D8%B1%D8%B3%D9%8A%D8%AF%D8%B3-%D9%88%D8%A8%D9%8A-%D8%A5%D9%85-%D8%AF%D8%A8%D9%84%D9%8A%D9%88-%D9%81%D9%8A-%D9%85%D8%B9%D8%B1%D9%83%D8%AA%D9%87%D8%A7-%D8%A7%D9%84%D8%B6%D8%B1%D9%8A%D8%A8%D9%8A%D8%A9-%D8%A8%D8%A7%D9%84%D9%87%D9%86%D8%AF",
+      "priority": 2,
+      "language": "ar",
+      "image": "https://cnnbusinessarabic.com/businesscnn/uploads/images/2026/11/27/1713069.webp"
+    },
+    {
+      "id": "95edb435ed1c3d8b879f",
+      "title": "هولندا تواجه قيود الرقائق الأميركية.. مباحثات مرتقبة بين روب يتن وترامب",
+      "tag": "اقتصاد",
+      "src": "CNN Business Arabic",
+      "date": "2026-11-27T15:00:00Z",
+      "url": "https://cnnbusinessarabic.com/sectors/1153555/%D9%87%D9%88%D9%84%D9%86%D8%AF%D8%A7-%D8%AA%D9%88%D8%A7%D8%AC%D9%87-%D9%82%D9%8A%D9%88%D8%AF-%D8%A7%D9%84%D8%B1%D9%82%D8%A7%D8%A6%D9%82-%D8%A7%D9%84%D8%A3%D9%85%D9%8A%D8%B1%D9%83%D9%8A%D8%A9-%D9%85%D8%A8%D8%A7%D8%AD%D8%AB%D8%A7%D8%AA-%D9%85%D8%B1%D8%AA%D9%82%D8%A8%D8%A9-%D8%A8%D9%8A%D9%86-%D8%B1%D9%88%D8%A8-%D9%8A%D8%AA%D9%86-%D9%88%D8%AA%D8%B1%D8%A7%D9%85%D8%A8",
+      "priority": 2,
+      "language": "ar",
+      "image": "https://cnnbusinessarabic.com/businesscnn/uploads/images/2026/11/27/1713068.webp"
+    },
     {
       "id": "d99f8723a0cde831673c",
       "title": "هل نعيش في زمن التخمة المعلوماتية؟",
@@ -364,28 +386,6 @@
       "priority": 2,
       "language": "ar",
       "image": "https://cnnbusinessarabic.com/businesscnn/uploads/images/2026/11/24/1712696.webp"
-    },
-    {
-      "id": "313053fccc65ffd9fea9",
-      "title": "كندا وقطر تعتزمان توقيع اتفاقية لتعزيز الاستثمارات الأجنبية",
-      "tag": "اقتصاد",
-      "src": "CNN Business Arabic",
-      "date": "2026-11-24T07:44:00Z",
-      "url": "https://cnnbusinessarabic.com/sectors/1153277/%D9%83%D9%86%D8%AF%D8%A7-%D9%88%D9%82%D8%B7%D8%B1-%D8%AA%D8%B9%D8%AA%D8%B2%D9%85%D8%A7%D9%86-%D8%AA%D9%88%D9%82%D9%8A%D8%B9-%D8%A7%D8%AA%D9%81%D8%A7%D9%82%D9%8A%D8%A9-%D9%84%D8%AA%D8%B9%D8%B2%D9%8A%D8%B2-%D8%A7%D9%84%D8%A7%D8%B3%D8%AA%D8%AB%D9%85%D8%A7%D8%B1%D8%A7%D8%AA-%D8%A7%D9%84%D8%A3%D8%AC%D9%86%D8%A8%D9%8A%D8%A9",
-      "priority": 2,
-      "language": "ar",
-      "image": "https://cnnbusinessarabic.com/businesscnn/uploads/images/2026/11/24/1712690.webp"
-    },
-    {
-      "id": "3197982acff84250cb7c",
-      "title": "أميركا وقطر توقّعان اتفاقاً لتعزيز سلاسل إمداد المعادن الحرجة",
-      "tag": "اقتصاد",
-      "src": "CNN Business Arabic",
-      "date": "2026-11-24T07:05:00Z",
-      "url": "https://cnnbusinessarabic.com/sectors/1153273/%D8%A3%D9%85%D9%8A%D8%B1%D9%83%D8%A7-%D9%88%D9%82%D8%B7%D8%B1-%D8%AA%D9%88%D9%82%D8%B9%D8%A7%D9%86-%D8%A7%D8%AA%D9%81%D8%A7%D9%82%D8%A7-%D9%84%D8%AA%D8%B9%D8%B2%D9%8A%D8%B2-%D8%B3%D9%84%D8%A7%D8%B3%D9%84-%D8%A5%D9%85%D8%AF%D8%A7%D8%AF-%D8%A7%D9%84%D9%85%D8%B9%D8%A7%D8%AF%D9%86-%D8%A7%D9%84%D8%AD%D9%8A%D9%88%D9%8A%D8%A9",
-      "priority": 2,
-      "language": "ar",
-      "image": "https://cnnbusinessarabic.com/businesscnn/uploads/images/2026/11/24/1712685.webp"
     }
   ],
   "source_count": 1,
