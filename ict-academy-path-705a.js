@@ -16,7 +16,7 @@ const safeWrite=x=>{try{localStorage.setItem(STORE,JSON.stringify(x));return tru
 const h=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 let current=units[0].id;
 function mount(){
- if(location.hash!=='#academy')return;
+ if(location.hash.split('/')[0]!=='#academy')return;
  const app=document.getElementById('app');if(!app||!app.querySelector('.academy-layout'))return;
  if(app.querySelector('#ict-academy-path-5a'))return;
  const el=document.createElement('section');el.id='ict-academy-path-5a';el.className='ict-path5a card';el.setAttribute('aria-label','المسار التعليمي المتدرج');

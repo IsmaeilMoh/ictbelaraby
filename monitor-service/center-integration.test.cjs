@@ -37,7 +37,7 @@ assert.match(read('app.js'),/routeWidgets=\{agenda:'tv-economic-calendar',market
 const decision=read('ict-decision-console-708a.js');
 assert.doesNotMatch(html,/dc-public-quote|tradingview-widget/,'charts stay outside the scan form');
 assert.match(html,/<div class="dc-actions" id="dc-scan-actions"><button\b[^>]*\bid="dc-run"/,'scan controls appear in their original location');
-for(const [name,href] of [['more','./#more'],['patterns','trust.html#ict-structure-2d'],
+for(const [name,href] of [['more','tools.html'],['patterns','trust.html#ict-structure-2d'],
  ['news','trust.html#ict-briefing-3c'],['recs','#dc-lifecycle'],['guardian','#dc-advanced']]){
  assert.ok(html.includes('data-ict-icon="'+name+'" href="'+href+'"'),'shortcut uses the shared icon and keeps its destination');
 }

@@ -5,6 +5,7 @@
     'tab-assistant':'assistant','tab-live':'live',
     'panel-guardian':'guardian','tab-guardian':'guardian',
     'panel-checklist':'checklist','tab-checklist':'checklist',
+    'panel-radar':'radar','panel-xray':'xray','panel-news':'news',
     'panel-replay':'replay','panel-strategy':'strategy','panel-patterns':'patterns'
   };
   function openTool(){
