@@ -1,5 +1,5 @@
 /* ICT بالعربي 6.8.74: prioritize the home offline shell; other pages cache when visited. */
-const CACHE='ict-shell-2026-11-27-prototype-rollback';
+const CACHE='ict-shell-2026-11-27-tools-label';
 const PREFIX='ict-shell-';
 const CORE=[
  "./",
@@ -7,7 +7,7 @@ const CORE=[
  "./analysis-lifecycle.css?v=6.8.61",
  "./analytics-config.js?v=6.4.0",
  "./analytics.js?v=6.4.0",
- "./app.js?v=7.0.53-audit",
+ "./app.js?v=7.0.55-tools-label",
  "./asset-choice-6918.css?v=6.9.18",
  "./asset-choice-6918.js?v=6.9.18",
  "./asset-config.js?v=7.0.31-biquote",
@@ -78,7 +78,7 @@ const CORE=[
  "./ict-decision-engine-708a.js?v=7.0.45-prior-week",
  "./ict-desktop-more-7013.css?v=7.0.13",
  "./ict-desktop-more-7013.css?v=7.0.17-visual",
- "./ict-desktop-more-7013.js?v=7.0.52-directory",
+ "./ict-desktop-more-7013.js?v=7.0.55-tools-label",
  "./ict-economic-compare-706c.js?v=7.0.6c.1",
  "./ict-economic-compare-console-706c.css?v=7.0.6c.1",
  "./ict-economic-compare-console-706c.js?v=7.0.53-audit",
@@ -193,7 +193,7 @@ const CORE=[
  "./site-typography-nav-fix.css?v=6.8.31",
  "./site-unity.css?v=6.8.34",
  "./site-unity.css?v=6.9.19.4",
- "./site-unity.js?v=7.0.52-directory",
+ "./site-unity.js?v=7.0.55-tools-label",
  "./site-visual-system.css?v=7.0.51-shared-design",
  "./smart-desk.html",
  "./smart-desk.js",

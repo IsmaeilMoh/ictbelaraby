@@ -1,6 +1,6 @@
 /* ICT بالعربي 7.0: expose existing More hub in unified desktop headers only. */
 (()=>{'use strict';
- const label='المزيد';
+ const label='الأدوات';
  const directory=new URL('tools.html',document.currentScript.src).href;
  const icon='<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg>';
  function mount(){
@@ -13,7 +13,7 @@
   const a=anchors[0]||document.createElement('a');
   a.className='ict-desktop-more';
   a.href=directory;
-  a.setAttribute('aria-label','المزيد — جميع أقسام الموقع');a.title='المزيد';
+  a.setAttribute('aria-label','الأدوات — دليل أقسام الموقع');a.title='الأدوات';
   a.innerHTML=icon+'<span>'+label+'</span>';
   if(!a.isConnected)actions.prepend(a);
  }
