@@ -402,8 +402,17 @@ function addBatchQuoteButton(actions,row){
 }
 function card(parent,o,origin,{quoteRows,batchQuote=false}={}){
  const status=phases[o.research?.phase]||'رصد بحثي';
- const c=block([o.symbol,o.frame+' د',o.side,status].join(' · '),parent);
- c.classList.add('dc-wide');
+ const result=node('details','',parent,'dc-result dc-wide');
+ const summary=node('summary','',result,'dc-result-summary');
+ const frameName=Array.from(frame.options).find(option=>option.value===String(o.frame))?.textContent||String(o.frame);
+ const modelNames=(o.modelMatches||[]).map(model=>model.label).filter(Boolean);
+ node('bdi',o.symbol,summary,'dc-result-symbol');
+ node('span',modelNames.join(' · ')||'نموذج ICT',summary,'dc-result-model');
+ node('span',frameName+' · '+o.side,summary,'dc-result-frame');
+ const phase=node('span',status,summary,'dc-result-phase');
+ phase.dataset.phase=o.research?.phase||'';
+ node('span',dual(o.detectedAt),summary,'dc-result-time');
+ const c=node('div','',result,'dc-card dc-result-detail');
  const source=[origin,types[o.marketType],o.source].filter(Boolean).join(' · ');
  node('p',source,c);
  const tradingView=traditional.tradingViewLink(o.market,o.symbol,o.frame);
@@ -458,7 +467,7 @@ function card(parent,o,origin,{quoteRows,batchQuote=false}={}){
   }catch{feedback.textContent='تعذر حفظ الصورة. جرّب مرة أخرى.';}
   finally{save.disabled=false;}
  });
- return c;
+ return result;
 }
 const backgroundOutput=$('dc-background-output');
 let backgroundTimer;
@@ -498,10 +507,13 @@ node('p','آخر إغلاق ساعة مرجعي: '+(res.price==null?'غير مت
  node('p','نظام اليوم: '+(res.context?.sourceDay||'غير متاح'),ctx);
  const safety=block('بوابات جودة البيانات والأخبار');const checks=[...res.blocks,...res.warnings];node('p',checks.length?'ملاحظات توقف اعتماد الخطة أو تحد من الوثوق:':'الفحوص العامة متاحة؛ كل نموذج يخضع أيضًا لشروطه الخاصة.',safety);if(checks.length){const ul=document.createElement('ul');safety.append(ul);checks.forEach(x=>node('li',x,ul))}if(res.nearbyNews.length){const ul=document.createElement('ul');safety.append(ul);res.nearbyNews.forEach(x=>node('li',x.title+' · '+dual(x.when),ul))}
  const quoteRows=[];
- for(const o of res.opportunities)card(output,{
+ for(const o of res.opportunities){
+  const result=card(output,{
   ...o,frame:res.frame,source:res.source,marketType:res.market==='crypto'?'PERPETUAL':'PROVIDER_NATIVE',
   detectedAt:res.checkedAt,lastCompleteAt:res.lastCompleteAt
- },'فحص يدوي',{quoteRows});
+  },'فحص يدوي',{quoteRows});
+  output.insertBefore(result,info);
+ }
  res.updateCardQuotes=quote=>updateCardQuoteRows(quoteRows,res.market,quote);
  res.updateCardQuotes(res.book);
  const note=block('حدود هذا الإصدار');note.classList.add('dc-wide');node('p',res.disclaimer,note);node('p','لا يتم تداول آلي ولا حفظ توصية كصفقة منفذة. المراقبة اليدوية المتكررة تعمل أثناء فتح الصفحة. سعر المرجع آخر إغلاق شمعة، وليس Bid/Ask مباشرًا.',note);
@@ -574,6 +586,7 @@ async function scanBatch(){
  clearScan();
  clear(output);
  const results=block('نتائج الفحص الجماعي',output);
+ results.classList.add('dc-wide','dc-group-results');
  node('p',modelType.selectedOptions[0].textContent+' · حالة النموذج: '+(phases[modelPhase.value]||'جميع الحالات')+' · اختر أصلًا منفردًا لمتابعة سعره.',results);
  const filterControls=node('div','',results);
  filterControls.hidden=true;
