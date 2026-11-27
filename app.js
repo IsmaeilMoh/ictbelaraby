@@ -475,14 +475,30 @@ function economicReading(row,peers=[]){
  const difference=row.difference===null?'':` · ${row.difference>0?'+':''}${escapeHTML(row.difference)} ${unit}`;
  return `<div class="econ-reading">المصدر: ${sourceLabel}${difference}${analysis?`<details><summary>${escapeHTML(analysis.headline)}</summary><span>${escapeHTML(analysis.detail)}</span></details>`:''}</div>`;
 }
+const releaseReferences={
+ USD:['البيانات الرسمية الأمريكية','https://www.bea.gov/news/glance'],
+ EUR:['Eurostat','https://ec.europa.eu/eurostat/news/euro-indicators'],
+ GBP:['مكتب الإحصاء البريطاني','https://www.ons.gov.uk/releasecalendar'],
+ JPY:['مكتب الإحصاء الياباني','https://www.stat.go.jp/english/whatsnew/'],
+ CHF:['مكتب الإحصاء السويسري','https://www.bfs.admin.ch/bfs/en/home/news.html'],
+ CAD:['إحصاءات كندا','https://www150.statcan.gc.ca/n1/dai-quo/index-eng.htm'],
+ AUD:['مكتب الإحصاء الأسترالي','https://www.abs.gov.au/release-calendar'],
+ NZD:['إحصاءات نيوزيلندا','https://www.stats.govt.nz/release-calendar/'],
+ CNY:['المكتب الوطني للإحصاء في الصين','https://www.stats.gov.cn/english/PressRelease/']
+};
 function agendaReleaseDetails(event,reading,peers){
  const label=reading?.stage==='released'?'النتيجة وتأثيرها':'تفاصيل الخبر';
  const analysis=reading&&window.ICTNewsImpact?.analyze(reading,peers);
  const source=safeUrl(reading?.sourceUrl);
+ const measurement=reading?.indicator==='us-gdp-second'?'التقدير الثاني لنمو الناتج الحقيقي، محسوب بمعدل سنوي.':
+  reading?.indicator==='jp-tokyo-core-cpi-yoy'?'التغير السنوي في أسعار المستهلك في طوكيو باستثناء الأغذية الطازجة.':'';
  const actualSource=escapeHTML(reading?.actualSource||'');
+ const reference=/flash.*pmi/i.test(event.title)?['إصدارات S&P Global PMI','https://www.pmi.spglobal.com/Public/Release/PressReleases']:releaseReferences[event.currency];
  return `<details class="agenda-release" data-event-at="${event.dt.getTime()}">
  <summary>${label}</summary>
  ${actualSource?`<p>مصدر القراءة ${source==='#'?actualSource:`<a href="${escapeHTML(source)}" target="_blank" rel="noopener noreferrer">${actualSource}</a>`}</p>`:''}
+ ${actualSource&&measurement?`<p>${measurement}</p>`:''}
+ ${!actualSource&&reference?`<p><a href="${reference[1]}" target="_blank" rel="noopener noreferrer">${reference[0]}</a> · مرجع خارجي للتحقق من النشر</p>`:''}
  ${analysis?`<p><strong>${escapeHTML(analysis.headline)}</strong> · ${escapeHTML(analysis.detail)}</p>`:''}
  ${event.dt.getTime()<=Date.now()?`<form class="agenda-impact-form">
  <label>السوق<select name="market"></select></label>
@@ -494,6 +510,9 @@ function agendaReleaseDetails(event,reading,peers){
 }
 function calendar(){const view=calendarView(),events=view.events,available=view.status==='fresh'||view.status==='stale';const filtered=events.filter(e=>(state.country==='ALL'||e.currency===({US:'USD',GB:'GBP',CA:'CAD',AU:'AUD',NZ:'NZD',EU:'EUR',JP:'JPY',CH:'CHF'}[state.country]||state.country))&&(state.impact==='all'||e.impact===+state.impact)&&(!state.search||(e.title+' '+e.currency).toLowerCase().includes(state.search.toLowerCase()))&&(state.day==='all'||eventDayKey(e.dt)===state.day));const groups=Object.groupBy?Object.groupBy(filtered,e=>eventDayKey(e.dt)):filtered.reduce((r,e)=>((r[eventDayKey(e.dt)]??=[]).push(e),r),{});const countHigh=events.filter(e=>e.impact===3).length;const next=events.find(e=>e.dt>new Date()&&e.impact===3);const status=view.status==='fresh'?'محدثة':view.status==='stale'?'قديمة — يُرجى التحقق':'غير متاحة';const days=[...new Set(events.map(e=>eventDayKey(e.dt)))];const readings=new Map(events.map(e=>[e.id,window.ICTCalendarConsensus?.resultFor({...e,date:e.dt.toISOString()},officialEconomicFeed?.events||[])]));
 const peers=[...readings.values()].filter(Boolean);
+const currencies=[...new Set(events.map(e=>e.currency).filter(code=>/^[A-Z]{3}$/.test(code)))].sort();
+const numericEvents=peers.filter(row=>row.stage!=='upcoming'&&['high','medium'].includes(row.impact)&&!/speaks|speech|hearings|tentative|holiday/i.test(row.eventTitle));
+const covered=numericEvents.filter(row=>row.stage==='released').length;
 const rows=Object.entries(groups).sort(([a],[b])=>a.localeCompare(b)).map(([day,es])=>`<section class="calendar-day"><h2>${escapeHTML(showDate(es[0].dt,'date'))} <span class="micro en">${day}</span></h2><div class="event-table"><div class="event-head"><span>الوقت</span><span>العملة</span><span>الحدث الاقتصادي</span><span>التأثير</span><span>السابق</span><span>المتوقع</span><span>الفعلي</span></div>${es.map(e=>`<div class="event-row"><time dir="ltr">${showDate(e.dt)}</time><b class="en">${escapeHTML(e.currency)}</b><div class="event-name">${escapeHTML(e.title)}<small>${escapeHTML(showDate(e.dt,'date'))}</small>${relatedAssetLinks(assetsForCurrency(e.currency),'أصول مرتبطة بالعملة')}</div><div><span class="impact ${impactClass[e.impact]||''}">${impactLabel[e.impact]||'غير محدد'}</span></div><span class="numeric" dir="ltr">${escapeHTML(readings.get(e.id)?.previous??e.previous)}</span><span class="numeric" dir="ltr">${escapeHTML(readings.get(e.id)?.forecast??e.forecast)}</span><div class="numeric"><bdi dir="ltr">${escapeHTML(readings.get(e.id)?.actual??'—')}</bdi></div></div>${agendaReleaseDetails(e,readings.get(e.id),peers)}`).join('')}</div></section>`).join('');
 return `${title('ECONOMIC CALENDAR','الأجندة الاقتصادية','الأحداث الاقتصادية المهمة بتوقيتك المختار، مع خيارات البحث والتنبيه.')}
 <nav class="related-asset-links" aria-label="نتائج الأخبار وتأثيرها">
@@ -503,9 +522,10 @@ return `${title('ECONOMIC CALENDAR','الأجندة الاقتصادية','ال�
 <a href="#agenda/ict-impact-6b">قياس حركة السعر</a>
 <a href="#agenda/ict-compare-6c">مقارنة الإصدارات</a>
 </nav>
+${numericEvents.length?`<p class="data-caption">قراءات متاحة لـ ${covered} من ${numericEvents.length} خبرًا رقميًا متوسط أو عالي التأثير مرّ موعده هذا الأسبوع.</p>`:''}
 <div class="calendar-week-switch" role="group" aria-label="اختيار أسبوع الأجندة"><button type="button" class="chip ${S.calendarWeek==='current'?'active':''}" data-calendar-week="current">هذا الأسبوع</button><button type="button" class="chip ${S.calendarWeek==='next'?'active':''}" data-calendar-week="next">الأسبوع القادم</button><span class="calendar-week-label">الأسبوع الذي يبدأ ${escapeHTML(view.week)} · ${status}${isGazaWeekend()&&S.calendarWeek==='next'?' · عرض مبكر من السبت':''}</span></div><div class="calendar-stats"><div class="metric"><span>الأحداث</span><strong class="en">${events.length}</strong></div><div class="metric"><span>التأثير المرتفع</span><strong class="en">${countHigh}</strong></div><div class="metric"><span>المصدر</span><strong style="font-size:14px">${escapeHTML(view.source||'Forex Factory')}</strong></div><div class="metric"><span>حالة البيانات</span><strong class="status-text" style="font-size:13px">${status}</strong></div></div>
 <div class="card calendar-settings"><div class="settings-grid"><div>${tzPicker()}</div><div><label class="tz-label" for="alert-lead">التنبيه قبل الخبر</label><select id="alert-lead"><option value="5" ${localStorage.getItem('ict-alert-before')==='5'?'selected':''}>5 دقائق</option><option value="15" ${!localStorage.getItem('ict-alert-before')||localStorage.getItem('ict-alert-before')==='15'?'selected':''}>15 دقيقة</option><option value="30" ${localStorage.getItem('ict-alert-before')==='30'?'selected':''}>30 دقيقة</option><option value="60" ${localStorage.getItem('ict-alert-before')==='60'?'selected':''}>60 دقيقة</option></select></div><div><label class="tz-label">إشعارات المتصفح</label><button class="btn btn-small" id="enable-alerts" type="button">${localStorage.getItem('ict-alerts')==='enabled'?'إيقاف التنبيهات':'تفعيل التنبيهات'}</button></div></div><p class="subtle">تنبيهات هذا الخيار تعمل أثناء تصفح الموقع. لتلقي إشعارات عند إغلاقه، فعّل الاشتراك من مركز التنبيهات.</p></div>
-<div class="card" style="padding:15px 18px"><div class="agenda-tools"><input id="event-search" aria-label="ابحث في الأحداث" placeholder="بحث باسم الحدث أو العملة" value="${escapeHTML(state.search)}"><select id="country-filter"><option value="ALL">كل العملات</option>${['USD','EUR','GBP','JPY','CHF','CAD','AUD','NZD','CNY'].map(code=>`<option value="${code}" ${state.country===code?'selected':''}>${code}</option>`).join('')}</select><select id="impact-filter"><option value="all">كل التأثيرات</option>${[3,2,1].map(i=>`<option value="${i}" ${state.impact==i?'selected':''}>${impactLabel[i]}</option>`).join('')}</select><select id="day-filter"><option value="all">جميع الأيام</option>${days.map(d=>`<option value="${d}" ${state.day===d?'selected':''}>${d}</option>`).join('')}</select><button class="chip" id="reset-filters">مسح الفلاتر</button><button class="chip" id="refresh-calendar">تحديث ↻</button></div></div>
+<div class="card" style="padding:15px 18px"><div class="agenda-tools"><input id="event-search" aria-label="ابحث في الأحداث" placeholder="بحث باسم الحدث أو العملة" value="${escapeHTML(state.search)}"><select id="country-filter"><option value="ALL">كل العملات</option>${currencies.map(code=>`<option value="${code}" ${state.country===code?'selected':''}>${code}</option>`).join('')}</select><select id="impact-filter"><option value="all">كل التأثيرات</option>${[3,2,1].map(i=>`<option value="${i}" ${state.impact==i?'selected':''}>${impactLabel[i]}</option>`).join('')}</select><select id="day-filter"><option value="all">جميع الأيام</option>${days.map(d=>`<option value="${d}" ${state.day===d?'selected':''}>${d}</option>`).join('')}</select><button class="chip" id="reset-filters">مسح الفلاتر</button><button class="chip" id="refresh-calendar">تحديث ↻</button></div></div>
 ${view.coverage==='partial'&&available?`<div class="notice" role="status">تغطية الأجندة جزئية لهذا الأسبوع. قد تغيب بعض الأحداث أو التوقعات. — راجع أجندة TradingView أدناه لبقية الأخبار.</div>`:''}
 ${view.updated?`<p class="data-caption">آخر تحديث ${escapeHTML(showDate(view.updated,'date'))}، ${showDate(view.updated)} (${escapeHTML(zoneLabel())}) · ${status}</p>`:''}
 ${view.status==='stale'?'<div class="notice">تحذير: هذه الأجندة لم تُحدّث مؤخرًا. تحقق من مواعيد الأحداث قبل التداول.</div>':''}
@@ -621,13 +641,15 @@ document.addEventListener('click',event=>{
 async function fetchOfficialEconomicResults(force=false){
  // Reload the same calendar data even when the BLS feed is temporarily unavailable.
  await window.ICTCalendarConsensus?.load().catch(()=>{});
- const feeds=await Promise.all([['economic-official.json','BLS'],['economic-bea.json','BEA'],['economic-abs.json','ABS']].map(async ([file,source])=>{
+ const feeds=await Promise.all([['economic-official.json','BLS'],['economic-bea.json','BEA'],['economic-abs.json','ABS'],['economic-verified.json',null]].map(async ([file,source])=>{
   try{
    const response=await fetch(file+'?t='+Date.now(),{cache:'no-store'});
    if(!response.ok)return null;
    const data=await response.json();
-   if(data?.source!==source||data.status!=='ok'||!Array.isArray(data.events))return null;
-   return {updatedAt:data.updatedAt,events:data.events.filter(e=>e?.source===source&&e.period&&
+   if(!data||source&&data.source!==source||data.status!=='ok'||!Array.isArray(data.events))return null;
+   return {updatedAt:data.updatedAt,events:data.events.filter(e=>e&&(source?e.source===source:
+    (e.indicator==='us-gdp-second'&&e.source==='BEA'&&e.currency==='USD'||
+     e.indicator==='jp-tokyo-core-cpi-yoy'&&e.source==='Statistics Bureau of Japan'&&e.currency==='JPY'))&&e.period&&
     e.actual!==null&&e.actual!==''&&Number.isFinite(Number(e.actual))&&['%','K'].includes(e.unit)&&
     (source==='BLS'||Date.parse(e.releaseAt)<=Date.now())&&
     (source!=='ABS'||e.currency==='AUD'&&['au-cpi-mom','au-cpi-yoy','au-trimmed-cpi-mom'].includes(e.indicator)))};
@@ -654,7 +676,7 @@ function economicIntelligence(){
  const clusterCards=clusterReports.length?`<h2>قراءة التقارير الاقتصادية المتزامنة</h2>${reportOverview}<div class="intel-grid macro-report-grid">${clusterReports.map(x=>`<article class="intel-event macro-report-card"><div class="intel-event-top"><span class="intel-currency">${escapeHTML(x.currency)}</span><span class="intel-date">${escapeHTML(showDate(new Date(x.date),'date'))}</span></div><h3>${escapeHTML(x.headline)}</h3><ul class="macro-report-items">${x.items.map(i=>`<li><span>${escapeHTML(i.name)}</span><small>${escapeHTML(i.status)}</small></li>`).join('')}</ul><p class="intel-note">${escapeHTML(x.detail)}</p></article>`).join('')}</div>`:'';
  const newsStages=filterUi+clusterCards+(relevant.length?`<h2>الأخبار العالمية القادمة وحالة النتائج</h2><div class="notice">أخبار العملات المتاحة في أجندتك الحالية والأسبوع القادم. النتائج الرسمية تُعرض من BLS أو BEA للمؤشرات المدعومة. وتُذكر الأجندة كمصدر للنتائج التي تنقلها.</div><div class="intel-grid">${relevant.map(e=>`<article class="intel-event"><div class="intel-event-top"><span class="intel-currency">${escapeHTML(e.currency)}</span><span class="intel-impact">${e.impact==='high'?'تأثير مرتفع':e.impact==='medium'?'تأثير متوسط':e.impact==='low'?'تأثير منخفض':'تأثير غير محدد'}</span><span class="intel-impact">${e.stage==='upcoming'?'قادم':e.stage==='released'?'صدرت النتيجة':'بانتظار النتيجة'}</span><span class="intel-date">${escapeHTML(showDate(new Date(e.date),'date'))} · ${escapeHTML(showDate(new Date(e.date)))}</span></div><h3>${escapeHTML(e.title)}</h3><div class="intel-numbers"><div><small>السابق</small><strong dir="ltr">${escapeHTML(e.previous)}</strong></div><div><small>المتوقع</small><strong dir="ltr">${escapeHTML(e.forecast)}</strong></div><div><small>الفعلي</small><strong dir="ltr">${escapeHTML(e.actual)}</strong></div></div>${e.stage==='upcoming'?'<p class="intel-note">لم يحن موعد الخبر بعد.</p>':economicReading(e,eligible)}</article>`).join('')}</div>`:`<div class="notice">لا توجد حاليًا أحداث قادمة أو نتائج منتظرة في الأجندة الأسبوعية المتاحة. ${priority==='important'?'جرّب خيار «الكل» لعرض الأخبار الأقل تأثيرًا.':'تأكد من تحديث ملفات الأسبوع الحالي والقادم.'}</div>`);
  const officialBlock=official.length
-  ? `<div class="notice">نتائج رسمية بحسب المؤشر (BLS وBEA وABS) · آخر جلب ${escapeHTML(String(officialEconomicFeed.updatedAt||'غير متاح'))} · الفترة المكتوبة هي فترة الإحصاء لا موعد النشر. التوقعات تؤخذ من السجل التحريري الموثق أو من الأجندة الحالية عند تطابق الخبر والفترة؛ وتُميَّز التوقعات التي لم يُحفظ وقتها قبل الصدور.</div><div class="intel-grid">${officialIndicatorCards([...new Set(official.map(row=>row.indicator))].map(indicator=>official.find(row=>row.indicator===indicator)))}</div>`
+  ? `<div class="notice">نتائج رسمية بحسب المؤشر · آخر جلب ${escapeHTML(String(officialEconomicFeed.updatedAt||'غير متاح'))} · الفترة المكتوبة هي فترة الإحصاء لا موعد النشر. التوقعات تؤخذ من السجل التحريري الموثق أو من الأجندة الحالية عند تطابق الخبر والفترة؛ وتُميَّز التوقعات التي لم يُحفظ وقتها قبل الصدور.</div><div class="intel-grid">${officialIndicatorCards([...new Set(official.map(row=>row.indicator))].map(indicator=>official.find(row=>row.indicator===indicator)))}</div>`
   : `<div class="notice">لا تتوفر الآن نتائج رسمية محدثة. ستظهر تلقائيًا بعد نجاح مهمة GitHub الرسمية. لا نعرض أرقامًا افتراضية.</div>`;
 
  // Economic news is supplied by the site; no visitor uploads or private archives required.

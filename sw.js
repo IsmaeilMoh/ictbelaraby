@@ -1,5 +1,5 @@
 /* ICT بالعربي 6.8.74: prioritize the home offline shell; other pages cache when visited. */
-const CACHE='ict-shell-2026-11-27-abs-cpi';
+const CACHE='ict-shell-2026-11-27-economic-coverage';
 const PREFIX='ict-shell-';
 const CORE=[
  "./",
@@ -7,7 +7,7 @@ const CORE=[
  "./analysis-lifecycle.css?v=6.8.61",
  "./analytics-config.js?v=6.4.0",
  "./analytics.js?v=6.4.0",
- "./app.js?v=7.0.62-abs",
+ "./app.js?v=7.0.63-coverage",
  "./asset-choice-6918.css?v=6.9.18",
  "./asset-choice-6918.js?v=6.9.18",
  "./asset-config.js?v=7.0.31-biquote",
@@ -37,7 +37,7 @@ const CORE=[
  "./decision-center.html",
  "./design-consistency.css?v=7.0.51-shared-design",
  "./design-consistency.js?v=6.8.6",
- "./economic-calendar-bridge.js?v=7.0.62-abs",
+ "./economic-calendar-bridge.js?v=7.0.63-coverage",
  "./economic-impact-engine.js?v=6.8.54",
  "./economic-news-priority.css?v=6.8.51",
  "./economic-reports-finish.css?v=6.8.54",
@@ -238,7 +238,7 @@ self.addEventListener('fetch',event=>{
  if(url.origin!==scope.origin||!url.pathname.startsWith(scope.pathname))return;
  if(url.pathname.includes('/push/')||/\/(admin\.html|admin\.js|admin\.css)$/.test(url.pathname))return;
  const name=url.pathname.split('/').pop()||'index.html';
- if(name==='economic-forecasts.json'||name==='economic-official.json'||name==='economic-bea.json'||name==='economic-abs.json'||name==='news-live.json'||name==='calendar-live.json'||name==='calendar-next.json'||name==='calendar-sync-status.json'||name==='market-movers.json'||name==='market-radar.json'||name==='market-xray.json'||name==='historical-candles.json'){
+ if(name==='economic-forecasts.json'||name==='economic-official.json'||name==='economic-bea.json'||name==='economic-abs.json'||name==='economic-verified.json'||name==='news-live.json'||name==='calendar-live.json'||name==='calendar-next.json'||name==='calendar-sync-status.json'||name==='market-movers.json'||name==='market-radar.json'||name==='market-xray.json'||name==='historical-candles.json'){
   // Live public data must be requested from the network, never presented as fresh from the shell cache.
   event.respondWith(fetch(request,{cache:'no-store'}).catch(()=>new Response('{}',{status:503,headers:{'Content-Type':'application/json'}})));
   return;
