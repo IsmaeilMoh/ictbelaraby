@@ -10,7 +10,7 @@ const publicFrames={'1':'1min','5':'5min','15':'15min','60':'1h','240':'4h'};
 function selectOpts(items){return items.map(([v,t])=>`<option value="${escape(v)}">${escape(t)}</option>`).join('')}
 function mount(){const app=$('app');if(!app||!app.querySelector('.academy-layout'))return;let root=$('ict-replay-5b');if(root)return;
  root=document.createElement('section');root.id='ict-replay-5b';root.className='ict-replay5b card';root.setAttribute('aria-label','محاكي الشموع التاريخية');
- root.innerHTML=`<div class="ict-replay5b-title"><span>ICT ACADEMY · 5B</span><h2>محاكي الشموع — قرر قبل رؤية المستقبل</h2><p>شموع تاريخية فعلية، تكشفها خطوة بخطوة. التداول هنا افتراضي للتدريب فقط.</p></div>
+ root.innerHTML=`<div class="ict-replay5b-title"><h2>محاكي الشموع — قرر قبل رؤية المستقبل</h2><p>شموع تاريخية فعلية، تكشفها خطوة بخطوة. التداول هنا افتراضي للتدريب فقط.</p></div>
  <div class="ict-replay5b-controls"><label>السوق<select id="ict-rp-market">${selectOpts([['crypto','الكريبتو / USDT'],['forex','الفوركس'],['metals','المعادن'],['indices','المؤشرات'],['stocks','الأسهم'],['energy','الطاقة']])}</select></label><label>الأصل<select id="ict-rp-symbol"></select></label><label>الإطار<select id="ict-rp-frame">${selectOpts(frameOptions)}</select></label><button type="button" id="ict-rp-load">جلب جلسة تدريب</button></div>
  <p class="ict-replay5b-status" id="ict-rp-status" role="status">اختر الأصل ثم ابدأ جلسة التدريب.</p>
  <div class="ict-replay5b-chart" id="ict-rp-chart" aria-label="مخطط الشموع التاريخية"><p>سيظهر المخطط هنا بعد تحميل جلسة التدريب.</p></div>

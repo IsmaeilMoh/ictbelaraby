@@ -60,7 +60,7 @@ function breakerEvidence(candidate,bars,index,pivots,{trackInvalidation=false}={
 function summary(rows,cost){const wins=rows.filter(x=>x.outcome==='win').length,losses=rows.filter(x=>x.outcome==='loss').length,settled=wins+losses;return {total:rows.length,settled,wins,losses,misses:rows.filter(x=>x.outcome==='miss').length,invalid:rows.filter(x=>x.outcome==='invalid').length,uncertain:rows.filter(x=>x.outcome==='uncertain').length,winRate:settled?100*wins/settled:null,avgR:settled?(2*wins-losses-cost*settled)/settled:null}}
 function split(rows,cost){rows=rows.slice().sort((a,b)=>a.formedAt-b.formedAt);const k=Math.max(1,Math.floor(rows.length*.7)),cut=rows[k]?.formedAt??null,train=rows.slice(0,k).filter(r=>cut!=null&&r.evaluatedThrough<cut),test=rows.slice(k),a=summary(train,cost),b=summary(test,cost);return {train:a,test:b,purged:k-train.length,candidates:rows,status:a.settled>=RULES.minSettled&&b.settled>=RULES.minSettled?'exploratory_only':'insufficient_evidence'}}
 function validate(candles,frame,opts={}){
- if(!base?.derive||!base?.evaluateCandidate||!structure?.normalize)throw Error('يجب تحميل محركي 2D و4C.2');
+ if(!base?.derive||!base?.evaluateCandidate||!structure?.normalize)throw Error('تعذّر تجهيز بيانات الاختبار.');
  const cost=Number(opts.costR??.1),now=Number(opts.now??Date.now());if(!Number.isFinite(cost)||cost<0||cost>2)throw Error('تكلفة R بين 0 و2');
  const scan=base.derive(candles,frame,now),segments=structure.normalize(candles,frame,now).segments,bars=segments.at(-1)||[],idx=new Map(bars.map((c,i)=>[c.start,i]));
  const candidateRows={ote:[],amd:[],breakerProxy:[]};const rejected={ote:0,amd:0,breakerProxy:0};

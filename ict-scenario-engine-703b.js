@@ -29,7 +29,7 @@ function build(context,structure,opts={}){
   else awaiting.push(`ظهور BOS أو MSS ${bull?'صعودي':'هبوطي'} مؤكد على إطار ${frameLabel}`);
   if(sweep)evidence.push(`رُصد سحب سيولة ${bull?'أسفل قاع':'أعلى قمة'} في التاريخ الحديث`);
   else awaiting.push(`سحب سيولة ${bull?'سفلي':'علوي'} مؤكد (ليس شرطًا لعرض السيناريو، لكنه دليل إضافي)`);
-  if(zone)evidence.push(`FVG ${bull?'صعودية':'هبوطية'} غير ملامسة وفق كشف 2D`);
+  if(zone)evidence.push(`فجوة سعرية (${bull?'صعودية':'هبوطية'}) لم يعد السعر إليها منذ تكوّنها (FVG)`);
   else awaiting.push(`تكوّن FVG ${bull?'صعودية':'هبوطية'} حديثة غير ملامسة`);
   if(fresh){if(bull?price>reference:price<reference)evidence.push(`آخر إغلاق ساعة ${bull?'فوق قمة':'تحت قاع'} اليوم السابق`);
    else awaiting.push(`إغلاق ساعة مؤكدة ${bull?'فوق قمة':'تحت قاع'} اليوم السابق (${reference})`);

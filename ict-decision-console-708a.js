@@ -471,7 +471,7 @@ root.addEventListener('ict:background-scanned',e=>{
   node('p',message,empty);
   return;
  }
- for(const o of entries)card(backgroundOutput,o,'مراقبة مجدولة · GitHub Actions');
+ for(const o of entries)card(backgroundOutput,o,'مراقبة مجدولة');
  const expires=Math.min(...entries.map(o=>o.lastCompleteAt+3*Number(o.frame)*60000));
  backgroundTimer=setTimeout(()=>root.dispatchEvent(new CustomEvent('ict:background-scanned',{detail:{
   entries:entries.filter(o=>Date.now()<o.lastCompleteAt+3*Number(o.frame)*60000),
@@ -659,7 +659,7 @@ async function scanBatch(){
   run.disabled=!symbol.value;
  }
 }
-async function scan(auto=false){if(busy||(symbol.value==='all'||frame.value==='all')||auto&&document.hidden)return;if(!api||!live||!structure||!signal||!context||!scenario||!econ){setState('بعض محركات المراحل السابقة غير محمّلة. تأكد من رفع ملفات 2A–7A.',true);return}if(!symbol.value){setState('اختر أصلًا متاحًا.',true);return}
+async function scan(auto=false){if(busy||(symbol.value==='all'||frame.value==='all')||auto&&document.hidden)return;if(!api||!live||!structure||!signal||!context||!scenario||!econ){setState('تعذّر تحميل أدوات فحص السوق. حدّث الصفحة وحاول مجددًا.',true);return}if(!symbol.value){setState('اختر أصلًا متاحًا.',true);return}
  const id=++generation,selection=[symbol.value,frame.value,roll.value].join('|');busy=true;run.disabled=true;clearScan();setState('جارٍ جلب شموع إطار التداول والسياق، وفحص الأجندة، ثم ربط الأدلة…');
  try{
   const contract=symbol.value,market=selectedMarket();
@@ -680,7 +680,7 @@ async function scan(auto=false){if(busy||(symbol.value==='all'||frame.value==='a
    setState('أصبحت شموع الدخول قديمة؛ النتائج أدناه تخص وقت الفحص. أعد الفحص للتحديث.',true);
   },res.entryFreshUntil-now);
   root.dispatchEvent(new CustomEvent('ict:decision-scanned',{detail:{result:res,bars:entryBars}}));setState(!res.opportunities.length?'اكتمل الفحص دون نماذج مطابقة.':'اكتمل التحليل البحثي. '+res.opportunities.length+' نموذج؛ '+(res.blocks.length?'راجع أسباب تعليق الفرص.':'راجع شروط الفرص.'),res.blocks.length>0);
- }catch(e){if(id!==generation)return;clearScan();setState('تعذر تكوين خطة موثوقة: '+(e?.message||e)+'. لم تُنشأ توصية.',true)}finally{busy=false;run.disabled=!symbol.value}
+ }catch(e){if(id!==generation)return;console.warn('Market scan failed',e);clearScan();setState('تعذّر إكمال فحص السوق. تأكد من الاتصال وحاول مجددًا.',true)}finally{busy=false;run.disabled=!symbol.value}
 }
 function stop(){closeStream('توقفت مراقبة الأسعار.');active=false;if(timer)clearInterval(timer);timer=null;monitor.textContent='تشغيل المراقبة أثناء فتح الصفحة';monitor.setAttribute('aria-pressed','false')}
 function selectionChanged(){

@@ -4,7 +4,7 @@
  const status=document.getElementById('tools-search-status');
  if(!hub||!search||!status)return;
 
- const normalize=text=>text.normalize('NFKD').replace(/\p{M}|ـ/gu,'').replace(/ى/g,'ي').toLowerCase();
+ const normalize=text=>text.normalize('NFKD').replace(/\p{M}|ـ/gu,'').replace(/ى/g,'ي').replace(/([a-z]{3})[/\-]([a-z]{3})(?![a-z])/gi,'$1$2').toLowerCase();
  const assetList=hub.querySelector('.tools-asset-list');
  let assetsOpenBeforeSearch=false;
  const groups=[...hub.querySelectorAll('details.tools-phase')].map(section=>({

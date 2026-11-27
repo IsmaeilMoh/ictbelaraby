@@ -166,7 +166,7 @@
   const controller=new AbortController(),timeout=setTimeout(()=>controller.abort(),12000);
   try{
    const res=await fetch(snapshotUrl+'?read='+Date.now(),{cache:'no-store',signal:controller.signal});
-   if(!res.ok)throw Error(res.status===404?'لم يُنشر أول تقرير بعد. شغّل المهمة يدويًا من GitHub Actions.':'HTTP '+res.status);
+   if(!res.ok)throw Error(res.status===404?'لم تُنشر نتائج المراقبة المجدولة بعد.':'HTTP '+res.status);
    const d=await res.json();
    if(d.schema!=='ict-research-monitor/1'||d.transport!=='github-actions-static'||d.readyForExecution!==false||d.safety?.executionApproved!==false)throw Error('صيغة التقرير غير متوافقة أو لا تضمن رفض التنفيذ');
    const last=Date.parse(d.lastCycleAt),age=Date.now()-last;
@@ -220,7 +220,7 @@
     for(const row of records)counts[row.state]=(counts[row.state]||0)+1;
     showForward({records,counts:records.length===d.forward.records.length?d.forward.counts:counts});
    }
-   line('GitHub Actions تشغيل مجدول بأفضل جهد، وليس مراقبة مستمرة أو إشعارات هاتف.');
+   line('تعمل المراقبة على فترات. راجع وقت آخر فحص.');
   }catch(e){describeError(e);showForward(null);showIntegrated([],'تعذر تحديث نتائج المراقبة المجدولة.')}finally{clearTimeout(timeout);freeCheck.disabled=false}
  });
 })();

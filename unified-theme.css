@@ -3,7 +3,7 @@
    All visual constants are scoped to two shared themes. */
 :root,html[data-theme="light"]{
   --ict-bg:#f4eee2;--ict-bg2:#faf5eb;--ict-card:#fffaf1;--ict-card2:#f5ecdd;
-  --ict-card3:#ebe0ce;--ict-text:#263b3d;--ict-muted:#708182;--ict-border:#e0d4c1;
+  --ict-card3:#ebe0ce;--ict-text:#263b3d;--ict-muted:#526761;--ict-border:#e0d4c1;
   --ict-accent:#1d796d;--ict-accent-contrast:#ffffff;--ict-hover:#e8f2ea;
   --ict-highlight:#116b60;--ict-amber:#aa7a37;--ict-red:#b65a62;
   --ict-green:#167d67;--ict-shadow:0 8px 26px rgba(84,67,43,.07);

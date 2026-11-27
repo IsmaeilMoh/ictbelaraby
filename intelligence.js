@@ -261,7 +261,8 @@ function eventWatchOpenNews(){
  $('panel-news').scrollIntoView({behavior:'smooth',block:'start'});
 }
 function initEventWatch(){
- const asset=$('event-plan-asset');allowed.forEach(v=>{const o=document.createElement('option');o.value=v;o.textContent=v;asset.add(o)});
+ const asset=$('event-plan-asset');if(!asset||!$('event-plan-event'))return;
+ allowed.forEach(v=>{const o=document.createElement('option');o.value=v;o.textContent=v;asset.add(o)});
  $('event-plan-event').addEventListener('change',e=>{eventWatchSelected=e.target.value;eventWatchRestore()});
  asset.addEventListener('change',eventWatchSummary);
  $('event-plan-save').addEventListener('click',eventWatchSave);
@@ -314,7 +315,8 @@ function scenarioRestoreEditor(){
  save.disabled=false;scenarioStatus('scenario-save-status',record?'سيناريو محفوظ. يمكن تعديله حتى موعد الخبر المسجل.':'لم تُحفظ سيناريوهات لهذا الخبر بعد.');
 }
 function scenarioRenderUpcoming(){
- const pick=$('scenario-event'),items=eventWatchUpcoming(),prev=scenarioSelectedId;
+ const pick=$('scenario-event');if(!pick)return;
+ const items=eventWatchUpcoming(),prev=scenarioSelectedId;
  const oldOptions=[...pick.options].map(o=>o.value).filter(Boolean).join('|');
  const newOptions=items.map(e=>e.id).join('|');
  if(oldOptions===newOptions && items.some(e=>e.id===prev)){scenarioRenderHistory();return}
@@ -346,12 +348,13 @@ function scenarioOpenNews(){
  eventWatchSelected=e.id;eventWatchOpenNews();
 }
 function initScenarios(){
+ if(!$('scenario-event'))return;
  $('scenario-event').addEventListener('change',e=>{scenarioSelectedId=e.target.value;scenarioRestoreEditor()});
  $('scenario-history').addEventListener('change',e=>{scenarioHistoryId=e.target.value;scenarioRenderReview()});
  $('scenario-save').addEventListener('click',scenarioSave);
  $('scenario-review-save').addEventListener('click',scenarioSaveReview);
  $('scenario-open-news').addEventListener('click',scenarioOpenNews);
- $('event-plan-asset').addEventListener('change',()=>{const e=scenarioEvent();if(e)scenarioRestoreEditor()});
+ $('event-plan-asset')?.addEventListener('change',()=>{const e=scenarioEvent();if(e)scenarioRestoreEditor()});
  scenarioRenderUpcoming();
 }
 
