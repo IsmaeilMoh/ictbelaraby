@@ -1,5 +1,5 @@
 /* ICT بالعربي 6.8.74: prioritize the home offline shell; other pages cache when visited. */
-const CACHE='ict-shell-2026-11-27-market-catalog';
+const CACHE='ict-shell-2026-11-27-agenda-releases';
 const PREFIX='ict-shell-';
 const CORE=[
  "./",
@@ -7,7 +7,7 @@ const CORE=[
  "./analysis-lifecycle.css?v=6.8.61",
  "./analytics-config.js?v=6.4.0",
  "./analytics.js?v=6.4.0",
- "./app.js?v=7.0.60-market-catalog",
+ "./app.js?v=7.0.61-agenda",
  "./asset-choice-6918.css?v=6.9.18",
  "./asset-choice-6918.js?v=6.9.18",
  "./asset-config.js?v=7.0.31-biquote",
@@ -37,7 +37,7 @@ const CORE=[
  "./decision-center.html",
  "./design-consistency.css?v=7.0.51-shared-design",
  "./design-consistency.js?v=6.8.6",
- "./economic-calendar-bridge.js?v=7.0.16-bea",
+ "./economic-calendar-bridge.js?v=7.0.61-agenda",
  "./economic-impact-engine.js?v=6.8.54",
  "./economic-news-priority.css?v=6.8.51",
  "./economic-reports-finish.css?v=6.8.54",
@@ -84,7 +84,8 @@ const CORE=[
  "./ict-economic-link-706a.js?v=7.0.6a.1",
  "./ict-economic-link-706a.js?v=7.0.8a",
  "./ict-entry-stream.js?v=7.0.31-biquote",
- "./ict-event-impact-706b.js?v=7.0.6b.1",
+ "./ict-event-impact-706b.js?v=7.0.61-agenda",
+ "./ict-agenda-impact.js?v=1",
  "./ict-event-impact-console-706b.css?v=7.0.6b.1",
  "./ict-event-impact-console-706b.js?v=7.0.53-audit",
  "./ict-execution-safety-708c5.js",
@@ -196,7 +197,7 @@ const CORE=[
  "./smart-desk.html",
  "./smart-desk.js",
  "./smart-weekly-agenda.css?v=6833",
- "./style.css?v=7.0.16-bea",
+ "./style.css?v=7.0.61-agenda",
  "./theme-surfaces.css?v=6.8.14",
  "./tools.html",
  "./trade-flow-links-6886.css?v=6.8.86",

@@ -475,11 +475,29 @@ function economicReading(row,peers=[]){
  const difference=row.difference===null?'':` · ${row.difference>0?'+':''}${escapeHTML(row.difference)} ${unit}`;
  return `<div class="econ-reading">المصدر: ${sourceLabel}${difference}${analysis?`<details><summary>${escapeHTML(analysis.headline)}</summary><span>${escapeHTML(analysis.detail)}</span></details>`:''}</div>`;
 }
+function agendaReleaseDetails(event,reading,peers){
+ const label=reading?.stage==='released'?'النتيجة وتأثيرها':'تفاصيل الخبر';
+ const analysis=reading&&window.ICTNewsImpact?.analyze(reading,peers);
+ const source=safeUrl(reading?.sourceUrl);
+ const actualSource=escapeHTML(reading?.actualSource||'');
+ return `<details class="agenda-release" data-event-at="${event.dt.getTime()}">
+ <summary>${label}</summary>
+ ${actualSource?`<p>مصدر القراءة ${source==='#'?actualSource:`<a href="${escapeHTML(source)}" target="_blank" rel="noopener noreferrer">${actualSource}</a>`}</p>`:''}
+ ${analysis?`<p><strong>${escapeHTML(analysis.headline)}</strong> · ${escapeHTML(analysis.detail)}</p>`:''}
+ ${event.dt.getTime()<=Date.now()?`<form class="agenda-impact-form">
+ <label>السوق<select name="market"></select></label>
+ <label>الأصل<select name="symbol"></select></label>
+ <button type="submit" class="chip">قياس حركة السعر</button>
+ </form><p data-impact-catalog role="status"></p><div data-impact-result role="status"></div>
+ <p>القياس يقارن الإغلاق بإغلاق الدقيقة السابقة للموعد المدرج. الحركة قد تتأثر بأخبار أخرى.</p>`:'<p>يتاح قياس الحركة بعد موعد الخبر.</p>'}
+ </details>`;
+}
 function calendar(){const view=calendarView(),events=view.events,available=view.status==='fresh'||view.status==='stale';const filtered=events.filter(e=>(state.country==='ALL'||e.currency===({US:'USD',GB:'GBP',CA:'CAD',AU:'AUD',NZ:'NZD',EU:'EUR',JP:'JPY',CH:'CHF'}[state.country]||state.country))&&(state.impact==='all'||e.impact===+state.impact)&&(!state.search||(e.title+' '+e.currency).toLowerCase().includes(state.search.toLowerCase()))&&(state.day==='all'||eventDayKey(e.dt)===state.day));const groups=Object.groupBy?Object.groupBy(filtered,e=>eventDayKey(e.dt)):filtered.reduce((r,e)=>((r[eventDayKey(e.dt)]??=[]).push(e),r),{});const countHigh=events.filter(e=>e.impact===3).length;const next=events.find(e=>e.dt>new Date()&&e.impact===3);const status=view.status==='fresh'?'محدثة':view.status==='stale'?'قديمة — يُرجى التحقق':'غير متاحة';const days=[...new Set(events.map(e=>eventDayKey(e.dt)))];const readings=new Map(events.map(e=>[e.id,window.ICTCalendarConsensus?.resultFor({...e,date:e.dt.toISOString()},officialEconomicFeed?.events||[])]));
 const peers=[...readings.values()].filter(Boolean);
-const rows=Object.entries(groups).sort(([a],[b])=>a.localeCompare(b)).map(([day,es])=>`<section class="calendar-day"><h2>${escapeHTML(showDate(es[0].dt,'date'))} <span class="micro en">${day}</span></h2><div class="event-table"><div class="event-head"><span>الوقت</span><span>العملة</span><span>الحدث الاقتصادي</span><span>التأثير</span><span>السابق</span><span>المتوقع</span><span>الفعلي</span></div>${es.map(e=>`<div class="event-row"><time dir="ltr">${showDate(e.dt)}</time><b class="en">${escapeHTML(e.currency)}</b><div class="event-name">${escapeHTML(e.title)}<small>${escapeHTML(showDate(e.dt,'date'))}</small>${relatedAssetLinks(assetsForCurrency(e.currency),'أصول مرتبطة بالعملة')}</div><div><span class="impact ${impactClass[e.impact]||''}">${impactLabel[e.impact]||'غير محدد'}</span></div><span class="numeric" dir="ltr">${escapeHTML(e.previous)}</span><span class="numeric" dir="ltr">${escapeHTML(readings.get(e.id)?.forecast??e.forecast)}</span><div class="numeric"><bdi dir="ltr">${escapeHTML(readings.get(e.id)?.actual??e.actual)}</bdi>${economicReading(readings.get(e.id),peers)}</div></div>`).join('')}</div></section>`).join('');
+const rows=Object.entries(groups).sort(([a],[b])=>a.localeCompare(b)).map(([day,es])=>`<section class="calendar-day"><h2>${escapeHTML(showDate(es[0].dt,'date'))} <span class="micro en">${day}</span></h2><div class="event-table"><div class="event-head"><span>الوقت</span><span>العملة</span><span>الحدث الاقتصادي</span><span>التأثير</span><span>السابق</span><span>المتوقع</span><span>الفعلي</span></div>${es.map(e=>`<div class="event-row"><time dir="ltr">${showDate(e.dt)}</time><b class="en">${escapeHTML(e.currency)}</b><div class="event-name">${escapeHTML(e.title)}<small>${escapeHTML(showDate(e.dt,'date'))}</small>${relatedAssetLinks(assetsForCurrency(e.currency),'أصول مرتبطة بالعملة')}</div><div><span class="impact ${impactClass[e.impact]||''}">${impactLabel[e.impact]||'غير محدد'}</span></div><span class="numeric" dir="ltr">${escapeHTML(readings.get(e.id)?.previous??e.previous)}</span><span class="numeric" dir="ltr">${escapeHTML(readings.get(e.id)?.forecast??e.forecast)}</span><div class="numeric"><bdi dir="ltr">${escapeHTML(readings.get(e.id)?.actual??'—')}</bdi></div></div>${agendaReleaseDetails(e,readings.get(e.id),peers)}`).join('')}</div></section>`).join('');
 return `${title('ECONOMIC CALENDAR','الأجندة الاقتصادية','الأحداث الاقتصادية المهمة بتوقيتك المختار، مع خيارات البحث والتنبيه.')}
 <nav class="related-asset-links" aria-label="نتائج الأخبار وتأثيرها">
+<button type="button" class="chip" id="refresh-agenda-results">تحديث القراءات</button>
 <a href="#intelligence">قراءة نتائج الأخبار</a>
 <a href="#agenda/ict-economic-6a">ربط الخبر بالشموع</a>
 <a href="#agenda/ict-impact-6b">قياس حركة السعر</a>
@@ -588,7 +606,19 @@ function officialIndicatorCards(items){
   return `<article class="intel-event"><div class="intel-event-top"><span class="intel-currency">USD · ${escapeHTML(e.source)}</span><span class="intel-date">الفترة ${escapeHTML(e.period)}</span></div><h3>${escapeHTML(e.title)}</h3><div class="intel-numbers"><div><small>السابق</small><strong dir="ltr">${prior===null?'—':escapeHTML(String(prior))+escapeHTML(e.unit)}</strong></div><div><small>المتوقع</small><strong dir="ltr">${f?escapeHTML(String(f.value))+escapeHTML(f.unit):'—'}</strong></div><div><small>الفعلي</small><strong dir="ltr">${escapeHTML(String(actual))+escapeHTML(e.unit)}</strong></div></div><p class="intel-outcome">${f?`الفارق عن توقع السوق: ${surprise>0?'+':''}${escapeHTML(String(surprise))} ${e.unit==='%'?'نقطة مئوية':escapeHTML(e.unit)} · ${surprise>0?'أعلى من المتوقع':surprise<0?'أقل من المتوقع':'مطابق للتوقع'}`:changed}</p><p class="intel-note">${f?`التوقع: ${escapeHTML(f.source)} · ${f.verifiedBeforeRelease===false?'توقع الأجندة الحالي، غير مثبت الحفظ قبل النشر':'سُجل قبل النشر'}${f.recordedAt?' · '+escapeHTML(f.recordedAt):''}. ${f.verifiedBeforeRelease===false?'الفرق مرجعي وليس مفاجأة مثبتة قبل صدور الخبر. ':''}${escapeHTML(window.ICTCalendarConsensus?.interpretation(e)||'')} النتيجة الرسمية: ${escapeHTML(e.source)}. لا تمثل إشارة تداول. ${escapeHTML(window.ICTNewsImpact?.analyze({title:e.title,currency:'USD',stage:'released',actual:String(e.actual)+e.unit,forecast:f?String(f.value)+f.unit:'—',verifiedBeforeRelease:f?.verifiedBeforeRelease}).detail||'')}`:`قراءة رسمية من ${escapeHTML(e.source)}. توقع سوق مطابق غير متاح.`}</p></article>`;
  }).join('');
 }
-async function fetchOfficialEconomicResults(){
+// Keep the agenda and both official feeds on the same refresh path.
+let agendaRefresh;
+function refreshAgendaResults(){
+ return agendaRefresh??=Promise.all([fetchLiveCalendar(),fetchNextCalendar()])
+  .then(()=>fetchOfficialEconomicResults(true)).finally(()=>{agendaRefresh=null});
+}
+document.addEventListener('click',event=>{
+ const button=event.target.closest('#refresh-agenda-results');
+ if(!button)return;
+ button.disabled=true;
+ refreshAgendaResults().finally(()=>{button.disabled=false});
+});
+async function fetchOfficialEconomicResults(force=false){
  // Reload the same calendar data even when the BLS feed is temporarily unavailable.
  await window.ICTCalendarConsensus?.load().catch(()=>{});
  const feeds=await Promise.all([['economic-official.json','BLS'],['economic-bea.json','BEA']].map(async ([file,source])=>{
@@ -599,12 +629,12 @@ async function fetchOfficialEconomicResults(){
    if(data?.source!==source||data.status!=='ok'||!Array.isArray(data.events))return null;
    return {updatedAt:data.updatedAt,events:data.events.filter(e=>e?.source===source&&e.period&&
     e.actual!==null&&e.actual!==''&&Number.isFinite(Number(e.actual))&&['%','K'].includes(e.unit)&&
-    (source!=='BEA'||e.indicator==='core-pce-mom'&&Date.parse(e.releaseAt)<=Date.now()))};
+    (source!=='BEA'||['core-pce-mom','personal-income-mom','personal-spending-mom'].includes(e.indicator)&&Date.parse(e.releaseAt)<=Date.now()))};
   }catch{return null}
  }));
  const available=feeds.filter(Boolean);
- officialEconomicFeed=available.length?{updatedAt:available.map(f=>f.updatedAt).filter(Boolean).sort().at(-1),events:available.flatMap(f=>f.events).slice(0,30)}:null;
- if(['agenda','intelligence'].includes(state.page))render(true);
+ officialEconomicFeed=available.length?{updatedAt:available.map(f=>f.updatedAt).filter(Boolean).sort().at(-1),events:available.flatMap(f=>f.events)}:null;
+ if(state.page==='intelligence'||state.page==='agenda'&&(force||!document.querySelector('.agenda-release[open]')))render(true);
 }
 function economicNewsPriority(){
  try{const v=localStorage.getItem('ict-economic-news-priority-v1');return ['important','high','all'].includes(v)?v:'important'}catch{return 'important'}
@@ -623,7 +653,7 @@ function economicIntelligence(){
  const clusterCards=clusterReports.length?`<h2>قراءة التقارير الاقتصادية المتزامنة</h2>${reportOverview}<div class="intel-grid macro-report-grid">${clusterReports.map(x=>`<article class="intel-event macro-report-card"><div class="intel-event-top"><span class="intel-currency">${escapeHTML(x.currency)}</span><span class="intel-date">${escapeHTML(showDate(new Date(x.date),'date'))}</span></div><h3>${escapeHTML(x.headline)}</h3><ul class="macro-report-items">${x.items.map(i=>`<li><span>${escapeHTML(i.name)}</span><small>${escapeHTML(i.status)}</small></li>`).join('')}</ul><p class="intel-note">${escapeHTML(x.detail)}</p></article>`).join('')}</div>`:'';
  const newsStages=filterUi+clusterCards+(relevant.length?`<h2>الأخبار العالمية القادمة وحالة النتائج</h2><div class="notice">أخبار العملات المتاحة في أجندتك الحالية والأسبوع القادم. النتائج الرسمية تُعرض من BLS أو BEA للمؤشرات المدعومة. وتُذكر الأجندة كمصدر للنتائج التي تنقلها.</div><div class="intel-grid">${relevant.map(e=>`<article class="intel-event"><div class="intel-event-top"><span class="intel-currency">${escapeHTML(e.currency)}</span><span class="intel-impact">${e.impact==='high'?'تأثير مرتفع':e.impact==='medium'?'تأثير متوسط':e.impact==='low'?'تأثير منخفض':'تأثير غير محدد'}</span><span class="intel-impact">${e.stage==='upcoming'?'قادم':e.stage==='released'?'صدرت النتيجة':'بانتظار النتيجة'}</span><span class="intel-date">${escapeHTML(showDate(new Date(e.date),'date'))} · ${escapeHTML(showDate(new Date(e.date)))}</span></div><h3>${escapeHTML(e.title)}</h3><div class="intel-numbers"><div><small>السابق</small><strong dir="ltr">${escapeHTML(e.previous)}</strong></div><div><small>المتوقع</small><strong dir="ltr">${escapeHTML(e.forecast)}</strong></div><div><small>الفعلي</small><strong dir="ltr">${escapeHTML(e.actual)}</strong></div></div>${e.stage==='upcoming'?'<p class="intel-note">لم يحن موعد الخبر بعد.</p>':economicReading(e,eligible)}</article>`).join('')}</div>`:`<div class="notice">لا توجد حاليًا أحداث قادمة أو نتائج منتظرة في الأجندة الأسبوعية المتاحة. ${priority==='important'?'جرّب خيار «الكل» لعرض الأخبار الأقل تأثيرًا.':'تأكد من تحديث ملفات الأسبوع الحالي والقادم.'}</div>`);
  const officialBlock=official.length
-  ? `<div class="notice">نتائج رسمية أمريكية (BLS وBEA بحسب المؤشر) · آخر جلب ${escapeHTML(String(officialEconomicFeed.updatedAt||'غير متاح'))} · الفترة المكتوبة هي فترة الإحصاء لا موعد النشر. التوقعات تؤخذ من السجل التحريري الموثق أو من الأجندة الحالية عند تطابق الخبر والفترة؛ وتُميَّز التوقعات التي لم يُحفظ وقتها قبل الصدور.</div><div class="intel-grid">${officialIndicatorCards(official)}</div>`
+  ? `<div class="notice">نتائج رسمية أمريكية (BLS وBEA بحسب المؤشر) · آخر جلب ${escapeHTML(String(officialEconomicFeed.updatedAt||'غير متاح'))} · الفترة المكتوبة هي فترة الإحصاء لا موعد النشر. التوقعات تؤخذ من السجل التحريري الموثق أو من الأجندة الحالية عند تطابق الخبر والفترة؛ وتُميَّز التوقعات التي لم يُحفظ وقتها قبل الصدور.</div><div class="intel-grid">${officialIndicatorCards([...new Set(official.map(row=>row.indicator))].map(indicator=>official.find(row=>row.indicator===indicator)))}</div>`
   : `<div class="notice">لا تتوفر الآن نتائج رسمية محدثة. ستظهر تلقائيًا بعد نجاح مهمة GitHub الرسمية. لا نعرض أرقامًا افتراضية.</div>`;
 
  // Economic news is supplied by the site; no visitor uploads or private archives required.
@@ -836,4 +866,4 @@ matchMedia('(prefers-color-scheme: dark)').addEventListener?.('change',()=>{if((
 
 let deferredInstall;window.addEventListener('beforeinstallprompt',e=>{e.preventDefault();deferredInstall=e;$('install').hidden=false});$('install').addEventListener('click',async()=>{if(deferredInstall){deferredInstall.prompt();await deferredInstall.userChoice;deferredInstall=null;$('install').hidden=true}});
 window.addEventListener('hashchange',render);
-async function boot(){applyTheme();updateHeaderDate();render();const a=await Promise.all([load('news.json'),load('recs.json'),load('links.json'),load('agenda.json'),load('analyses.json')]);[S.newsArchive,S.recs,S.links,S.agenda,S.analyses]=[a[0]||[],a[1]||[],a[2]||[],a[3]||{days:[]},a[4]||[]];checkPublications();S.news=S.newsArchive;await Promise.all([fetchLiveCalendar(),fetchNextCalendar(),fetchLiveNews(false)]);render(true);refreshPulse();ticker();futureAlerts();sessionAlerts();fetchMovers();setInterval(updatePulseClocks,1000);setInterval(refreshPulse,60000);setInterval(fetchMovers,5*60*1000);setInterval(()=>{futureAlerts();sessionAlerts()},30000);setInterval(pollPublishedContent,120000);setInterval(async()=>{await Promise.all([fetchLiveCalendar(),fetchNextCalendar()]);if(state.page==='agenda')render();else refreshPulse();futureAlerts()},10*60*1000);setInterval(()=>{updateHeaderDate();if(state.page==='ict')render()},60000);setInterval(fetchLiveNews,10*60*1000);fetchOfficialEconomicResults();setInterval(fetchOfficialEconomicResults,30*60*1000);if('serviceWorker'in navigator)navigator.serviceWorker.register('./sw.js').catch(console.warn)}boot();
+async function boot(){applyTheme();updateHeaderDate();render();const a=await Promise.all([load('news.json'),load('recs.json'),load('links.json'),load('agenda.json'),load('analyses.json')]);[S.newsArchive,S.recs,S.links,S.agenda,S.analyses]=[a[0]||[],a[1]||[],a[2]||[],a[3]||{days:[]},a[4]||[]];checkPublications();S.news=S.newsArchive;await Promise.all([fetchLiveCalendar(),fetchNextCalendar(),fetchLiveNews(false)]);render(true);refreshPulse();ticker();futureAlerts();sessionAlerts();fetchMovers();setInterval(updatePulseClocks,1000);setInterval(refreshPulse,60000);setInterval(fetchMovers,5*60*1000);setInterval(()=>{futureAlerts();sessionAlerts()},30000);setInterval(pollPublishedContent,120000);setInterval(async()=>{await Promise.all([fetchLiveCalendar(),fetchNextCalendar()]);if(state.page==='agenda'){if(!document.querySelector('.agenda-release[open]'))render(true)}else refreshPulse();futureAlerts()},10*60*1000);setInterval(()=>{updateHeaderDate();if(state.page==='ict')render()},60000);setInterval(fetchLiveNews,10*60*1000);fetchOfficialEconomicResults();setInterval(fetchOfficialEconomicResults,5*60*1000);if('serviceWorker'in navigator)navigator.serviceWorker.register('./sw.js').catch(console.warn)}boot();

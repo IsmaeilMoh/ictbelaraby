@@ -63,8 +63,10 @@ def build(payload, retrieved):
             valid.append((period,round(value,3)))
         valid.sort(reverse=True)
         if not valid:continue
-        period,actual=valid[0]; prior=valid[1][1] if len(valid)>1 else None
-        events.append({'id':'bls-'+key+'-'+period,'indicator':key,'title':title,'titleEn':label,
+        history = dict(valid)
+        for period, actual in valid[:3]:
+            prior = history.get(prev_month(period))
+            events.append({'id':'bls-'+key+'-'+period,'indicator':key,'title':title,'titleEn':label,
           'country':'US','currency':'USD','period':period,'actual':actual,'previous':prior,
           'forecast':None,'unit':unit,'seriesId':sid,'source':'BLS','sourceUrl':'https://www.bls.gov/developers/',
           'measurement':method,'note':'الفترة المرجعية للإحصاء، وليست وقت صدور الخبر أو توقع السوق.'})

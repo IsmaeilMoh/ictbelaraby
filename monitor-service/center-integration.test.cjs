@@ -142,3 +142,18 @@ async function testSharedMarketCatalog(){
  console.log('Shared market catalog, identity, request reuse and fallback: PASS');
 }
 testSharedMarketCatalog().catch(error=>{console.error(error);process.exitCode=1;});
+
+{
+ const window={};
+ vm.runInNewContext(read('economic-calendar-bridge.js'),{window});
+ const bridge=window.ICTCalendarConsensus;
+ const release='2026-11-25T13:30:00Z';
+ const event={title:'Personal Spending m/m',currency:'USD',date:release,previous:'—',forecast:'0.2%'};
+ const releaseAt=Date.parse(release);
+ const official={indicator:'personal-spending-mom',period:'2026-10',source:'BEA',currency:'USD',releaseAt:release,actual:.3,previous:.1,unit:'%'};
+ const matched=bridge.resultFor(event,[official],releaseAt);
+ assert.deepEqual([matched.actual,matched.previous,matched.difference],['0.3%','0.1%',.1]);
+ assert.equal(bridge.resultFor(event,[official],releaseAt-1).stage,'upcoming');
+ assert.equal(bridge.resultFor(event,[{...official,releaseAt:'2026-11-25T14:30:00Z'}],releaseAt).stage,'awaiting');
+ console.log('Agenda official reading source, time and previous value: PASS');
+}
