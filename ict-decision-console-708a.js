@@ -2,11 +2,11 @@
 (function(){'use strict';const root=document.getElementById('ict-decision-8a');if(!root)return;
 const $=id=>document.getElementById(id),marketSelect=$('dc-market'),symbol=$('dc-symbol'),frame=$('dc-frame'),modelType=$('dc-model-type'),modelPhase=$('dc-model-phase'),roll=$('dc-roll'),run=$('dc-run'),monitor=$('dc-monitor'),status=$('dc-status'),output=$('dc-output'),archive=$('dc-archive');
 const api=window.ICTDecisionEngine708A,live=window.ICTLiveFeed,structure=window.ICTStructureEngine,signal=window.ICTSignalEngine,context=window.ICTContextEngine,scenario=window.ICTScenarioEngine,econ=window.ICTEconomicLink706A;
+const catalog=window.ICTMarketCatalog;
 const traditional=window.ICTPublicMarkets, bybitCatalog=$('dc-bybit-catalog');
 const selectedMarket=()=>marketSelect.value;
 const entryFrames=['5','15','60','240'];
 const traditionalStatus=$('dc-traditional-status');
-let traditionalCatalog;
 function displayTraditionalCatalog(preselected){
  const market=selectedMarket();
  if(market==='crypto')return;
@@ -18,7 +18,7 @@ async function loadTraditionalCatalog(preselected){
  const requestedMarket=selectedMarket();
  traditionalStatus.textContent='جارٍ تحديث دليل Biquote…';
  try{
-  const expanded=await (traditionalCatalog??=traditional.loadCatalog());
+  const expanded=await catalog.loadTraditional();
   const market=selectedMarket();
   if(market!==requestedMarket)return;
   const old=symbol.value;
@@ -28,7 +28,6 @@ async function loadTraditionalCatalog(preselected){
    ? expanded[market].length+' أصلًا في دليل Biquote بأسعار مسجلة خلال آخر 7 أيام.'
    : 'لم يُرجع دليل Biquote أصولًا حديثة لهذه الفئة. تظهر القائمة الأساسية.';
  }catch{
-  traditionalCatalog=null;
   if(selectedMarket()===requestedMarket)traditionalStatus.textContent='تعذر تحديث دليل Biquote. تظهر القائمة الأساسية.';
  }
 }
@@ -179,7 +178,7 @@ async function loadBybitCatalog(preselected){
  displayBybitSymbols(symbol.value);
  const initial=symbol.value;
  try{
-  const contracts=await live.fetchPerpetuals();
+  const contracts=await catalog.loadCrypto();
   const preferred=symbol.value===initial?preselected||symbol.value:symbol.value;
   crypto=contracts.map(item=>item.symbol);
   catalogLoaded=true;

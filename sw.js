@@ -1,5 +1,5 @@
 /* ICT بالعربي 6.8.74: prioritize the home offline shell; other pages cache when visited. */
-const CACHE='ict-shell-2026-11-27-short-directory';
+const CACHE='ict-shell-2026-11-27-market-catalog';
 const PREFIX='ict-shell-';
 const CORE=[
  "./",
@@ -7,7 +7,7 @@ const CORE=[
  "./analysis-lifecycle.css?v=6.8.61",
  "./analytics-config.js?v=6.4.0",
  "./analytics.js?v=6.4.0",
- "./app.js?v=7.0.57-home-tools",
+ "./app.js?v=7.0.60-market-catalog",
  "./asset-choice-6918.css?v=6.9.18",
  "./asset-choice-6918.js?v=6.9.18",
  "./asset-config.js?v=7.0.31-biquote",
@@ -74,7 +74,7 @@ const CORE=[
  "./ict-context-engine-703a.js?v=7.0.45-prior-week",
  "./ict-data-core-700.js",
  "./ict-decision-center-708a.css?v=7.0.56-result-cards",
- "./ict-decision-console-708a.js?v=7.0.56-result-cards",
+ "./ict-decision-console-708a.js?v=7.0.60-catalog",
  "./ict-decision-engine-708a.js?v=7.0.45-prior-week",
  "./ict-economic-compare-706c.js?v=7.0.6c.1",
  "./ict-economic-compare-console-706c.css?v=7.0.6c.1",
@@ -115,6 +115,7 @@ const CORE=[
  "./ict-public-console-702c2.js",
  "./ict-public-markets-702c2.js?v=7.0.31-biquote",
  "./ict-public-markets-702c2.js?v=7.0.40-tradingview-links",
+ "./ict-market-catalog.js?v=1",
  "./ict-readiness-console-708c.css?v=7.0.8c",
  "./ict-readiness-console-708c.js",
  "./ict-readiness-core-708c.js",
