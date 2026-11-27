@@ -9,32 +9,35 @@ html[data-ict-unified] {
   --amber:var(--ict-amber); --warn:var(--ict-amber); --shadow:var(--ict-shadow);
   --unity-bg:var(--ict-bg); --unity-panel:var(--ict-card); --unity-panel-alt:var(--ict-card2);
   --unity-border:var(--ict-border); --unity-text:var(--ict-text); --unity-muted:var(--ict-muted);
-  --ict-section-surface:linear-gradient(142deg,var(--ict-card),var(--ict-card2) 68%,var(--ict-bg2));
+  --unity-accent:var(--ict-accent); --unity-field:var(--ict-card); --unity-shadow:var(--ict-shadow);
+  --pane:var(--ict-card); --edge:var(--ict-border); --dim:var(--ict-muted);
 }
 html[data-ict-unified][data-theme] body {
-  background:linear-gradient(155deg,var(--ict-bg2),var(--ict-bg) 54%,var(--ict-bg))!important;
+  background:var(--ict-page-gradient)!important;
   color:var(--ict-text)!important;
 }
-html[data-ict-unified] main :is(.hero,.asset-hero,.ws-hero,.tools-hero) {
-  background:var(--ict-section-surface);
-  color:var(--ict-text);
-  border-color:var(--ict-border);
+/* Match the homepage’s welcome panel and its nested utility surfaces. */
+html[data-ict-unified][data-theme] main :is(
+  .hero,.asset-hero,.ws-hero,.tools-hero,.tools-phase,.tools-last,
+  .section,.t19-section,.panel,.asset-panel,.ws-panel,.admin-card,
+  .ict-vault,.ict-playbook,.ict-cases-4b,.dc-panel,.trade-flow-map,
+  .ac-lab,.ict7a,.vault19-panel,.q19-panel,.r14-evidence,.r14-start,section[id^="ict-"]
+) {
+  background:var(--ict-panel-gradient)!important;
+  color:var(--ict-text)!important;
+  border-color:var(--ict-glass-border)!important;
   box-shadow:var(--ict-shadow);
+}
+html[data-ict-unified][data-theme] main :is(
+  .card,.asset-tile,.asset-item,.ws-card,.ws-module,.dc-card,.dc-track-item,
+  .dc-levels>div,.tools-card,.hero-note,.daily-readiness,.desk-data-provenance
+) {
+  background:var(--ict-card)!important;
+  color:var(--ict-text)!important;
+  border-color:var(--ict-border)!important;
 }
 html[data-ict-unified] main :is(.hero,.asset-hero,.ws-hero,.tools-hero)>p {
   color:var(--ict-muted);
-}
-html[data-ict-unified] main :is(.asset-panel,.asset-tile,.panel,.ws-panel,.ws-card,.admin-card,.dc-panel) {
-  background:var(--ict-section-surface);
-  color:var(--ict-text);
-  border-color:var(--ict-border);
-  box-shadow:var(--ict-shadow);
-}
-html[data-ict-unified][data-theme] #ict-decision-8a .dc-panel {
-  background:var(--ict-section-surface);
-  color:var(--ict-text);
-  border-color:var(--ict-border);
-  box-shadow:var(--ict-shadow);
 }
 html[data-ict-unified] main .asset-tile:hover {
   border-color:var(--ict-accent);
@@ -49,25 +52,66 @@ html[data-ict-unified] main :is(a,button,summary,select,input):focus-visible {
   outline:2px solid var(--ict-accent);
   outline-offset:3px;
 }
-html[data-ict-unified] main [data-ict-icon] {
-  display:inline-flex;
-  align-items:center;
-  gap:8px;
-}
-html[data-ict-unified] main .uii-actionmark {
-  display:inline-flex;
-  flex:none;
-  width:20px;
-  height:20px;
-}
 html[data-ict-unified] body > #ict-one-header a.brand {
   text-decoration:none!important;
 }
-html[data-ict-unified][data-theme] #ict-decision-8a :is(.dc-nav a,.dc-eyebrow) {
-  color:var(--ict-accent);
+html[data-ict-unified][data-theme] main :is(button,.uii-action-link,.asset-btn,.tools-cta):not(.icon-btn) {
+  background:var(--ict-card2)!important;
+  color:var(--ict-text)!important;
+  border:1px solid var(--ict-border)!important;
+  border-radius:13px!important;
+  min-height:44px;
 }
-html[data-ict-unified] main .asset-actions .asset-btn:not(.ghost) {
-  background:var(--ict-accent);
-  color:var(--ict-accent-contrast);
-  border-color:var(--ict-accent);
+html[data-ict-unified][data-theme] main :is(.primary,.ws-primary,.asset-btn:not(.ghost),.tools-cta:not(.tools-cta-sub),#dc-run,button[type="submit"]) {
+  background:var(--ict-accent)!important;
+  color:var(--ict-accent-contrast)!important;
+  border-color:var(--ict-accent)!important;
+}
+html[data-ict-unified][data-theme] main :is(button,.uii-action-link,.asset-btn,.tools-cta):not(:disabled):hover,
+html[data-ict-unified][data-theme] main :is(button,[role="tab"]):is([aria-pressed="true"],[aria-selected="true"],.active) {
+  background:var(--ict-hover)!important;
+  color:var(--ict-highlight)!important;
+  border-color:var(--ict-accent)!important;
+}
+html[data-ict-unified][data-theme] main :is(select,input:not([type="checkbox"],[type="radio"],[type="range"],[type="color"],[type="file"]),textarea) {
+  background:var(--ict-card)!important;
+  color:var(--ict-text)!important;
+  border-color:var(--ict-border)!important;
+}
+html[data-ict-unified][data-theme] main :is(.uii-actionmark,.tools-card-icon,.tools-hero-icon,.tools-phase-mark) {
+  background:var(--ict-icon-gradient)!important;
+  color:var(--ict-highlight)!important;
+  border:1px solid var(--ict-icon-border);
+  border-radius:10px;
+}
+html[data-ict-unified] main .uii-action-link {
+  display:inline-flex;
+  align-items:center;
+  gap:8px;
+  max-width:100%;
+  padding:6px 10px;
+  text-decoration:none;
+  overflow-wrap:anywhere;
+}
+html[data-ict-unified] main .uii-actionmark {
+  display:inline-grid;
+  place-items:center;
+  flex:none;
+  box-sizing:border-box;
+  width:30px;
+  height:30px;
+}
+html[data-ict-unified] main .uii-actionmark svg {width:18px;height:18px}
+html[data-ict-unified] main button:has(>.uii-actionmark) {
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  gap:8px;
+}
+html[data-ict-unified] main :is(button,.uii-action-link)[hidden] {display:none!important}
+html[data-ict-unified][data-theme] main button:is(.danger,.ws-danger) {
+  color:var(--ict-red)!important;
+}
+html[data-ict-unified][data-theme] main :is(.eyebrow,.dc-eyebrow,.tools-eyebrow,.asset-kicker) {
+  color:var(--ict-highlight)!important;
 }

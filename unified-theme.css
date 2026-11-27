@@ -17,6 +17,14 @@ html[data-theme="dark"]{
   --ict-green:#81c6ae;--ict-shadow:0 12px 32px rgba(0,0,0,.14);
   color-scheme:dark;
 }
+:root {
+  --ict-panel-gradient:linear-gradient(147deg,var(--ict-card),var(--ict-card2));
+  --ict-page-gradient:linear-gradient(155deg,var(--ict-bg2),var(--ict-bg) 54%,var(--ict-bg));
+  --ict-glass-gradient:linear-gradient(118deg,color-mix(in srgb,var(--ict-card2) 91%,var(--ict-accent) 9%),color-mix(in srgb,var(--ict-card) 94%,var(--ict-accent) 6%) 62%,var(--ict-card2));
+  --ict-glass-border:color-mix(in srgb,var(--ict-accent) 34%,var(--ict-border));
+  --ict-icon-gradient:linear-gradient(142deg,color-mix(in srgb,var(--ict-accent) 18%,var(--ict-card2)),color-mix(in srgb,var(--ict-card) 92%,var(--ict-accent) 8%));
+  --ict-icon-border:color-mix(in srgb,var(--ict-accent) 47%,var(--ict-border));
+}
 /* Homepage shares existing app theme switch; map its tokens to the common palette. */
 html[data-ict-page="home"]{
   --bg:var(--ict-bg);--surface:var(--ict-card);--ink:var(--ict-text);
@@ -25,7 +33,7 @@ html[data-ict-page="home"]{
   --amber:var(--ict-amber);--shadow:var(--ict-shadow);
 }
 html[data-ict-page="home"] body{
-  background:linear-gradient(155deg,var(--ict-bg2),var(--ict-bg) 54%,var(--ict-bg));
+  background:var(--ict-page-gradient);
   color:var(--ict-text);
 }
 html[data-ict-page="home"] :is(.header,.topline,.mobile-bottom,.tape){border-color:var(--ict-border)}

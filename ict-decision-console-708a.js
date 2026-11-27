@@ -384,7 +384,7 @@ function fetchCardQuote(market,symbol){
  return market==='crypto'?live.fetchBook(symbol):traditional.getQuote(traditional.resolve(market,symbol));
 }
 function addBatchQuoteButton(actions,row){
- const button=node('button','تحديث السعر',actions,'secondary');button.type='button';
+ const button=node('button','تحديث السعر',actions,'secondary');button.type='button';button.dataset.ictIcon='refresh';
  let expiry;
  button.addEventListener('click',async()=>{
   button.disabled=true;
@@ -448,7 +448,7 @@ function card(parent,o,origin,{quoteRows,batchQuote=false}={}){
  for(const text of [...(o.blocks||[]),...(o.waiting||[])])node('li',text,list);
  const actions=node('div','',c,'dc-actions');
  if(quoteRow&&batchQuote)addBatchQuoteButton(actions,quoteRow);
- const save=node('button','حفظ البطاقة كصورة',actions,'secondary');save.type='button';
+ const save=node('button','حفظ البطاقة كصورة',actions,'secondary');save.type='button';save.dataset.ictIcon='install';
  const feedback=node('p','',actions,'dc-muted');feedback.setAttribute('role','status');
  save.addEventListener('click',async()=>{
   save.disabled=true;feedback.textContent='';
@@ -701,11 +701,6 @@ cancelBatch.addEventListener('click',cancelGroupedScan);
 monitor.addEventListener('click',()=>{if(active){stop();return}active=true;monitor.textContent='إيقاف المراقبة';monitor.setAttribute('aria-pressed','true');scan(false);timer=setInterval(()=>scan(true),60000)});
 document.addEventListener('visibilitychange',()=>{if(document.hidden)stop()});
 window.addEventListener('pagehide',()=>{stop();cancelGroupedScan()});
-if(window.ICTSharedIcons){
- for(const link of root.querySelectorAll('[data-dc-icon]')){
-  link.prepend(window.ICTSharedIcons.makeIcon(link.dataset.dcIcon));
- }
-}
 const advanced=$('dc-advanced');
 const advancedStatus=$('dc-advanced-loading');
 const advancedRetry=$('dc-advanced-retry');

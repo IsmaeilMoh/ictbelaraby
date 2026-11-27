@@ -28,6 +28,7 @@
     assistant:'<path d="M12 4.2 13.8 8l4.2.5-3.1 2.9.8 4.2L12 13.6 8.3 15.6l.8-4.2L6 8.5 10.2 8z"/>',
     back:'<path d="M14.5 6 8.5 12l6 6"/><path d="M9 12h10"/>',
     theme:'<path d="M20 14.2A7.7 7.7 0 0 1 9.8 4a8.7 8.7 0 1 0 10.2 10.2Z"/>',
+    refresh:'<path d="M20 10a8 8 0 0 0-13.5-4.6L4 8m0-4v4h4M4 14a8 8 0 0 0 13.5 4.6L20 16m0 4v-4h-4"/>',
     install:'<path d="M12 4v10"/><path d="m8.5 10.5 3.5 3.5 3.5-3.5"/><path d="M5 18.5h14"/>'
   };
   function makeIcon(name, cls='uii-svg'){
@@ -149,6 +150,11 @@
   // Extra icons are hydrated after app.js renders and whenever the SPA changes sections.
   const hrefIcon = (href)=>{
     const h=String(href||'').toLowerCase();
+    if(h.includes('#more'))return 'more';
+    if(h.includes('#ict-structure'))return 'patterns';
+    if(h.includes('#ict-briefing'))return 'news';
+    if(h.includes('#dc-lifecycle')||h.includes('decision-center'))return 'recs';
+    if(h.includes('#dc-advanced'))return 'guardian';
     if(h.includes('research'))return 'research';
     if(h.includes('intelligence'))return 'intelligence';
     if(h.includes('smart-desk'))return 'smartdesk';
@@ -166,9 +172,13 @@
   const app=document.getElementById('app')||document.querySelector('html[data-ict-unified] main');
   function hydrateApp(){
     if(!app)return;
-    app.querySelectorAll('[data-ict-icon]').forEach(element=>{
-      const name=element.dataset.ictIcon;
-      if(Object.hasOwn(ICONS,name))prependOnce(element,'uii-actionmark',boxed(name,'uii-actionmark'));
+    const shortcuts='.dc-nav a,.workflow-link-trail a,.hero-actions a,.hero-pills a,.r14-quick-actions a,.asset-actions a,.asset-crumbs a,.tools-actions a';
+    app.querySelectorAll('[data-ict-icon],'+shortcuts).forEach(element=>{
+      const explicit=element.dataset.ictIcon;
+      const name=explicit||hrefIcon(element.getAttribute('href'));
+      if(!Object.hasOwn(ICONS,name))return;
+      if(element.matches('a'))element.classList.add('uii-action-link');
+      if(!element.querySelector('svg'))prependOnce(element,'uii-actionmark',boxed(name,'uii-actionmark'));
     });
     app.querySelectorAll('.ict-center-group').forEach(group=>{
       const title=(group.querySelector('summary strong')?.textContent||'').trim();
