@@ -31,7 +31,7 @@ html[data-ict-page=home] :is(.welcome,.welcome-aside,.pulse-desk,#market-pulse,
  .cta,.feature-strip,.data-status,.notice,.empty,
  .session-pro-item,.ict-session-pro,.academy-card,.intelligence-card,.calculator-card,
  .smart-trade-card,.trade-card,.result-card,.panel,.panel-card){
- background:linear-gradient(147deg,var(--ict-card),var(--ict-card2))!important;
+ background:var(--ict-panel-gradient)!important;
  color:var(--ict-text);box-shadow:var(--ict-shadow);
 }
 html[data-ict-page=home] :is(.pulse-block,.pulse-mover-row,.news-line,.zone-row,.event-row,
@@ -46,7 +46,7 @@ html[data-ict-page=home] #market-pulse :is(.pulse-heading,.pulse-market,.pulse-b
  border-color:var(--ict-border);color:var(--ict-text);
 }
 html[data-ict-page=home] #market-pulse :is(.pulse-brief-grid>.pulse-block,.pulse-movers-board,.pulse-mover-row){
- background:linear-gradient(150deg,var(--ict-card),var(--ict-card2))!important;
+ background:var(--ict-panel-gradient)!important;
 }
 html[data-ict-page=home] #market-pulse :is(.pulse-quiet-badge,.pulse-currency,.pulse-state,.pulse-extra summary){
  color:var(--ict-highlight);background:var(--ict-hover);border-color:var(--ict-border);
@@ -119,7 +119,7 @@ html[data-ict-page]:not([data-ict-page=home]) :is(.hero,.ws-hero,.hero-note,.ws-
  .snapshot,.readiness,.check-row,.ws-stat,.ws-check-item,.ws-risk-note,.ws-module,.ws-card,.stat,.metric,
  .feed .item,.panel,.card,.result,.insight,.ws-personal-bar,.status,.tabs,.ws-tabs,
  .searchform,.examples button,.source-status,.data-status,.notice){
- background:linear-gradient(150deg,var(--ict-card),var(--ict-card2))!important;
+ background:var(--ict-panel-gradient)!important;
  border-color:var(--ict-border)!important;color:var(--ict-text);
 }
 html[data-ict-page]:not([data-ict-page=home]) :is(.leader.active,.peer.active,.tabs button.active,.tab.active,.ws-tab.active){

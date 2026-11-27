@@ -36,7 +36,11 @@ assert.doesNotMatch(read('index.html'),/widgets\.tradingview-widget\.com\/w\/en\
 assert.match(read('app.js'),/routeWidgets=\{agenda:'tv-economic-calendar',markets:'tv-forex-table'\}/,'the widgets remain available in their own sections');
 const decision=read('ict-decision-console-708a.js');
 assert.doesNotMatch(html,/dc-public-quote|tradingview-widget/,'charts stay outside the scan form');
-assert.match(html,/<div class="dc-actions" id="dc-scan-actions"><button id="dc-run"/,'scan controls appear in their original location');
+assert.match(html,/<div class="dc-actions" id="dc-scan-actions"><button\b[^>]*\bid="dc-run"/,'scan controls appear in their original location');
+for(const [name,href] of [['more','./#more'],['patterns','trust.html#ict-structure-2d'],
+ ['news','trust.html#ict-briefing-3c'],['recs','#dc-lifecycle'],['guardian','#dc-advanced']]){
+ assert.ok(html.includes('data-ict-icon="'+name+'" href="'+href+'"'),'shortcut uses the shared icon and keeps its destination');
+}
 assert.match(html,/id="dc-monitor" type="button">تشغيل المراقبة أثناء فتح الصفحة/,'monitor retains its original label');
 assert.doesNotMatch(html,/type="password"/,'public visitors never enter a dealer or service key');
 assert.match(html,/<select id="dc-market"><option value="crypto">[^<]+USDT<\/option><option value="forex">Biquote/);
