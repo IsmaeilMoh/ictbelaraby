@@ -1,31 +1,108 @@
 {
-  "updatedAt": "2026-11-27T06:26:57.900926Z",
+  "updatedAt": "2026-11-27T07:55:06.857269Z",
   "source": "Yahoo Finance public chart feed (unofficial)",
   "intervalMinutes": 5,
   "windowBasis": "5-minute chart close comparisons",
   "isRealtime": false,
   "items": [
     {
+      "symbol": "EURUSD",
+      "label": "يورو / دولار",
+      "category": "forex",
+      "proxy": false,
+      "quotedAt": "2026-11-27T07:54:48Z",
+      "price": 1.09817708,
+      "5": 0.02196,
+      "15": 0.04393,
+      "60": 0.01099
+    },
+    {
+      "symbol": "GBPUSD",
+      "label": "جنيه / دولار",
+      "category": "forex",
+      "proxy": false,
+      "quotedAt": "2026-11-27T07:54:48Z",
+      "price": 1.31247377,
+      "5": 0.01838,
+      "15": 0.01181,
+      "60": 0.0
+    },
+    {
+      "symbol": "USDJPY",
+      "label": "دولار / ين",
+      "category": "forex",
+      "proxy": false,
+      "quotedAt": "2026-11-27T07:55:05Z",
+      "price": 159.32800293,
+      "5": -0.00376,
+      "15": 0.00502,
+      "60": -0.01318
+    },
+    {
+      "symbol": "USDCHF",
+      "label": "دولار / فرنك",
+      "category": "forex",
+      "proxy": false,
+      "quotedAt": "2026-11-27T07:55:05Z",
+      "price": 0.83416998,
+      "5": -0.0036,
+      "15": 0.0012,
+      "60": 0.02998
+    },
+    {
+      "symbol": "USDCAD",
+      "label": "دولار / كندي",
+      "category": "forex",
+      "proxy": false,
+      "quotedAt": "2026-11-27T07:55:04Z",
+      "price": 1.42333996,
+      "5": -0.0007,
+      "15": -0.00281,
+      "60": -0.0302
+    },
+    {
       "symbol": "AUDUSD",
       "label": "أسترالي / دولار",
       "category": "forex",
       "proxy": false,
-      "quotedAt": "2026-11-27T06:25:46Z",
-      "price": 0.6675567,
-      "5": 0.0,
-      "15": 0.04673,
-      "60": 0.00667
+      "quotedAt": "2026-11-27T07:53:48Z",
+      "price": 0.66720039,
+      "5": -0.01335,
+      "15": 0.08005,
+      "60": 0.0
     },
     {
       "symbol": "NZDUSD",
       "label": "نيوزيلندي / دولار",
       "category": "forex",
       "proxy": false,
-      "quotedAt": "2026-11-27T06:25:46Z",
-      "price": 0.54929966,
-      "5": -0.01098,
-      "15": -0.00549,
-      "60": -0.01098
+      "quotedAt": "2026-11-27T07:53:48Z",
+      "price": 0.54899812,
+      "5": -0.01647,
+      "15": 0.04392,
+      "60": -0.02195
+    },
+    {
+      "symbol": "BTCUSD",
+      "label": "Bitcoin",
+      "category": "crypto",
+      "proxy": false,
+      "quotedAt": "2026-11-27T07:55:01Z",
+      "price": 61669.12109375,
+      "5": -0.00525,
+      "15": 0.38578,
+      "60": 0.07312
+    },
+    {
+      "symbol": "ETHUSD",
+      "label": "Ethereum",
+      "category": "crypto",
+      "proxy": false,
+      "quotedAt": "2026-11-27T07:55:03Z",
+      "price": 1733.60998535,
+      "5": 0.01038,
+      "15": 0.46069,
+      "60": 0.07735
     }
   ]
 }
