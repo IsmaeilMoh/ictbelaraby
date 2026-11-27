@@ -1,7 +1,18 @@
 {
-  "updated_at": "2026-11-27T12:36:39Z",
+  "updated_at": "2026-11-27T13:58:21Z",
   "mode": "rss-attributed",
   "items": [
+    {
+      "id": "d99f8723a0cde831673c",
+      "title": "هل نعيش في زمن التخمة المعلوماتية؟",
+      "tag": "اقتصاد",
+      "src": "CNN Business Arabic",
+      "date": "2026-11-27T12:22:00Z",
+      "url": "https://cnnbusinessarabic.com/sectors/1153540/%D9%87%D9%84-%D9%86%D8%B9%D9%8A%D8%B4-%D9%81%D9%8A-%D8%B2%D9%85%D9%86-%D8%A7%D9%84%D8%AA%D8%AE%D9%85%D8%A9-%D8%A7%D9%84%D9%85%D8%B9%D9%84%D9%88%D9%85%D8%A7%D8%AA%D9%8A%D8%A9",
+      "priority": 2,
+      "language": "ar",
+      "image": "https://cnnbusinessarabic.com/businesscnn/uploads/images/2026/11/27/1713052.webp"
+    },
     {
       "id": "abbabb7480db0eb1bc1a",
       "title": "الصين في مرمى رسوم ترامب.. هل تتجدد الحرب التجارية؟",
@@ -375,17 +386,6 @@
       "priority": 2,
       "language": "ar",
       "image": "https://cnnbusinessarabic.com/businesscnn/uploads/images/2026/11/24/1712685.webp"
-    },
-    {
-      "id": "5a0e42166c0f2ff12647",
-      "title": "اشتروا ذهباً وفضة وبيتكوين.. كيوساكي يحذر من انهيار اقتصادي كبير",
-      "tag": "اقتصاد",
-      "src": "CNN Business Arabic",
-      "date": "2026-11-23T12:19:00Z",
-      "url": "https://cnnbusinessarabic.com/sectors/1153216/%D8%A7%D8%B4%D8%AA%D8%B1%D9%88%D8%A7-%D8%B0%D9%87%D8%A8%D8%A7-%D9%88%D9%81%D8%B6%D8%A9-%D9%88%D8%A8%D9%8A%D8%AA%D9%83%D9%88%D9%8A%D9%86-%D9%83%D9%8A%D9%88%D8%B3%D8%A7%D9%83%D9%8A-%D9%8A%D8%AD%D8%B0%D8%B1-%D9%85%D9%86-%D8%A7%D9%86%D9%87%D9%8A%D8%A7%D8%B1-%D8%A7%D9%82%D8%AA%D8%B5%D8%A7%D8%AF%D9%8A-%D9%83%D8%A8%D9%8A%D8%B1",
-      "priority": 4,
-      "language": "ar",
-      "image": "https://cnnbusinessarabic.com/businesscnn/uploads/images/2026/11/23/1712621.webp"
     }
   ],
   "source_count": 1,
