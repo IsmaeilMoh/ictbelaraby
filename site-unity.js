@@ -5,7 +5,7 @@ const base=new URL('./',document.currentScript.src).href;
 const theme=window.ICTTheme;
 function syncTheme(){if(theme)theme.apply()}
 function icon(name,box=false){const inner=(window.ICTSharedIcons&&window.ICTSharedIcons.makeIcon(name))||document.createElement('span');if(box){const outer=document.createElement('span');outer.className='uii-iconbox';outer.append(inner);return outer}return inner;}
-const nav=[['home','الرئيسية','#home'],['markets','الأسواق','#markets'],['news','الأخبار','#news'],['recs','التوصيات','#recs'],['agenda','الأجندة','#agenda'],['ict','أدوات ICT','#ict'],['links','تابعنا','#links'],['more','المزيد','tools.html']];
+const nav=[['home','الرئيسية','#home'],['markets','الأسواق','#markets'],['news','الأخبار','#news'],['recs','التوصيات','#recs'],['agenda','الأجندة','#agenda'],['ict','أدوات ICT','#ict'],['links','تابعنا','#links'],['more','الأدوات','tools.html']];
 function link(key,label,path,cls){const a=document.createElement('a');a.href=path;a.dataset.page=key;if(cls)a.className=cls;a.append(icon(key),document.createTextNode(label));return a;}
 function makeHeader(){if(document.querySelector('body > header[data-ict-single-header="1"]'))return;const existing=document.querySelector('body > header');if(!existing||page==='index.html')return;
  const h=document.createElement('header');h.className='ict-unity-header';h.setAttribute('aria-label','ترويسة ICT بالعربي');
@@ -34,9 +34,9 @@ function makeDock(){
   const a=link(key,label,base+path);const original=a.firstChild;if(original){a.removeChild(original);a.prepend(icon(key,true));}
   dock.append(a);
  });
- const more=link('more','المزيد',base+'tools.html');
+ const more=link('more','الأدوات',base+'tools.html');
  const oldIcon=more.firstChild;if(oldIcon)oldIcon.remove();more.prepend(icon('more',true));
- more.setAttribute('aria-label','المزيد — كل أقسام الموقع');dock.append(more);
+ more.setAttribute('aria-label','الأدوات — دليل أقسام الموقع');dock.append(more);
  document.body.append(dock);document.body.dataset.ictNavOwner='unity';
 }
 

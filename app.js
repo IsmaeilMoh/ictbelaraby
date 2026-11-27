@@ -80,7 +80,7 @@ function analysesGrid(){
 }
 const badges={telegram:'➤',x:'𝕏',youtube:'▶',instagram:'◎',tiktok:'♪',facebook:'f',whatsapp:'◉',email:'✉'};
 function linksGrid(items){return items.length?`<div class="grid">${items.map(x=>{const ok=safeUrl(x.url)!=='#';const inside=`<span class="social-icon">${badges[x.icon]||'↗'}</span><span class="social-copy"><b>${escapeHTML(x.name)}</b><small>${escapeHTML(x.desc||'')}</small></span><span style="color:var(--muted)">${ok?'↗':'—'}</span>`;return ok?`<a class="card social-card" href="${safeUrl(x.url)}" target="_blank" rel="noopener noreferrer">${inside}</a>`:`<div class="card social-card disabled" title="الرابط لم يُضف بعد">${inside}</div>`}).join('')}</div>`:empty('لا تتوفر روابط بعد.')}
-const navTitle={home:'الرئيسية',markets:'الأسواق',news:'الأخبار الاقتصادية',recs:'التوصيات',agenda:'الأجندة الاقتصادية',ict:'أدوات ICT',links:'تابعنا',more:'المزيد',intelligence:'قراءة الأخبار',academy:'أكاديمية ICT',calculators:'أدوات التداول'};
+const navTitle={home:'الرئيسية',markets:'الأسواق',news:'الأخبار الاقتصادية',recs:'التوصيات',agenda:'الأجندة الاقتصادية',ict:'أدوات ICT',links:'تابعنا',more:'الأدوات',intelligence:'قراءة الأخبار',academy:'أكاديمية ICT',calculators:'أدوات التداول'};
 function title(eng,arabic,lead){return `<div class="eyebrow">${eng}</div><h1 class="page-title">${arabic}</h1><p class="lead">${lead}</p>`}
 // Featured editorial headlines — same verified feed as the news section, no duplicate source.
 let heroSlideIndex=0,heroSlideTimer=null;
