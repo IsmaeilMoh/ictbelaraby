@@ -1,6 +1,7 @@
 /* ICT بالعربي 7.0: expose existing More hub in unified desktop headers only. */
 (()=>{'use strict';
  const label='المزيد';
+ const directory=new URL('tools.html',document.currentScript.src).href;
  const icon='<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg>';
  function mount(){
   const header=document.querySelector('#ict-one-header,header.header');
@@ -11,10 +12,7 @@
   if(anchors.length>1)anchors.slice(1).forEach(a=>a.remove());
   const a=anchors[0]||document.createElement('a');
   a.className='ict-desktop-more';
-  const home=header.querySelector('a.brand')?.href;
-  const isHomepage=location.pathname.endsWith('/')||location.pathname.endsWith('/index.html');
-  if(isHomepage)a.href='#more';
-  else if(home){const destination=new URL(home);destination.hash='more';a.href=destination.href;}
+  a.href=directory;
   a.setAttribute('aria-label','المزيد — جميع أقسام الموقع');a.title='المزيد';
   a.innerHTML=icon+'<span>'+label+'</span>';
   if(!a.isConnected)actions.prepend(a);
