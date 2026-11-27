@@ -240,7 +240,7 @@ document.addEventListener('click',event=>{const button=event.target.closest('[da
 
 function home(){
  return `<section class="welcome welcome-news-layout"><div class="hero-news-column">${heroSlider()}</div><div class="welcome-aside pulse-desk" id="market-pulse" aria-label="ملخص الأسواق والأخبار والجلسات">${marketPulse()}</div></section>${operationsRoom()}${siteSearchSection()}${visitorGuideSection()}
- <div class="section-title home-tools-title"><div><span class="eyebrow">QUICK ACCESS</span><h2 id="home-tools-heading">مركز التداول</h2></div><a href="tools.html" data-ict-icon="dashboard">جميع الأدوات</a></div>
+ <div class="section-title home-tools-title"><div><span class="eyebrow">QUICK ACCESS</span><h2 id="home-tools-heading">مركز التداول</h2></div></div>
  <section class="home-tools-browser" aria-labelledby="home-tools-heading"><div class="tool-grid" id="home-tools-grid"><a class="tool-card" href="decision-center.html"><span class="tool-glyph" aria-hidden="true">◎</span><strong>مركز فرص ICT</strong><span>افحص أصلًا، راجع الأدلة، وتابع الفرص المرصودة</span><b>افتح مركز الفرص ←</b></a><a class="tool-card" href="workflow.html"><span class="tool-glyph">◈</span><strong>رحلة الصفقة الذكية</strong><span>من التوصية إلى المراجعة والحاسبة وسجل النتائج</span><b>افتح الأداة ←</b></a><a class="tool-card" href="smart-desk.html"><span class="tool-glyph">◈</span><strong>غرفة المتداول اليومية</strong><span>الجاهزية اليومية ومراجعة الأداء والبحث في الموقع</span><b>افتح الغرفة ←</b></a></div></section>
  ${notificationCenter('compact')}`;
 }
