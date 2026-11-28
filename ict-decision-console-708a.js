@@ -424,7 +424,7 @@ function card(parent,o,origin,{quoteRows,batchQuote=false}={}){
  const confirmationDistance=confirmationDistanceLabel(o);
  if(confirmationDistance)node('p',confirmationDistance,c,'dc-muted');
  const levels=node('div','',c,'dc-levels');
- const levelRows=[[o.modelType==='turtle-soup'?'المستوى المسترد':o.modelType==='ifvg'?'منطقة IFVG':o.modelType==='ote'?'منطقة OTE':o.modelType==='breaker'?'منطقة Breaker':o.modelType==='amd'?'حد التراكم':'منطقة FVG',o.modelType==='turtle-soup'?money(o.entry):o.zone?money(o.zone.low)+' — '+money(o.zone.high):'غير متاحة'],['دخول مرجعي',money(o.entry)],['إبطال/وقف افتراضي',money(o.stop)],[o.liquidity?'هدف السيولة · '+o.rr.toFixed(2)+'R':'هدف مرجعي',money(o.target)]];
+ const levelRows=[[o.modelType==='turtle-soup'?'المستوى المسترد':o.modelType==='ifvg'?'منطقة IFVG':o.modelType==='ote'?'منطقة OTE':o.modelType==='breaker'?'منطقة Breaker':o.modelType==='amd'?'حد التراكم':'منطقة FVG',o.modelType==='turtle-soup'?money(o.entry):o.zone?money(o.zone.low)+' — '+money(o.zone.high):'غير متاحة'],['دخول مرجعي',money(o.entry)],['وقف هيكلي مرجعي',money(o.stop)],[o.liquidity?'هدف السيولة · '+o.rr.toFixed(2)+'R':'هدف مرجعي',money(o.target)]];
  for(const [name,value] of levelRows){
   const el=node('div','',levels);node('small',name,el);node('strong',value,el);
  }
