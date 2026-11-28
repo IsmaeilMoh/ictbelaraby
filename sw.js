@@ -1,5 +1,5 @@
 /* ICT بالعربي 6.8.74: prioritize the home offline shell; other pages cache when visited. */
-const CACHE='ict-shell-2026-11-28-side-filter';
+const CACHE='ict-shell-2026-11-28-watch-catalog';
 const PREFIX='ict-shell-';
 const CORE=[
  "./",
@@ -215,7 +215,7 @@ const CORE=[
  "./unified-theme.css?v=7.0.53-audit",
  "./unified-theme.js?v=6.8.31",
  "./value-engine-6918.css?v=6.9.18",
- "./value-engine-6918.js?v=6.9.18",
+ "./value-engine-6918.js?v=7.0.66-watch-catalog",
  "./visitor-guide.css?v=6.8.73",
  "./workflow-glass-cta.css?v=6.9.17",
  "./workspace.html"
