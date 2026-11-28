@@ -596,6 +596,11 @@ async function scanBatch(){
  const phaseFilter=addFilter('الحالة','جميع الحالات',[...modelPhase.options].filter(o=>o.value));
  const frameFilter=addFilter('إطار الدخول','كل الأطر الزمنية',[...frame.options].filter(o=>frames.includes(o.value)));
  const typeFilter=addFilter('نوع النموذج','جميع النماذج',[...modelType.options].filter(o=>o.value));
+ const sortFilter=isCrypto?addFilter('ترتيب النتائج','ترتيب الفحص',[
+  {value:'turnover',textContent:'الأعلى تداولًا خلال 24 ساعة'}
+ ]):null;
+ const sortStatus=isCrypto?node('p','',filterControls,'dc-muted'):null;
+ if(sortStatus)sortStatus.setAttribute('role','status');
  const filterStatus=node('p','',filterControls,'dc-muted');
  filterStatus.setAttribute('role','status');
  const cardsByAsset=new Map();
@@ -612,9 +617,29 @@ async function scanBatch(){
  const updateFilterStatus=()=>{
   filterStatus.textContent=visibleAssets.size?'عرض '+visibleAssets.size+' من '+cardsByAsset.size+' أصل مطابق':'لا توجد نتائج تطابق الفلاتر المحددة.';
  };
+ let turnoverRequest,turnover=null;
+ const applySort=()=>{
+  if(!sortFilter)return;
+  const byTurnover=sortFilter.value==='turnover';
+  const order=byTurnover&&turnover?live.rankByTurnover(cardsByAsset.keys(),turnover):cardsByAsset.keys();
+  for(const asset of order)for(const item of cardsByAsset.get(asset))results.append(item.element);
+  if(!byTurnover){sortStatus.textContent='';return;}
+  if(!turnover){sortStatus.textContent='جارٍ جلب قيمة التداول من Bybit…';return;}
+  const covered=[...visibleAssets].filter(asset=>turnover.has(asset)).length;
+  sortStatus.textContent=covered
+   ?'قيمة التداول خلال 24 ساعة بالـ USDT من Bybit'+(covered<visibleAssets.size?' · الأصول دون قراءة تظهر أخيرًا.':'.')
+   :'قيمة التداول غير متاحة للنتائج المعروضة.';
+ };
  filters.addEventListener('change',()=>{
   for(const [asset,cards] of cardsByAsset)updateAssetCards(asset,cards);
   updateFilterStatus();
+  if(sortFilter?.value==='turnover'&&!turnoverRequest){
+   turnoverRequest=live.fetchTurnover24h().catch(()=>new Map()).then(values=>{
+    turnover=values;
+    if(id===generation)applySort();
+   });
+  }
+  applySort();
  });
  let checked=0,failed=0,halted=false;
  const stopPattern=isCrypto?/^BYBIT_(?:HTTP_(?:403|429|451)|CODE_(?:10006|429))$/:/^Biquote: HTTP (?:403|429|451)$/;
@@ -643,6 +668,7 @@ async function scanBatch(){
       filterControls.hidden=false;
       updateAssetCards(asset,cards);
       updateFilterStatus();
+      if(sortFilter?.value==='turnover'&&turnover)applySort();
      }
     }catch(error){
      if(signal.aborted)break;

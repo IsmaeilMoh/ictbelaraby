@@ -116,6 +116,25 @@
   if(!response.ok)throw Error('BYBIT_HTTP_'+response.status);
   return parseBook(await response.json(),pair.symbol);
  }
+ async function fetchTurnover24h(fetchImpl=globalThis.fetch){
+  const url=new URL('/v5/market/tickers',REST);
+  url.searchParams.set('category','linear');
+  const response=await fetchImpl(url.toString(),{cache:'no-store',signal:AbortSignal.timeout(7000)});
+  if(!response.ok)throw Error('BYBIT_HTTP_'+response.status);
+  const data=await response.json(),result=data?.result;
+  if(data?.retCode!==0||result?.category!=='linear'||!Array.isArray(result.list))
+   throw Error('BYBIT_TICKERS_INVALID');
+  const values=new Map();
+  for(const row of result.list){
+   if(!contract(row?.symbol)||typeof row.turnover24h!=='string'||!row.turnover24h.trim())continue;
+   const value=n(row.turnover24h);
+   if(value!==null&&value>=0)values.set(row.symbol,value);
+  }
+  return values;
+ }
+ function rankByTurnover(symbols,values){
+  return [...symbols].sort((a,b)=>(values.get(b)??-1)-(values.get(a)??-1));
+ }
  function connect(options){options=options||{};const pair=checkPair(options.symbol,options.interval);const events=options.onEvent||(()=>{});
   const Socket=options.WebSocket||globalThis.WebSocket;if(typeof Socket!=='function')throw Error('WEBSOCKET_UNAVAILABLE');
   let socket=null,closed=false,retry=0,timer=null,lastMessage=0;
@@ -130,5 +149,5 @@
   }catch(error){notify('error',{message:error.message});retry++;timer=setTimeout(start,Math.min(30000,1000*2**Math.min(retry,5)))}}
   start();return {close(){closed=true;clearTimeout(timer);if(socket){socket.onclose=null;socket.close()}},lastMessageAt(){return lastMessage}};
  }
- return Object.freeze({VERSION,REST,WS,SYMBOLS,INTERVALS,contract,fetchPerpetuals,checkPair,parseRow,parseHistory,parseStream,merge,fetchHistory,fetchBook,parseBook,connect});
+ return Object.freeze({VERSION,REST,WS,SYMBOLS,INTERVALS,contract,fetchPerpetuals,checkPair,parseRow,parseHistory,parseStream,merge,fetchHistory,fetchBook,parseBook,fetchTurnover24h,rankByTurnover,connect});
 });
