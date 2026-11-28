@@ -195,8 +195,9 @@
     const item=d.targets?.[[x.market,x.symbol,x.frame].join(':')];
     if(!isCurrent(item,x.frame)||isProxy(item))return false;
     const checked=Date.parse(x.checkedAt||x.detectedAt),detected=Date.parse(x.detectedAt);
-    return detected<=checked&&checked<=now&&now-checked<=45*60000&&[x.entry,x.stop,x.target,x.rr].every(v=>Number.isFinite(v)&&v>0)&&
-     (x.side==='BUY'?x.stop<x.entry&&x.entry<x.target:x.target<x.entry&&x.entry<x.stop);
+    return detected<=checked&&checked<=now&&now-checked<=45*60000&&[x.entry,x.stop,x.target,x.rr].every(v=>Number.isFinite(v)&&v>0)&&x.rr>=2&&Math.abs((x.target-x.entry)/(x.entry-x.stop))>=2&&
+     Number.isFinite(x.stopLiquidity?.level)&&Number.isSafeInteger(x.liquidity?.at)&&
+     (x.side==='BUY'?x.stop<x.stopLiquidity.level&&x.stopLiquidity.level<x.entry&&x.entry<x.target:x.target<x.entry&&x.entry<x.stopLiquidity.level&&x.stopLiquidity.level<x.stop);
    }).slice(0,24);
    if(!entries.length)line(!fresh?'لا نعرض نماذج من تقرير قديم.':'لا توجد نماذج بحثية حديثة مستوفية لشروط النشر في هذه اللقطة.');
    for(const [key,item] of targets){

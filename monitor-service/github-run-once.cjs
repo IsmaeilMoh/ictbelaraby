@@ -94,11 +94,19 @@ function publicSnapshot(data,now=Date.now()){
   if(![entry,stop,targetPrice].every(v=>Number.isFinite(v)&&v>0))continue;
   if(obs.side==='BUY'&&!(stop<entry&&entry<targetPrice))continue;
   if(obs.side==='SELL'&&!(targetPrice<entry&&entry<stop))continue;
+  const rr=Math.abs((targetPrice-entry)/(entry-stop));
+  if(!Number.isFinite(rr)||rr<2)continue;
+  const {stopLiquidity,liquidity}=obs;
+  if(!stopLiquidity||!liquidity||!['swing-low','swing-high','sweep'].includes(stopLiquidity.type)||
+   liquidity.type!==(obs.side==='BUY'?'swing-high':'swing-low')||
+   ![stopLiquidity.at,liquidity.at].every(value=>Number.isSafeInteger(value)&&value<formed)||
+   !(obs.side==='BUY'?stop<stopLiquidity.level&&stopLiquidity.level<entry:entry<stopLiquidity.level&&stopLiquidity.level<stop))continue;
   if(typeof obs.id!=='string'||!obs.id.startsWith(key+':'))continue;
   observations.push({id:String(obs.id).slice(0,130),market:target.market,symbol:target.symbol,frame:target.frame,
    detectedAt:new Date(detected).toISOString(),checkedAt:new Date(checked).toISOString(),lastCompleteAt:target.lastCompleteAt,
    marketType:target.marketType,research:{phase,at:new Date(at).toISOString()},formedAt:new Date(formed).toISOString(),side:obs.side,
-   entry,stop,target:targetPrice,rr:Math.round(Math.abs((targetPrice-entry)/(entry-stop))*100)/100,
+   entry,stop,target:targetPrice,rr,stopLiquidity:{type:stopLiquidity.type,level:stopLiquidity.level,at:stopLiquidity.at,frame:target.frame},
+   liquidity:{type:liquidity.type,at:liquidity.at,frame:target.frame},
    evidence:{sweepAt:new Date(sweepAt).toISOString(),mssAt:new Date(mssAt).toISOString(),fvgAt:new Date(fvgAt).toISOString()},
    zone:obs.zone&&[obs.zone.low,obs.zone.high].every(Number.isFinite)&&obs.zone.low<entry&&entry<obs.zone.high?
     {low:obs.zone.low,high:obs.zone.high}:null,
