@@ -1,0 +1,114 @@
+{
+  "schema": "ict-research-monitor/1",
+  "startedAt": "2026-11-28T18:36:34.652Z",
+  "lastCycleAt": "2026-11-28T18:36:35.066Z",
+  "targets": {
+    "crypto:BTCUSDT:15": {
+      "market": "crypto",
+      "symbol": "BTCUSDT",
+      "frame": "15",
+      "lastAttempt": "2026-11-28T18:36:34.824Z",
+      "source": "Bybit V5 USDT",
+      "status": "blocked",
+      "lastCompleteAt": null,
+      "modelCount": 0,
+      "error": "BYBIT_HTTP_403",
+      "reason": "provider_access_denied",
+      "consecutiveFailures": 150,
+      "lastHealthyAt": null,
+      "lastRecoveredAt": null,
+      "blockedSince": "2026-11-25T10:58:35.106Z",
+      "sourceHistory": [
+        {
+          "kind": "blocked",
+          "at": "2026-11-25T10:58:35.106Z",
+          "reason": "provider_access_denied"
+        }
+      ]
+    },
+    "crypto:BTCUSDT:5": {
+      "market": "crypto",
+      "symbol": "BTCUSDT",
+      "frame": "5",
+      "lastAttempt": "2026-11-28T18:36:34.945Z",
+      "source": "Bybit V5 USDT",
+      "status": "blocked",
+      "lastCompleteAt": null,
+      "modelCount": 0,
+      "error": "BYBIT_HTTP_403",
+      "reason": "provider_access_denied",
+      "consecutiveFailures": 150,
+      "lastHealthyAt": null,
+      "lastRecoveredAt": null,
+      "blockedSince": "2026-11-25T10:58:35.242Z",
+      "sourceHistory": [
+        {
+          "kind": "blocked",
+          "at": "2026-11-25T10:58:35.242Z",
+          "reason": "provider_access_denied"
+        }
+      ]
+    },
+    "crypto:ETHUSDT:15": {
+      "market": "crypto",
+      "symbol": "ETHUSDT",
+      "frame": "15",
+      "lastAttempt": "2026-11-28T18:36:35.051Z",
+      "source": "Bybit V5 USDT",
+      "status": "blocked",
+      "lastCompleteAt": null,
+      "modelCount": 0,
+      "error": "BYBIT_HTTP_403",
+      "reason": "provider_access_denied",
+      "consecutiveFailures": 150,
+      "lastHealthyAt": null,
+      "lastRecoveredAt": null,
+      "blockedSince": "2026-11-25T10:58:35.274Z",
+      "sourceHistory": [
+        {
+          "kind": "blocked",
+          "at": "2026-11-25T10:58:35.274Z",
+          "reason": "provider_access_denied"
+        }
+      ]
+    },
+    "crypto:ETHUSDT:5": {
+      "market": "crypto",
+      "symbol": "ETHUSDT",
+      "frame": "5",
+      "lastAttempt": "2026-11-28T18:36:35.058Z",
+      "source": "Bybit V5 USDT",
+      "status": "blocked",
+      "lastCompleteAt": null,
+      "modelCount": 0,
+      "error": "BYBIT_HTTP_403",
+      "reason": "provider_access_denied",
+      "consecutiveFailures": 150,
+      "lastHealthyAt": null,
+      "lastRecoveredAt": null,
+      "blockedSince": "2026-11-25T10:58:35.281Z",
+      "sourceHistory": [
+        {
+          "kind": "blocked",
+          "at": "2026-11-25T10:58:35.281Z",
+          "reason": "provider_access_denied"
+        }
+      ]
+    }
+  },
+  "observations": [],
+  "forward": {
+    "crypto:BTCUSDT:15": [],
+    "crypto:BTCUSDT:5": [],
+    "crypto:ETHUSDT:15": [],
+    "crypto:ETHUSDT:5": []
+  },
+  "cycleCount": 156,
+  "readyForExecution": false,
+  "limitations": [
+    "لا توجد تغذية Bid/Ask تنفيذية",
+    "بوابة الأخبار اختيارية وتفشل بالإغلاق عند نقص التغطية",
+    "لا تُرسل إشعارات Push",
+    "نتائج بحثية وليست صفقات أو توصيات معتمدة"
+  ]
+}

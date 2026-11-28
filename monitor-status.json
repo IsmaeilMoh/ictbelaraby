@@ -1,0 +1,215 @@
+{
+  "schema": "ict-research-monitor/1",
+  "transport": "github-actions-static",
+  "generatedAt": "2026-11-28T18:36:35.067Z",
+  "lastCycleAt": "2026-11-28T18:36:35.066Z",
+  "serverTime": "2026-11-28T18:36:35.067Z",
+  "active": true,
+  "marketDataReady": false,
+  "allMarketDataReady": false,
+  "marketCount": 4,
+  "cycleCount": 156,
+  "pollIntervalMs": 600000,
+  "cycleError": null,
+  "marketSummary": {
+    "configured": 4,
+    "valid": 0,
+    "blocked": 4,
+    "stale": 4,
+    "unchecked": 0
+  },
+  "targets": {
+    "crypto:BTCUSDT:15": {
+      "market": "crypto",
+      "symbol": "BTCUSDT",
+      "frame": "15",
+      "source": "Bybit V5 USDT perpetual",
+      "marketType": "PERPETUAL",
+      "status": "blocked",
+      "patternCounts": {
+        "sweep": 0,
+        "mss": 0,
+        "fvg": 0,
+        "composite": 0,
+        "recent": 0,
+        "valid": 0
+      },
+      "stale": true,
+      "lastCompleteAt": null,
+      "consecutiveFailures": 150,
+      "modelCount": 0,
+      "lastRecoveredAt": null,
+      "reason": "provider_access_denied",
+      "error": null,
+      "hourlyContext": {
+        "status": "unavailable",
+        "reason": "unknown"
+      },
+      "sourceHistory": [
+        {
+          "kind": "blocked",
+          "at": "2026-11-25T10:58:35.106Z",
+          "reason": "provider_access_denied"
+        }
+      ],
+      "sourceDelay": {
+        "since": "2026-11-25T10:58:35.106Z",
+        "through": "2026-11-28T18:36:34.824Z"
+      },
+      "newsGate": null,
+      "executionQuoteGate": "not_verified",
+      "accountRiskGate": "not_verified"
+    },
+    "crypto:BTCUSDT:5": {
+      "market": "crypto",
+      "symbol": "BTCUSDT",
+      "frame": "5",
+      "source": "Bybit V5 USDT perpetual",
+      "marketType": "PERPETUAL",
+      "status": "blocked",
+      "patternCounts": {
+        "sweep": 0,
+        "mss": 0,
+        "fvg": 0,
+        "composite": 0,
+        "recent": 0,
+        "valid": 0
+      },
+      "stale": true,
+      "lastCompleteAt": null,
+      "consecutiveFailures": 150,
+      "modelCount": 0,
+      "lastRecoveredAt": null,
+      "reason": "provider_access_denied",
+      "error": null,
+      "hourlyContext": {
+        "status": "unavailable",
+        "reason": "unknown"
+      },
+      "sourceHistory": [
+        {
+          "kind": "blocked",
+          "at": "2026-11-25T10:58:35.242Z",
+          "reason": "provider_access_denied"
+        }
+      ],
+      "sourceDelay": {
+        "since": "2026-11-25T10:58:35.242Z",
+        "through": "2026-11-28T18:36:34.945Z"
+      },
+      "newsGate": null,
+      "executionQuoteGate": "not_verified",
+      "accountRiskGate": "not_verified"
+    },
+    "crypto:ETHUSDT:15": {
+      "market": "crypto",
+      "symbol": "ETHUSDT",
+      "frame": "15",
+      "source": "Bybit V5 USDT perpetual",
+      "marketType": "PERPETUAL",
+      "status": "blocked",
+      "patternCounts": {
+        "sweep": 0,
+        "mss": 0,
+        "fvg": 0,
+        "composite": 0,
+        "recent": 0,
+        "valid": 0
+      },
+      "stale": true,
+      "lastCompleteAt": null,
+      "consecutiveFailures": 150,
+      "modelCount": 0,
+      "lastRecoveredAt": null,
+      "reason": "provider_access_denied",
+      "error": null,
+      "hourlyContext": {
+        "status": "unavailable",
+        "reason": "unknown"
+      },
+      "sourceHistory": [
+        {
+          "kind": "blocked",
+          "at": "2026-11-25T10:58:35.274Z",
+          "reason": "provider_access_denied"
+        }
+      ],
+      "sourceDelay": {
+        "since": "2026-11-25T10:58:35.274Z",
+        "through": "2026-11-28T18:36:35.051Z"
+      },
+      "newsGate": null,
+      "executionQuoteGate": "not_verified",
+      "accountRiskGate": "not_verified"
+    },
+    "crypto:ETHUSDT:5": {
+      "market": "crypto",
+      "symbol": "ETHUSDT",
+      "frame": "5",
+      "source": "Bybit V5 USDT perpetual",
+      "marketType": "PERPETUAL",
+      "status": "blocked",
+      "patternCounts": {
+        "sweep": 0,
+        "mss": 0,
+        "fvg": 0,
+        "composite": 0,
+        "recent": 0,
+        "valid": 0
+      },
+      "stale": true,
+      "lastCompleteAt": null,
+      "consecutiveFailures": 150,
+      "modelCount": 0,
+      "lastRecoveredAt": null,
+      "reason": "provider_access_denied",
+      "error": null,
+      "hourlyContext": {
+        "status": "unavailable",
+        "reason": "unknown"
+      },
+      "sourceHistory": [
+        {
+          "kind": "blocked",
+          "at": "2026-11-25T10:58:35.281Z",
+          "reason": "provider_access_denied"
+        }
+      ],
+      "sourceDelay": {
+        "since": "2026-11-25T10:58:35.281Z",
+        "through": "2026-11-28T18:36:35.058Z"
+      },
+      "newsGate": null,
+      "executionQuoteGate": "not_verified",
+      "accountRiskGate": "not_verified"
+    }
+  },
+  "safety": {
+    "economic": {
+      "ok": false,
+      "reason": "FREE_CALENDAR_NO_CURRENT_OR_UPCOMING_EVENT_COVERAGE",
+      "eventCount": 0
+    },
+    "bidAsk": {
+      "connected": false,
+      "reason": "NOT_CONNECTED_IN_FREE_RUNNER"
+    },
+    "accountRisk": "not_verified",
+    "executionApproved": false
+  },
+  "readyForExecution": false,
+  "observations": [],
+  "forward": {
+    "counts": {
+      "waiting": 0,
+      "active": 0,
+      "won": 0,
+      "lost": 0,
+      "expired": 0,
+      "ambiguous": 0,
+      "gap": 0,
+      "invalidated": 0
+    },
+    "records": []
+  }
+}
