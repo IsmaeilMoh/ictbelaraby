@@ -596,6 +596,10 @@ async function scanBatch(){
  const phaseFilter=addFilter('الحالة','جميع الحالات',[...modelPhase.options].filter(o=>o.value));
  const frameFilter=addFilter('إطار الدخول','كل الأطر الزمنية',[...frame.options].filter(o=>frames.includes(o.value)));
  const typeFilter=addFilter('نوع النموذج','جميع النماذج',[...modelType.options].filter(o=>o.value));
+ const sideFilter=addFilter('اتجاه الصفقة','شراء وبيع',[
+  {value:'BUY',textContent:'شراء (BUY)'},
+  {value:'SELL',textContent:'بيع (SELL)'}
+ ]);
  const sortFilter=isCrypto?addFilter('ترتيب النتائج','ترتيب الفحص',[
   {value:'turnover',textContent:'الأعلى تداولًا خلال 24 ساعة'}
  ]):null;
@@ -606,7 +610,8 @@ async function scanBatch(){
  const cardsByAsset=new Map();
  const matchesFilter=item=>(!phaseFilter.value||item.phase===phaseFilter.value)&&
   (!frameFilter.value||item.frame===frameFilter.value)&&
-  (!typeFilter.value||item.types.includes(typeFilter.value));
+  (!typeFilter.value||item.types.includes(typeFilter.value))&&
+  (!sideFilter.value||item.opportunity.side===sideFilter.value);
  const visibleAssets=new Set();
  const updateAssetCards=(asset,cards)=>{
   const [visible]=api.latestByAsset(cards.filter(matchesFilter).map(item=>item.opportunity));
