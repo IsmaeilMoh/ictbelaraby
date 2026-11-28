@@ -1,0 +1,62 @@
+name: Bybit TTrades historical comparison
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/workflows/ict-bybit-ttrades-research.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  compare:
+    if: >-
+      (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main') ||
+      (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository)
+    runs-on: ${{ github.event_name == 'workflow_dispatch' && vars.ICT_BYBIT_RUNNER || 'ubuntu-latest' }}
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Retrieve closed Bybit candles in temporary storage
+        shell: bash
+        run: |
+          work="$(mktemp -d "$RUNNER_TEMP/ict-bybit-study.XXXXXX")"
+          echo "ICT_STUDY_DIR=$work" >> "$GITHUB_ENV"
+          mkdir "$work/scripts"
+          cp scripts/update_historical_candles.py "$work/scripts/"
+          python "$work/scripts/update_historical_candles.py"
+      - name: Compare both entry frames
+        shell: bash
+        run: |
+          for frame in 5 15; do
+            node monitor-service/ttrades-replay.cjs "$frame" "$ICT_STUDY_DIR/historical-candles.json" > "$ICT_STUDY_DIR/replay-$frame.json"
+            node -e '
+              const report = require(process.argv[1]);
+              for (const symbol of ["BTCUSDT", "ETHUSDT"]) {
+                if (!report.results.some(row => row.symbol === symbol && row.market === "crypto")) {
+                  throw new Error("Missing verified " + report.frame + " minute replay for " + symbol);
+                }
+              }
+              console.log("Completed " + report.frame + " minute replay for " + report.results.map(row => row.symbol).join(", "));
+            ' "$ICT_STUDY_DIR/replay-$frame.json" | tee -a "$GITHUB_STEP_SUMMARY"
+          done
+      - uses: actions/upload-artifact@v4
+        with:
+          name: bybit-ttrades-comparison
+          path: ${{ env.ICT_STUDY_DIR }}/replay-*.json
+          if-no-files-found: error
+          retention-days: 14
+      - name: Remove temporary research data
+        if: always()
+        shell: bash
+        run: |
+          if [[ -n "${ICT_STUDY_DIR:-}" ]]; then
+            rm -rf -- "$ICT_STUDY_DIR"
+          fi
