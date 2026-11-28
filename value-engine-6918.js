@@ -9,8 +9,18 @@ const ageLabel=(h)=>!Number.isFinite(h)?'وقت المصدر غير متاح':h<
 const dated=(v)=>{const t=Date.parse(v||'');return Number.isFinite(t)?new Date(t).toLocaleString('ar-EG',{dateStyle:'medium',timeStyle:'short'}):'غير معروف'};
 const key='ict-value-6918';
 const defaultState={watch:['XAUUSD','EURUSD','NAS100'],newsAsset:'XAUUSD',newsHorizon:72,studyDraft:'',studyAsset:'XAUUSD',studyRule:'',studyInvalidation:'',studyEvidence:'',studyOutcome:'',studyUpdated:''};
+const watchSymbol=/^[A-Z0-9][A-Z0-9._-]{0,34}$/;
+const watchMarkets=['crypto','forex','metals','indices','stocks','energy'];
+function watchEntry(key){
+ const [group,value]=key.split(':');
+ return value?{market:group,symbol:value}:{market:null,symbol:group};
+}
 let state;try{state={...defaultState,...JSON.parse(localStorage.getItem(key)||'{}')}}catch{state={...defaultState}};
-if(!Array.isArray(state.watch))state.watch=[...defaultState.watch];state.watch=state.watch.filter(x=>/^[A-Z0-9]{3,12}$/.test(x)).slice(0,15);
+if(!Array.isArray(state.watch))state.watch=[...defaultState.watch];state.watch=state.watch.filter(key=>{
+ if(typeof key!=='string')return false;
+ const {market,symbol}=watchEntry(key);
+ return watchSymbol.test(symbol)&&(market?watchMarkets.includes(market)&&key===market+':'+symbol:key===symbol);
+}).slice(0,15);
 function save(){try{localStorage.setItem(key,JSON.stringify(state))}catch{}}
 const cache={};const source=async f=>{if(cache[f]&&now()-cache[f].time<60000)return cache[f].value;try{const r=await fetch('./'+f,{cache:'no-store'});if(!r.ok)throw Error('HTTP '+r.status);const x=await r.json();cache[f]={time:now(),value:x};return x}catch{return null}};
 const items=x=>Array.isArray(x)?x:Array.isArray(x?.items)?x.items:[];
@@ -21,13 +31,85 @@ const wrap=(slug,inner)=>`<section class="ve-lab" id="ve-${slug}" aria-label="${
 const warning=s=>`<p class="ve-warning">${E(s)}</p>`;
 const badge=s=>`<span class="ve-badge">${E(s)}</span>`;
 function insert(page,html){if(location.hash.slice(1)!==page||!root)return null;const section=document.createElement('div');section.innerHTML=html;const el=section.firstElementChild;const heading=root.querySelector('.lead');const calcGrid=page==='calculators'?root.querySelector('.calc-grid'):null;if(calcGrid)calcGrid.insertAdjacentElement('afterend',el);else if(heading)heading.insertAdjacentElement('afterend',el);else root.prepend(el);return el}
-function pttl(x){return x?.symbol||''}
-function watchTable(rows,stamp,basis){const ts=age(stamp),stale=!Number.isFinite(ts)||ts<-.083||ts>6;
- const found=state.watch.map(s=>rows.find(x=>pttl(x)===s)).filter(Boolean);return `<div class="ve-trust">مصدر: ${E(basis||'تغير مقابل الإغلاق السابق')} · عمر الملف: ${ageLabel(ts)} ${stale?'· بيانات غير حديثة':''}</div>${stale?warning('المعلومات تاريخية أو متأخرة، ولا تصلح لمراقبة الحركة الحالية أو قرار تنفيذ سريع.'):''}<div class="ve-table-wrap"><table><thead><tr><th>الأصل</th><th>السعر المرجعي</th><th>التغير المعلن</th><th>عمر السعر</th><th>المصدر</th></tr></thead><tbody>${found.map(x=>{const h=age(x.quotedAt||stamp),ok=Number.isFinite(h)&&h>=-.083&&h<=6,p=num(x.price),c=num(x.change),url=/^https:\/\/[\w.-]+\//.test(x.url||'')?x.url:'';return `<tr><td><strong dir="ltr">${E(x.symbol)}</strong></td><td dir="ltr">${ok&&p>0?F(p,6):'—'}</td><td dir="ltr" class="${c>=0?'ve-up':'ve-down'}">${ok&&Number.isFinite(c)?(c>0?'+':'')+F(c,2)+'%':'—'}</td><td>${E(ageLabel(h))}</td><td>${url?`<a target="_blank" rel="noopener noreferrer" href="${E(url)}">شارت ↗</a>`:'—'}</td></tr>`}).join('')||'<tr><td colspan="5">لا توجد بيانات لهذه الرموز في المصدر.</td></tr>'}</tbody></table></div><p class="ve-muted">هذه النسب قد تستخدم إغلاقًا مرجعيًا مختلفًا بين فئات الأسواق، فلا تجمعها كمؤشر لقوة عملة أو كترتيب تنفيذي موحد.</p>`}
-async function markets(box){const p=await source('market-movers.json');if(!box.isConnected)return;const list=items(p);const candidates=[...new Set([...state.watch,...list.map(x=>x.symbol).filter(x=>/^[A-Z0-9]{3,12}$/.test(x))])];box.innerHTML=title('MARKET WATCHLIST','قائمة مراقبة مبنية على مصدر قابل للتحقق','اختر الأصول التي تتابعها، وقارن سعر اللقطة وعمر كل أصل قبل فتح الشارت.')+`<div class="ve-controls"><label>أضف أصلًا من القائمة<select id="ve-watch-add"><option value="">اختر الأصل</option>${candidates.filter(s=>!state.watch.includes(s)).map(s=>`<option value="${E(s)}">${E(s)}</option>`).join('')}</select></label><button data-ve-add>إضافة للمتابعة</button><button data-ve-clear>استعادة القائمة الأساسية</button></div><div class="ve-chips">${state.watch.map(x=>`<button data-ve-remove="${E(x)}" title="إزالة ${E(x)}">${E(x)} ×</button>`).join('')}</div>${p?watchTable(list,p.updatedAt,p.changeBasis):warning('تعذر جلب لقطة أسعار الأسواق. لا يمكن إنشاء مقارنة.')}`;
-box.querySelector('[data-ve-add]')?.addEventListener('click',()=>{const v=box.querySelector('#ve-watch-add')?.value;if(v&&!state.watch.includes(v)&&state.watch.length<15){state.watch.push(v);save();markets(box)}});
-box.querySelector('[data-ve-clear]')?.addEventListener('click',()=>{state.watch=[...defaultState.watch];save();markets(box)});
-box.querySelectorAll('[data-ve-remove]').forEach(b=>b.addEventListener('click',()=>{state.watch=state.watch.filter(x=>x!==b.dataset.veRemove);save();markets(box)}));}
+function watchTable(rows,stamp,basis,catalog){
+ const ts=age(stamp),stale=!Number.isFinite(ts)||ts<-.083||ts>6;
+ const body=state.watch.map(key=>{
+  const {market,symbol}=watchEntry(key);
+  const group=market||watchMarkets.find(m=>m!=='crypto'&&catalog?.list(m).includes(symbol));
+  const x=group==='crypto'?null:rows.find(row=>row.symbol===symbol);
+  const h=x?age(x.quotedAt||stamp):NaN,ok=!stale&&Number.isFinite(h)&&h>=-.083&&h<=6;
+  const price=num(x?.price),change=num(x?.change);
+  const chart=/^https:\/\/[\w.-]+\//.test(x?.url||'')?x.url:'';
+  const link=group&&catalog?catalog.marketUrl(group,symbol):null;
+  return `<tr><td><strong dir="ltr">${E(symbol)}</strong>${market&&catalog?`<br><small>${E(catalog.labels[market])}</small>`:''}</td>
+  <td dir="ltr">${ok&&price>0?F(price,6):'—'}</td><td dir="ltr" class="${change>=0?'ve-up':'ve-down'}">${ok&&Number.isFinite(change)?(change>0?'+':'')+F(change,2)+'%':'—'}</td>
+  <td>${x?E(ageLabel(h)):'لا توجد قراءة في اللقطة'}</td>
+  <td>${chart?`<a target="_blank" rel="noopener noreferrer" href="${E(chart)}">شارت ↗</a>`:''}
+  ${link?`<a href="${E(link)}">افحص الأصل ↗</a>`:''}</td></tr>`;
+ }).join('');
+ return `<div class="ve-trust">مصدر اللقطة: ${E(basis||'غير متاح')} · عمر الملف: ${ageLabel(ts)}</div>
+ ${stale?warning('لقطة الأسعار قديمة أو غير متاحة.'):''}
+ <div class="ve-table-wrap"><table><thead><tr><th>الأصل</th><th>السعر المرجعي</th><th>التغير المعلن</th><th>عمر السعر</th><th>الروابط</th></tr></thead>
+ <tbody>${body||'<tr><td colspan="5">أضف أصلًا لبدء المتابعة.</td></tr>'}</tbody></table></div>`;
+}
+function markets(box){
+ const catalog=window.ICTMarketCatalog;
+ box.innerHTML=title('MARKET WATCHLIST','قائمة مراقبة الأسواق','اختر الأصول من دليل مركز الفرص، وراجع سعر اللقطة عند توفره.')+`
+ <div class="ve-controls"><label>فئة السوق<select id="ve-watch-market"></select></label>
+ <label>بحث بالرمز<input id="ve-watch-find" type="search" autocomplete="off"></label>
+ <label>أضف أصلًا من القائمة<select id="ve-watch-add"></select></label>
+ <button type="button" data-ve-add>إضافة للمتابعة</button><button type="button" data-ve-clear>استعادة القائمة الأساسية</button></div>
+ <p id="ve-watch-status" role="status"></p><div class="ve-chips"></div><div id="ve-watch-table"></div>`;
+ const get=selector=>box.querySelector(selector);
+ const market=get('#ve-watch-market'),find=get('#ve-watch-find'),select=get('#ve-watch-add'),status=get('#ve-watch-status'),add=get('[data-ve-add]');
+ let snapshot,candidates=[];
+ function fill(){
+  const previous=select.value,term=find.value.toUpperCase().trim();
+  candidates=catalog?.list(market.value)||[];
+  const existing=new Set(state.watch.filter(key=>key.startsWith(market.value+':')||(!key.includes(':')&&market.value!=='crypto')).map(key=>watchEntry(key).symbol));
+  const options=candidates.filter(symbol=>!existing.has(symbol)&&symbol.includes(term));
+  select.replaceChildren(new Option(options.length?'اختر الأصل':'لا توجد أصول مطابقة',''),...options.map(symbol=>new Option(symbol,symbol)));
+  if(options.includes(previous))select.value=previous;
+  add.disabled=!select.value||state.watch.length>=15;
+ }
+ let request=0;
+ async function refresh(){
+  const id=++request,group=market.value;
+  fill();
+  status.textContent='جارٍ تحديث دليل الأصول…';
+  try{
+   const full=await catalog.load(group);
+   if(!box.isConnected||id!==request)return;
+   fill();render();
+   status.textContent=candidates.length+' أصلًا · '+(full?'دليل المزوّد':'القائمة الأساسية');
+  }catch{
+   if(box.isConnected&&id===request)status.textContent='تعذّر تحديث الدليل؛ تظهر القائمة الأساسية.';
+  }
+ }
+ function render(){
+  get('.ve-chips').innerHTML=state.watch.map(key=>{
+   const {symbol,market}=watchEntry(key);
+   return `<button type="button" data-ve-remove="${E(key)}" title="إزالة ${E(symbol)}${market?' · '+E(catalog?.labels[market]):''}">${E(symbol)} ×</button>`;
+  }).join('');
+  get('#ve-watch-table').innerHTML=watchTable(items(snapshot),snapshot?.updatedAt,snapshot?.changeBasis,catalog);
+ }
+ select.addEventListener('change',()=>{add.disabled=!select.value||state.watch.length>=15});
+ find.addEventListener('input',fill);
+ market.addEventListener('change',()=>{find.value='';refresh()});
+ add.addEventListener('click',()=>{
+  const symbol=select.value,key=market.value+':'+symbol;
+  if(candidates.includes(symbol)&&!state.watch.includes(key)&&state.watch.length<15){state.watch.push(key);save();fill();render();}
+ });
+ get('[data-ve-clear]').addEventListener('click',()=>{state.watch=[...defaultState.watch];save();fill();render()});
+ get('.ve-chips').addEventListener('click',event=>{
+  const button=event.target.closest('[data-ve-remove]');
+  if(button){state.watch=state.watch.filter(key=>key!==button.dataset.veRemove);save();fill();render();}
+ });
+ render();
+ source('market-movers.json').then(data=>{if(box.isConnected){snapshot=data;render();}});
+ if(catalog){catalog.options(market);refresh();}
+ else{fill();status.textContent='دليل الأصول غير متاح. حدّث الصفحة وحاول مجددًا.';}
+}
 function relevance(x,s){const parts=ccy(s),text=[x.title,x.sum,x.tag].filter(Boolean).join(' ').toLowerCase();const terms=[...parts,...(symMap[s]||[])];const hits=terms.filter(t=>String(t).length>2&&text.includes(String(t).toLowerCase()));const broad=/(فيدرالي|التضخم|الفائدة|البنك المركزي|cpi|nfp|fed|interest rate|employment|البطالة|الدولار)/i.test(text);return {hits:[...new Set(hits)],broad};}
 async function news(box){const [p,arch]=await Promise.all([source('news-live.json'),source('news.json')]);if(!box.isConnected)return;const src=Array.isArray(p?.items)?p: Array.isArray(arch)?{items:arch,updated_at:null,mode:'archive'}:null;const h=age(src?.updated_at),invalid=!Number.isFinite(h)||h>24||h<-.083;const asset=state.newsAsset;
 const selected=items(src).map(x=>({...x,match:relevance(x,asset)})).filter(x=>x.match.hits.length||x.match.broad).sort((a,b)=>(b.match.hits.length-a.match.hits.length)||Date.parse(b.date||0)-Date.parse(a.date||0)).slice(0,12);
@@ -50,5 +132,7 @@ const fields=[['ve-study-asset','studyAsset'],['ve-study-rule','studyRule'],['ve
 box.querySelector('[data-ve-study-save]')?.addEventListener('click',()=>{pull();state.studyUpdated=new Date().toISOString();save();box.querySelector('#ve-study-status').textContent='حُفظت البطاقة على هذا الجهاز: '+dated(state.studyUpdated)});
 box.querySelector('[data-ve-study-export]')?.addEventListener('click',()=>{pull();const output=['ICT بالعربي — بطاقة تطبيق تعليمي',`الأصل: ${state.studyAsset}`,`قاعدة الدخول: ${state.studyRule}`,`شرط الإبطال: ${state.studyInvalidation}`,`الدليل المطلوب: ${state.studyEvidence}`,'بطاقة تدريب وليست توصية مالية.'].join('\n');const a=document.createElement('a');const url=URL.createObjectURL(new Blob([output],{type:'text/plain;charset=utf-8'}));a.href=url;a.download='ICT_Study_Card.txt';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000)});}
 function mount(){const page=location.hash.slice(1);const type={markets:['markets',markets],news:['news',news],calculators:['risk',calculator],academy:['practice',training]}[page];if(!type||!root||document.getElementById('ve-'+type[0]))return;const box=insert(page,wrap(type[0],''));if(!box)return;const f=type[1];try{Promise.resolve(f(box)).catch(()=>{if(box.isConnected)box.innerHTML=warning('حدث خطأ في عرض الوحدة؛ ما زالت أدوات الصفحة الأصلية متاحة.')})}catch{box.innerHTML=warning('تعذر تحميل الوحدة؛ يمكنك استخدام القسم الأساسي كما كان.')}}
-document.addEventListener('ict-view-rendered',mount);if(document.readyState==='complete')mount();
+document.addEventListener('ict-view-rendered',mount);
+if(document.readyState==='complete')mount();
+else document.addEventListener('DOMContentLoaded',mount,{once:true});
 })();
