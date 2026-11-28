@@ -285,8 +285,23 @@ function inspect(input){
  if(!opportunities.length)warnings.push(displayCompleteModels?'لم تظهر فرصة بوقف هيكلي وهدف سيولة يحقق 2R على الأقل':'لم يظهر نموذج حديث مع Premium/Discount وهدف سيولة يؤمّن 2R على الأقل');
  return {symbol,market,frame,checkedAt:now,source:market==='crypto'?'Bybit V5 · عقد دائم · USDT':market==='kraken'?'Kraken Futures · USD perpetual':traditional.SOURCE,sourceBars:evaluation.analysis.sourceBars,lastCompleteAt:Number.isFinite(latest)?latest+ms:null,entryFreshUntil:Number.isFinite(latest)?latest+2*ms:null,context,scenarios,opportunities,warnings,blocks,nearbyNews:nearby,newsChecked,newsCovered,eventFeedsLoaded,priceAt:context?.priceAt,price:context?.price,disclaimer:'هذه فرص بحثية مشروطة مستخرجة من إغلاقات شموع، وليست أسعار Bid/Ask لحظية أو أوامر تنفيذ. لا تعتمد الربحية ولا الملاءمة المالية ولا تتضمن سبريدًا أو انزلاقًا أو حجم عقد. تتوقف المراقبة بإغلاق الصفحة.'};
 }
+// Keep the newest matching opportunity within each market and instrument.
+function latestByAsset(plans){
+ const latest=new Map();
+ const timestamp=value=>Number.isFinite(value)?value:-Infinity;
+ for(const plan of plans){
+  const key=JSON.stringify([plan.market,plan.symbol]);
+  const previous=latest.get(key);
+  if(!previous||timestamp(plan.formedAt)>timestamp(previous.formedAt)||
+     (timestamp(plan.formedAt)===timestamp(previous.formedAt)&&
+      timestamp(plan.research?.at)>timestamp(previous.research?.at))){
+   latest.set(key,plan);
+  }
+ }
+ return [...latest.values()];
+}
 function qualifiesFocused(plan){
  return plan.research?.phase==='observed'&&!plan.blocks.length&&!plan.interveningLiquidity;
 }
-return Object.freeze({continuationCandidates,inversionFvg,turtleSoup,qualifiesFocused,inspect,nearNews,contextFrame,structuralStop,liquidityPlan,displacementRange,displacementLeg});
+return Object.freeze({continuationCandidates,inversionFvg,turtleSoup,latestByAsset,qualifiesFocused,inspect,nearNews,contextFrame,structuralStop,liquidityPlan,displacementRange,displacementLeg});
 });
