@@ -10,7 +10,7 @@ const current=Date.parse('2026-11-24T12:00:00Z');
 function makeSnapshot(active=true,stale=false){return {
  schema:'ict-research-monitor/1',transport:'github-actions-static',readyForExecution:false,active,marketDataReady:true,lastCycleAt:new Date(active?current-60000:current-3600000).toISOString(),
  safety:{executionApproved:false,economic:{ok:false}},marketSummary:{valid:1,configured:1,blocked:0},targets:{'metals:XAUUSD:15':{status:'research_data_valid',source:'RETIRED_PROVIDER_DETAIL'},'kraken:PF_XBTUSD:15':{status:'blocked',source:'RETIRED_PROVIDER_DETAIL'},'crypto:ETHUSDT:5':{status:'blocked',reason:'provider_access_denied',error:'RAW_PROVIDER_DETAIL',sourceDelay:{since:new Date(current-240000).toISOString(),through:new Date(current-60000).toISOString()},sourceHistory:[{kind:'blocked',at:new Date(current-120000).toISOString(),reason:'provider_access_denied'},{kind:'recovered',at:new Date(current-180000).toISOString(),since:new Date(current-360000).toISOString()},{kind:'recovered',at:new Date(current+60000).toISOString()}]},'crypto:BTCUSDT:15':{hourlyContext:{status:'insufficient',reason:'session_history_missing'},status:'research_data_valid',stale:false,lastCompleteAt:new Date(current-(stale?46:2)*60000).toISOString()}},
- observations:[{id:'crypto:BTCUSDT:15:a',market:'crypto',symbol:'BTCUSDT',frame:'15',side:'BUY',entry:100,stop:99,target:102,rr:2,stopLiquidity:{type:'sweep',at:current-3600000,level:99.5},liquidity:{type:'swing-high',at:current-7200000,frame:'15'},detectedAt:new Date(current-60000).toISOString(),status:'research_only_blocked',executionApproved:false,model:'Sweep → MSS → FVG'}]};}
+ observations:[{id:'crypto:BTCUSDT:15:a',market:'crypto',symbol:'BTCUSDT',frame:'15',side:'BUY',entry:100,stop:99,target:102,rr:2,stopLiquidity:{type:'sweep',at:current-3600000,level:99.5},liquidity:{type:'swing-high',at:current-7200000,frame:'15'},detectedAt:new Date(current-60000).toISOString(),research:{phase:'observed',at:new Date(current-60000).toISOString()},status:'research_only_blocked',executionApproved:false,model:'Sweep → MSS → FVG'}]};}
 async function run(active,stale=false){
  elements['dc-bg-results'].replaceChildren();
 
@@ -19,7 +19,12 @@ async function run(active,stale=false){
  elements['ict-decision-8a']={dispatchEvent:e=>delivered.push(e)};
  const ctx={document:{getElementById:id=>elements[id]||null,createElement:tag=>element(tag)},window:{ICTMarketTimes:{format:t=>new Date(t).toISOString()}},URL,Date:FixedDate,AbortController,
   CustomEvent:class {constructor(type,options){this.type=type;this.detail=options.detail}},
-  setTimeout:()=>1,clearTimeout(){},localStorage:{getItem:()=>null,setItem(){}},fetch:async()=>({ok:true,json:async()=>makeSnapshot(active,stale)})};
+  setTimeout:()=>1,clearTimeout(){},localStorage:{getItem:()=>null,setItem(){}},fetch:async()=>({ok:true,json:async()=>{
+   const snapshot=makeSnapshot(active,stale);
+   const [observed]=snapshot.observations;
+   snapshot.observations.unshift(...['invalidated','expired'].map(phase=>({...observed,id:phase,research:{...observed.research,phase}})));
+   return snapshot;
+  }})};
  vm.runInNewContext(code,ctx);
  await elements['dc-bg-free-check'].events.click();
  const output=elements['dc-bg-results'].children.map(node=>node.textContent).join(' ');
@@ -36,6 +41,7 @@ async function run(active,stale=false){
  const eligible=active&&!stale;
  assert.equal(delivered[0]?.type,'ict:background-scanned');
  assert.equal(delivered[0].detail.entries.length,eligible?1:0);
+ assert.equal(delivered[0].detail.entries[0]?.research.phase,eligible?'observed':undefined);
  assert.equal(delivered[0].detail.entries[0]?.symbol,eligible?'BTCUSDT':undefined);
  assert.match(elements['dc-bg-status'].textContent,eligible?/بحثية/:stale?/لا توجد/:/قديم/);
 }

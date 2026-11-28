@@ -11,6 +11,9 @@ const sw=read('sw.js');
 const status=read('ict-background-status-708c2.js');
 const script=read('ict-monitor-auto-refresh-709.js');
 const count=(text,needle)=>text.split(needle).length-1;
+const phaseOptions=html.match(/<select id="dc-model-phase">([\s\S]*?)<\/select>/)[1];
+assert.deepEqual([...phaseOptions.matchAll(/<option value="([^"]*)"/g)].map(match=>match[1]),
+ ['', 'observed', 'awaiting_confirmation', 'confirmed_research']);
 assert.equal(count(html,'id="dc-bg-free-check"'),1,'one public scan trigger');
 assert.equal(count(html,'src="ict-background-status-708c2.js?v='),1,'one public status handler');
 assert.equal(count(html,'src="ict-monitor-auto-refresh-709.js?v='),1,'one auto refresh handler');
