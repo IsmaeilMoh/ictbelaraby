@@ -1,7 +1,18 @@
 {
-  "updated_at": "2026-11-28T11:26:06Z",
+  "updated_at": "2026-11-28T12:27:52Z",
   "mode": "rss-attributed",
   "items": [
+    {
+      "id": "e55feaad37b483eac4ad",
+      "title": "العجز التجاري الأردني يتراجع 7.6% خلال الأشهر الـ9 الأولى من 2026",
+      "tag": "اقتصاد",
+      "src": "CNN Business Arabic",
+      "date": "2026-11-28T11:49:00Z",
+      "url": "https://cnnbusinessarabic.com/sectors/1153597/%D8%A7%D9%84%D8%B9%D8%AC%D8%B2-%D8%A7%D9%84%D8%AA%D8%AC%D8%A7%D8%B1%D9%8A-%D8%A7%D9%84%D8%A3%D8%B1%D8%AF%D9%86%D9%8A-%D9%8A%D8%AA%D8%B1%D8%A7%D8%AC%D8%B9-76-%D8%AE%D9%84%D8%A7%D9%84-%D8%A7%D9%84%D8%A3%D8%B4%D9%87%D8%B1-%D8%A7%D9%849-%D8%A7%D9%84%D8%A3%D9%88%D9%84%D9%89-%D9%85%D9%86-2026",
+      "priority": 2,
+      "language": "ar",
+      "image": "https://cnnbusinessarabic.com/businesscnn/uploads/images/2026/11/28/1713117.webp"
+    },
     {
       "id": "baa55fdbaf880d1351f1",
       "title": "سترات الشتاء تكشف تحولاً في إنفاق المستهلكين بالصين",
@@ -375,17 +386,6 @@
       "priority": 4,
       "language": "ar",
       "image": "https://cnnbusinessarabic.com/businesscnn/uploads/images/2026/11/25/1712795.webp"
-    },
-    {
-      "id": "b552e81f57b8f692ff7d",
-      "title": "عاجل: إدانة «هواوي» الصينية في 10 تهم جنائية",
-      "tag": "اقتصاد",
-      "src": "CNN Business Arabic",
-      "date": "2026-11-24T21:16:00Z",
-      "url": "https://cnnbusinessarabic.com/sectors/1153350/%D8%B9%D8%A7%D8%AC%D9%84-%D8%A5%D8%AF%D8%A7%D9%86%D8%A9-%D9%87%D9%88%D8%A7%D9%88%D9%8A-%D8%A7%D9%84%D8%B5%D9%8A%D9%86%D9%8A%D8%A9-%D9%81%D9%8A-10-%D8%AA%D9%87%D9%85-%D8%AC%D9%86%D8%A7%D8%A6%D9%8A%D8%A9",
-      "priority": 2,
-      "language": "ar",
-      "image": "https://cnnbusinessarabic.com/businesscnn/uploads/images/2026/11/25/1712773.webp"
     }
   ],
   "source_count": 1,
