@@ -197,7 +197,7 @@ function saved(){return archiveRows().filter(marketRow).slice(0,30)}
 function record(res){try{let arr=saved();arr=arr.filter(x=>!(x.symbol===res.symbol&&x.market===res.market&&x.frame===res.frame&&x.checkedAt===res.checkedAt));arr.unshift(strip(res));localStorage.setItem(STORAGE,JSON.stringify([...arr.slice(0,30),...archiveRows().filter(row=>!marketRow(row))]))}catch{}showArchive()}
 function showArchive(){clear(archive);const arr=saved().slice(0,8);if(!arr.length){node('p','لا يوجد سجل فحوص محلي بعد.',archive);return}for(const x of arr){const b=node('div','',archive,'dc-archive-row');node('strong',x.symbol+' · '+x.opportunities.length+' نموذج/فرصة',b);node('small',dual(x.checkedAt)+' · فحص تاريخي محفوظ وليس عرضًا حيًا',b)}}
 function block(title,parent=output){const c=document.createElement('section');c.className='dc-card';node('h3',title,c);parent.append(c);return c}
-const phases={observed:'مرصودة',awaiting_confirmation:'بانتظار التأكيد',confirmed_research:'مؤكدة بحثيًا',invalidated:'ملغاة',expired:'منتهية الصلاحية'};
+const phases={observed:'مرصودة',awaiting_confirmation:'بانتظار التأكيد',confirmed_research:'مؤكدة بحثيًا'};
 const types={SPOT_RESEARCH:'Spot · سوق فوري',SPOT_RESEARCH_PROXY:'Spot · سوق فوري',PERPETUAL:'عقد دائم',PROVIDER_NATIVE:'أداة المزود'};
 const modelLabels={composite:'Sweep → MSS → FVG',ifvg:'IFVG','turtle-soup':'Turtle Soup',
  ote:'OTE',amd:'Power of Three (AMD)',breaker:'Breaker Block'};
@@ -543,7 +543,11 @@ function inspectContract(market,contract,tf,{entryBars,hourly,higherCandles,week
   structureEngine:structure,signalEngine:signal,contextEngine:context,scenarioEngine:scenario,advancedEngine:window.ICTAdvancedValidation4C4});
  if(weeklyDaily?.length&&!res.context?.priorWeek)res.providerWeek=context.priorProviderWeek(weeklyDaily,now,market);
  if(news.failures?.length)res.warnings.push('تعذر تحميل بعض الأجندات: '+news.failures.join('؛ '));
- if(modelPhase.value)res.opportunities=res.opportunities.filter(plan=>plan.research?.phase===modelPhase.value);
+ const selectedPhase=modelPhase.value;
+ res.opportunities=res.opportunities.filter(plan=>{
+  const phase=plan.research?.phase;
+  return Object.hasOwn(phases,phase)&&(!selectedPhase||phase===selectedPhase);
+ });
  if(res.opportunities.length){
   const bars=structure.normalize(entryBars,tf,now).segments.at(-1)||[];
   const index=new Map(bars.map((bar,i)=>[bar.start,i]));

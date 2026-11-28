@@ -192,6 +192,7 @@
    line('الأخبار: '+(d.safety?.economic?.ok?'تغذية متاحة':'غير مكتملة / معلقة')+' · Bid/Ask: غير متصل · الموافقة التنفيذية: غير متاحة');
    const entries=(valid&&Array.isArray(d.observations)?d.observations:[]).filter(x=>{
     if(!x||!bybitRow(x)||x.status!=='research_only_blocked'||x.executionApproved!==false||!['BUY','SELL'].includes(x.side))return false;
+    if(!['observed','awaiting_confirmation','confirmed_research'].includes(x.research?.phase))return false;
     const item=d.targets?.[[x.market,x.symbol,x.frame].join(':')];
     if(!isCurrent(item,x.frame)||isProxy(item))return false;
     const checked=Date.parse(x.checkedAt||x.detectedAt),detected=Date.parse(x.detectedAt);
