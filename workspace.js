@@ -27,7 +27,7 @@
   if(!obj||typeof obj!=='object'||Array.isArray(obj))return false;
   const clean=clone(defaults);
   if(typeof obj.nickname==='string')clean.nickname=obj.nickname.slice(0,32);
-  if(['XAUUSD','EURUSD','GBPUSD','NAS100','BTCUSD','ETHUSD','USDJPY'].includes(obj.favorite))clean.favorite=obj.favorite;
+  if(typeof obj.favorite==='string'&&/^[A-Z0-9][A-Z0-9._-]{0,34}$/.test(obj.favorite))clean.favorite=obj.favorite;
   if(Array.isArray(obj.order)){const order=obj.order.filter(x=>Object.hasOwn(moduleCatalog,x));clean.order=[...new Set([...order,...defaults.order])];}
   if(Array.isArray(obj.hidden))clean.hidden=obj.hidden.filter(x=>Object.hasOwn(moduleCatalog,x));
   if(obj.guardian&&typeof obj.guardian==='object'){
@@ -40,7 +40,7 @@
     const allowed=obj.checks.slice(0,25).filter(x=>x&&typeof x.id==='string'&&typeof x.name==='string'&&x.name.trim().length>0).map(x=>({id:x.id.slice(0,40),name:x.name.slice(0,90),done:x.done===true}));
     if(allowed.length&&new Set(allowed.map(x=>x.id)).size===allowed.length)clean.checks=allowed;
   }
-  if(typeof obj.checkAsset==='string')clean.checkAsset=obj.checkAsset.slice(0,24);
+  if(typeof obj.checkAsset==='string')clean.checkAsset=obj.checkAsset.slice(0,35);
   if(['BUY','SELL','WAIT'].includes(obj.checkDirection))clean.checkDirection=obj.checkDirection;
   if(typeof obj.checkRisk==='string')clean.checkRisk=obj.checkRisk.slice(0,20);
   if(typeof obj.checkNotes==='string')clean.checkNotes=obj.checkNotes.slice(0,180);
@@ -52,7 +52,10 @@
  document.querySelectorAll('[data-tab]').forEach(b=>b.addEventListener('click',()=>tabOpen(b.dataset.tab)));
  function updateClock(){const now=new Date();$('ny-clock').textContent=new Intl.DateTimeFormat('en-GB',{timeZone:'America/New_York',hour:'2-digit',minute:'2-digit',second:'2-digit',hour12:false}).format(now);$('ny-date').textContent=new Intl.DateTimeFormat('ar-u-nu-latn',{timeZone:'America/New_York',weekday:'short',day:'numeric',month:'short',year:'numeric'}).format(now)}
  function renderDashboard(){
-  $('nickname').value=model.nickname;$('favorite-asset').value=model.favorite;
+  $('nickname').value=model.nickname;
+  const favorite=$('favorite-asset');
+  if(![...favorite.options].some(option=>option.value===model.favorite))favorite.add(new Option(model.favorite,model.favorite));
+  favorite.value=model.favorite;
   const toggleRoot=$('module-toggles');toggleRoot.replaceChildren();
   for(const key of defaults.order){const label=node('label');const check=node('input');check.type='checkbox';check.checked=!model.hidden.includes(key);check.addEventListener('change',()=>{model.hidden=check.checked?model.hidden.filter(x=>x!==key):[...new Set([...model.hidden,key])];storageSave();renderDashboard()});label.append(check,document.createTextNode(moduleCatalog[key].title));toggleRoot.append(label)}
   const root=$('modules');root.replaceChildren();const visible=model.order.filter(x=>!model.hidden.includes(x));
@@ -66,6 +69,7 @@
   });if(!visible.length)root.append(node('p','ws-placeholder','كل البطاقات مخفية. فعّل أي بطاقة من الخيارات أعلاه.'));
  }
  $('nickname').addEventListener('change',e=>{model.nickname=e.target.value.slice(0,32);storageSave()});
+ window.ICTMarketCatalog?.populate($('favorite-asset'));
  $('favorite-asset').addEventListener('change',e=>{model.favorite=e.target.value;model.checkAsset=model.favorite;storageSave()});
  $('reset-dashboard').addEventListener('click',()=>{model.order=[...defaults.order];model.hidden=[];storageSave();renderDashboard();notify('تم استعادة ترتيب البطاقات')});
  $('export-settings').addEventListener('click',()=>{const body=JSON.stringify({version:1,exportedAt:new Date().toISOString(),workspace:model},null,2);const url=URL.createObjectURL(new Blob([body],{type:'application/json'}));const a=node('a');a.href=url;a.download='ICT-Arabic-Workspace-Backup.json';document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),1000);notify('تم إنشاء نسخة احتياطية')});
@@ -88,7 +92,7 @@
  }
  form.addEventListener('submit',e=>{e.preventDefault();const g=guardianRead(),r=guardianMath(g);if(r.error){notify(r.error);return}model.guardian=g;storageSave();renderGuardian();notify('تم حفظ بيانات الحساب وحساب الحدود')});
  $('day-reset').addEventListener('click',()=>{if(!confirm('تعيين مرجع بداية اليوم مساويًا للرصيد الحالي؟ افعل هذا فقط إذا كان مطابقًا لقواعد شركتك.'))return;form.elements.namedItem('dayStart').value=form.elements.namedItem('balance').value;notify('تم تحديث الحقل. اضغط حفظ لإعادة الحساب')});
- function persistChecklistInputs(){model.checkAsset=$('check-asset').value.slice(0,24);model.checkDirection=$('check-direction').value;model.checkRisk=$('check-risk').value.slice(0,20);model.checkNotes=$('check-notes').value.slice(0,180);storageSave();renderChecklistReport()}
+ function persistChecklistInputs(){model.checkAsset=$('check-asset').value.slice(0,35);model.checkDirection=$('check-direction').value;model.checkRisk=$('check-risk').value.slice(0,20);model.checkNotes=$('check-notes').value.slice(0,180);storageSave();renderChecklistReport()}
  for(const id of ['check-asset','check-direction','check-risk','check-notes'])$(id).addEventListener('input',persistChecklistInputs);
  function drawChecks(){const root=$('checklist-items');root.replaceChildren();model.checks.forEach(check=>{const line=node('div','ws-check-item'),label=node('label'),inp=node('input');inp.type='checkbox';inp.checked=check.done;inp.addEventListener('change',()=>{check.done=inp.checked;storageSave();renderChecklistReport()});label.append(inp,document.createTextNode(check.name));line.append(label);if(!defaults.checks.some(c=>c.id===check.id)){const remove=node('button','','✕');remove.type='button';remove.setAttribute('aria-label','حذف الشرط '+check.name);remove.addEventListener('click',()=>{model.checks=model.checks.filter(x=>x.id!==check.id);storageSave();drawChecks();renderChecklistReport()});line.append(remove)}root.append(line)})}
  function renderChecklistReport(){const root=$('checklist-report');root.replaceChildren();const count=model.checks.filter(x=>x.done).length,total=model.checks.length,ratio=total?count/total:0,validRisk=validNumber(model.checkRisk)&&Number(model.checkRisk)>0&&Number(model.checkRisk)<=100;

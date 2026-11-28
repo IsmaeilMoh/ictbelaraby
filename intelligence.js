@@ -49,7 +49,7 @@ function renderRadar(){
  $('radar-leaders').innerHTML=good?candidates.slice(0,12).map(x=>`<button type="button" class="leader ${x.symbol===selected?'active':''}" data-asset="${esc(x.symbol)}"><span dir="ltr">${esc(x.symbol)}</span><b class="${x.metric.value>=0?'up':'down'}" dir="ltr">${number(x.metric.value)}</b></button>`).join(''):'<p class="empty">لا توجد تغيرات صالحة للعرض وفق الفلتر الحالي.</p>';
  $('radar-leaders').querySelectorAll('button').forEach(b=>b.addEventListener('click',()=>{$('radar-asset').value=b.dataset.asset;selectRadar(b.dataset.asset)}));renderChecks();renderRadarEvents();
 }
-function selectRadar(symbol){if(!allowed.includes(symbol))return;selected=symbol;renderRadar()}
+function selectRadar(symbol){if(!allowed.includes(symbol)&&!window.ICTMarketCatalog?.marketOf(symbol))return;selected=symbol;renderRadar()}
 function normalizeEvents(payload){const rows=Array.isArray(payload?.events)?payload.events:[];return rows.filter(e=>e&&e.date&&e.title&&Number.isFinite(Date.parse(e.date))).map(e=>({id:String(e.id||e.date+'-'+e.title),date:e.date,title:String(e.title),currency:String(e.country||e.currency||'').toUpperCase(),impact:String(e.impact||'').toLowerCase(),forecast:String(e.forecast??'—'),actual:String(e.actual??'—'),previous:String(e.previous??'—')})).sort((a,b)=>Date.parse(b.date)-Date.parse(a.date));}
 function renderRadarEvents(){const currency=selected==='XAUUSD'||selected==='XAGUSD'||selected==='NAS100'||selected==='SP500'||selected==='DJ30'||selected==='BTCUSD'||selected==='ETHUSD'?'USD':selected.slice(0,3);const next=events.filter(e=>Date.parse(e.date)>Date.now()&&Date.parse(e.date)<Date.now()+3*86400000&&e.impact==='high').sort((a,b)=>Date.parse(a.date)-Date.parse(b.date));const nearest=next.filter(e=>e.currency===currency||e.currency==='USD').slice(0,3);$('radar-events').innerHTML=nearest.length?nearest.map(e=>`<div class="event-mini"><strong>${esc(e.title)}</strong><span>${esc(e.currency)} · ${when(e.date)}</span></div>`).join(''):'<span class="empty">لا توجد أحداث مرتفعة التأثير قادمة في البيانات المتاحة خلال الأيام الثلاثة المقبلة.</span>';}
 function renderXray(){const name=$('xray-set').value,group=sets[name]||sets.gold,all=[...group.symbols.map(s=>({symbol:s,tv:tv[s]})),...group.extras];const picker=$('xray-symbol'),previous=picker.value;picker.innerHTML=all.map(x=>`<option value="${esc(x.tv)}">${esc(x.symbol)} · ${esc(x.tv)}</option>`).join('');if(all.some(x=>x.tv===previous))picker.value=previous;renderChart();renderXrayData();}
@@ -228,7 +228,12 @@ function eventWatchSummary(){
 }
 function eventWatchRestore(){
  const current=eventWatchEvent(),plans=eventWatchPlans(),saved=current?plans[current.id]:null;
- $('event-plan-asset').value=allowed.includes(saved?.asset)?saved.asset:(eventWatchAssets[current?.currency]?.find(a=>allowed.includes(a))||selected);
+ const picker=$('event-plan-asset');
+ const preferred=saved?.asset||(eventWatchAssets[current?.currency]?.find(a=>allowed.includes(a))||selected);
+ if(typeof preferred==='string'&&/^[A-Z0-9][A-Z0-9._-]{0,34}$/.test(preferred)){
+  if(![...picker.options].some(option=>option.value===preferred))picker.add(new Option(preferred,preferred));
+  picker.value=preferred;
+ }
  $('event-plan-notes').value=typeof saved?.notes==='string'?saved.notes.slice(0,300):'';
  document.querySelectorAll('[data-plan-check]').forEach(c=>{c.checked=Boolean(saved?.checks?.[c.dataset.planCheck])});
  $('event-plan-status').textContent=saved?'خطة محفوظة لهذا الخبر على الجهاز.':'لم تحفظ خطة لهذا الخبر بعد.';
@@ -263,6 +268,7 @@ function eventWatchOpenNews(){
 function initEventWatch(){
  const asset=$('event-plan-asset');if(!asset||!$('event-plan-event'))return;
  allowed.forEach(v=>{const o=document.createElement('option');o.value=v;o.textContent=v;asset.add(o)});
+ window.ICTMarketCatalog?.populate(asset,{legacy:allowed});
  $('event-plan-event').addEventListener('change',e=>{eventWatchSelected=e.target.value;eventWatchRestore()});
  asset.addEventListener('change',eventWatchSummary);
  $('event-plan-save').addEventListener('click',eventWatchSave);
@@ -367,7 +373,7 @@ async function refreshMarketSources(){
  calendarAt=c?.updated_at||c?.updatedAt||null;events=normalizeEvents(c);
  xrayFeed=x;renderRadar();newsOptions();renderReactionHistory();renderXray();renderEventWatch();scenarioRenderUpcoming();
 }
-async function boot(){initTabs();$('radar-asset').innerHTML=allowed.map(s=>`<option value="${s}">${s}</option>`).join('');$('radar-asset').value=selected;$('radar-asset').addEventListener('change',e=>selectRadar(e.target.value));const radarSaved=stored(radarPrefsKey,{});for(const [id,key] of [['radar-window','window'],['radar-group','group'],['radar-direction','direction']]){const el=$(id);if(el&&Array.from(el.options).some(o=>o.value===radarSaved[key]))el.value=radarSaved[key];el?.addEventListener('change',()=>{setStored(radarPrefsKey,radarFilter());renderRadar()});}$('save-radar').addEventListener('click',saveChecks);$('reset-radar').addEventListener('click',resetChecks);$('xray-set').addEventListener('change',renderXray);$('xray-symbol').addEventListener('change',renderChart);$('news-select').addEventListener('change',renderNewsReview);initEconomicResults();loadPublicOfficialResults();setInterval(loadPublicOfficialResults,30*60*1000);$('reaction-form').addEventListener('submit',saveReaction);$('export-reactions').addEventListener('click',exportReactions);
+async function boot(){initTabs();$('radar-asset').innerHTML=allowed.map(s=>`<option value="${s}">${s}</option>`).join('');$('radar-asset').value=selected;window.ICTMarketCatalog?.populate($('radar-asset'),{legacy:allowed});$('radar-asset').addEventListener('change',e=>selectRadar(e.target.value));const radarSaved=stored(radarPrefsKey,{});for(const [id,key] of [['radar-window','window'],['radar-group','group'],['radar-direction','direction']]){const el=$(id);if(el&&Array.from(el.options).some(o=>o.value===radarSaved[key]))el.value=radarSaved[key];el?.addEventListener('change',()=>{setStored(radarPrefsKey,radarFilter());renderRadar()});}$('save-radar').addEventListener('click',saveChecks);$('reset-radar').addEventListener('click',resetChecks);$('xray-set').addEventListener('change',renderXray);$('xray-symbol').addEventListener('change',renderChart);$('news-select').addEventListener('change',renderNewsReview);initEconomicResults();loadPublicOfficialResults();setInterval(loadPublicOfficialResults,30*60*1000);window.ICTMarketCatalog?.populate($('reaction-asset'),{legacy:[...$('reaction-asset').options].map(option=>option.value)});$('reaction-form').addEventListener('submit',saveReaction);$('export-reactions').addEventListener('click',exportReactions);
  initEventWatch();initScenarios();await refreshMarketSources();setInterval(refreshMarketSources,10*60*1000);}
 
 boot();
