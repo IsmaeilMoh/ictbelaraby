@@ -1,7 +1,18 @@
 {
-  "updated_at": "2026-11-28T04:38:55Z",
+  "updated_at": "2026-11-28T06:01:40Z",
   "mode": "rss-attributed",
   "items": [
+    {
+      "id": "e0347c7345b26590682c",
+      "title": "مبيعات الجمعة السوداء عبر الإنترنت في أميركا تتجاوز 13 مليار دولار",
+      "tag": "اقتصاد",
+      "src": "CNN Business Arabic",
+      "date": "2026-11-28T05:44:00Z",
+      "url": "https://cnnbusinessarabic.com/sectors/1153580/%D9%85%D8%A8%D9%8A%D8%B9%D8%A7%D8%AA-%D8%A7%D9%84%D8%AC%D9%85%D8%B9%D8%A9-%D8%A7%D9%84%D8%B3%D9%88%D8%AF%D8%A7%D8%A1-%D8%B9%D8%A8%D8%B1-%D8%A7%D9%84%D8%A5%D9%86%D8%AA%D8%B1%D9%86%D8%AA-%D9%81%D9%8A-%D8%A3%D9%85%D9%8A%D8%B1%D9%83%D8%A7-%D8%AA%D8%AA%D8%AC%D8%A7%D9%88%D8%B2-13-%D9%85%D9%84%D9%8A%D8%A7%D8%B1-%D8%AF%D9%88%D9%84%D8%A7%D8%B1",
+      "priority": 2,
+      "language": "ar",
+      "image": "https://cnnbusinessarabic.com/businesscnn/uploads/images/2026/11/28/1713096.webp"
+    },
     {
       "id": "f90f4cffa9647a6d5481",
       "title": "ورثة جورجيو أرماني يدرسون شراء حصة في دار الأزياء ضمن صفقة بيع 15%",
@@ -375,17 +386,6 @@
       "priority": 2,
       "language": "ar",
       "image": "https://cnnbusinessarabic.com/businesscnn/uploads/images/2026/11/24/1712731.webp"
-    },
-    {
-      "id": "7e8078f776bf6ec30cd8",
-      "title": "السعودية تقر ميزانية 2027 بعجز متوقع 190.6 مليار ريال",
-      "tag": "اقتصاد",
-      "src": "CNN Business Arabic",
-      "date": "2026-11-24T12:50:00Z",
-      "url": "https://cnnbusinessarabic.com/sectors/1153306/%D8%B9%D8%A7%D8%AC%D9%84-%D8%A7%D9%84%D8%B3%D8%B9%D9%88%D8%AF%D9%8A%D8%A9-%D8%AA%D9%82%D8%B1-%D9%85%D9%8A%D8%B2%D8%A7%D9%86%D9%8A%D8%A9-2027-%D8%A8%D8%B9%D8%AC%D8%B2-%D9%85%D8%AA%D9%88%D9%82%D8%B9-1906-%D9%85%D9%84%D9%8A%D8%A7%D8%B1-%D8%B1%D9%8A%D8%A7%D9%84",
-      "priority": 2,
-      "language": "ar",
-      "image": "https://cnnbusinessarabic.com/businesscnn/uploads/images/2026/11/24/1712728.webp"
     }
   ],
   "source_count": 1,
