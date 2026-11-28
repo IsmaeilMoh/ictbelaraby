@@ -1,5 +1,5 @@
 /* ICT بالعربي 6.8.74: prioritize the home offline shell; other pages cache when visited. */
-const CACHE='ict-shell-2026-11-28-watch-catalog';
+const CACHE='ict-shell-2026-11-28-shared-selects';
 const PREFIX='ict-shell-';
 const CORE=[
  "./",
@@ -9,7 +9,7 @@ const CORE=[
  "./analytics.js?v=6.4.0",
  "./app.js?v=7.0.63-coverage",
  "./asset-choice-6918.css?v=6.9.18",
- "./asset-choice-6918.js?v=6.9.18",
+ "./asset-choice-6918.js?v=7.0.67-shared-selects",
  "./asset-config.js?v=7.0.31-biquote",
  "./asset.css?v=6.1.0",
  "./asset.css?v=6.2.0",
@@ -117,7 +117,7 @@ const CORE=[
  "./ict-public-console-702c2.js",
  "./ict-public-markets-702c2.js?v=7.0.31-biquote",
  "./ict-public-markets-702c2.js?v=7.0.40-tradingview-links",
- "./ict-market-catalog.js?v=1",
+ "./ict-market-catalog.js?v=7.0.67-shared-selects",
  "./ict-readiness-console-708c.css?v=7.0.8c",
  "./ict-readiness-console-708c.js",
  "./ict-readiness-core-708c.js",
@@ -215,7 +215,7 @@ const CORE=[
  "./unified-theme.css?v=7.0.53-audit",
  "./unified-theme.js?v=6.8.31",
  "./value-engine-6918.css?v=6.9.18",
- "./value-engine-6918.js?v=7.0.66-watch-catalog",
+ "./value-engine-6918.js?v=7.0.67-shared-selects",
  "./visitor-guide.css?v=6.8.73",
  "./workflow-glass-cta.css?v=6.9.17",
  "./workspace.html"

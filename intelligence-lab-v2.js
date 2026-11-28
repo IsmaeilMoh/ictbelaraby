@@ -35,7 +35,10 @@ function construct(){
  news.insertAdjacentHTML('beforeend',`<section class="ilab" aria-label="مركز تحضير القرار"><div class="ilab-head"><div><h3>موجز قرار المتداول</h3></div>${badge('تحليل مشروط لا توصية')}</div><p class="ilab-intro">يجمع الرادار والعلاقات وأحداث الأخبار في موجز واحد، ويبيّن متى يجب الامتناع عن الاستنتاج بسبب نقص البيانات.</p><div class="ilab-toolbar"><label>الأصل <select id="ilab-decision-asset"></select></label><button id="ilab-copy" class="primary">نسخ الموجز</button><button id="ilab-export">تصدير ملف JSON</button></div><div class="ilab-grid" id="ilab-decision-cards"></div><div id="ilab-decision" class="ilab-card ilab-output" style="margin-top:12px"></div><p class="ilab-note">كل الحسابات في المتصفح باستخدام ملفات بيانات الموقع المنشورة. لا يتتبع المختبر حساب التداول أو ينفذ أوامر أو يتحقق تلقائيًا من MSS/FVG/Liquidity Sweep، ويجب مراجعة السبريد والتقلب وإدارة المخاطر قبل أي تنفيذ.</p></section>`);
  const opts=['XAUUSD','XAGUSD','EURUSD','GBPUSD','USDJPY','USDCHF','NAS100','SP500','DJ30','BTCUSD','ETHUSD','WTI'];
  for(const id of ['ilab-asset','ilab-decision-asset'])$(id).innerHTML=opts.map(s=>`<option value="${s}">${s}</option>`).join('');
- $('ilab-asset').value='XAUUSD';$('ilab-decision-asset').value='XAUUSD';
+ for(const id of ['ilab-asset','ilab-decision-asset']){
+  $(id).value='XAUUSD';
+  window.ICTMarketCatalog?.populate($(id),{legacy:opts});
+ }
  $('ilab-asset').addEventListener('change',()=>{state.active=selectedAsset();$('ilab-decision-asset').value=state.active;render()});
  $('ilab-decision-asset').addEventListener('change',()=>{$('ilab-asset').value=$('ilab-decision-asset').value;state.active=selectedAsset();render()});
  $('ilab-win').addEventListener('change',()=>{state.win=Number($('ilab-win').value);render()});

@@ -139,9 +139,15 @@ async function testSharedMarketCatalog(){
    }
   }
  };
- vm.runInNewContext(read('ict-market-catalog.js'),{
-  window,document:{addEventListener(){},getElementById(){return null}},URLSearchParams
- });
+ const statuses=[];
+ class Option{constructor(text,value){Object.assign(this,{text,value,dataset:{}})}}
+ const document={addEventListener(){},getElementById(){return null},createElement(){
+  return {children:[],setAttribute(){},append(...items){this.children.push(...items)}};
+ }};
+ vm.runInNewContext(read('ict-market-catalog.js'),{window,document,URLSearchParams,Option});
+ const select={value:'LEGACY',isConnected:true,selectedOptions:[],
+  after(node){statuses.push(node)},replaceChildren(...groups){this.groups=groups}};
+
  const catalog=window.ICTMarketCatalog;
  await assert.rejects(catalog.loadCrypto(),/provider unavailable/);
  assert.deepEqual(Array.from(catalog.list('crypto')),['BTCUSDT']);
@@ -151,6 +157,16 @@ async function testSharedMarketCatalog(){
  assert.deepEqual(await Promise.all([catalog.load('forex'),catalog.load('metals')]),[true,false]);
  assert.equal(traditionalCalls,1,'traditional categories share one catalogue request');
  assert.equal(catalog.marketUrl('crypto','ARBUSDT'),'decision-center.html?market=crypto&symbol=ARBUSDT');
+ await catalog.populate(select,{placeholder:'اختر الأصل',legacy:['LEGACY']});
+ assert.equal(select.groups[0].value,'');
+ const listed=select.groups.flatMap(group=>group.children||[]);
+ assert.ok(listed.some(option=>option.value==='ARBUSDT'&&option.dataset.market==='crypto'));
+ assert.ok(listed.some(option=>option.value==='EURGBP'&&option.dataset.market==='forex'));
+ assert.ok(listed.some(option=>option.value==='LEGACY'));
+ assert.equal(select.value,'LEGACY');
+ assert.match(statuses[0].textContent,/القائمة الأساسية/);
+ assert.equal(traditionalCalls,1);
+
  console.log('Shared market catalog, identity, request reuse and fallback: PASS');
 }
 testSharedMarketCatalog().catch(error=>{console.error(error);process.exitCode=1;});

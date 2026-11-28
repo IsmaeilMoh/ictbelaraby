@@ -29,13 +29,56 @@
  function load(market){
   return (market==='crypto'?loadCrypto():loadTraditional()).then(result=>market==='crypto'||result[market].length>0);
  }
+ const marketOf=symbol=>Object.keys(labels).find(market=>list(market).includes(symbol));
+ function populate(select,{placeholder='',selected=select.value,legacy=[]}={}){
+  const status=document.createElement('small');
+  status.setAttribute('role','status');
+  select.after(status);
+  function render(preferred,market){
+   const known=new Set();
+   const groups=Object.entries(labels).map(([market,label])=>{
+    const group=document.createElement('optgroup');
+    group.label=label;
+    for(const symbol of list(market)){
+     const option=new Option(symbol,symbol);
+     option.dataset.market=market;
+     group.append(option);
+     known.add(symbol);
+    }
+    return group;
+   });
+   const extras=[...new Set([...legacy,preferred])].filter(symbol=>symbol&&!known.has(symbol));
+   if(extras.length){
+    const group=document.createElement('optgroup');
+    group.label='رموز محفوظة أو خاصة بالأداة';
+    group.append(...extras.map(symbol=>new Option(symbol,symbol)));
+    groups.push(group);
+   }
+   select.replaceChildren(...(placeholder?[new Option(placeholder,'')]:[]),...groups);
+   if(preferred)select.value=preferred;
+   if(market){
+    const option=[...select.options].find(row=>row.value===preferred&&row.dataset.market===market);
+    if(option)option.selected=true;
+   }
+  }
+  render(selected);
+  status.textContent='جارٍ تحديث دليل الأصول…';
+  return Promise.allSettled([loadCrypto(),loadTraditional()]).then(results=>{
+   if(!select.isConnected)return;
+   render(select.value,select.selectedOptions[0]?.dataset.market);
+   const traditionalResult=results[1];
+   const partial=traditionalResult.status==='fulfilled'&&Object.values(traditionalResult.value).some(rows=>!rows.length);
+   status.textContent=partial||results.some(result=>result.status==='rejected')
+    ?'تعذّر تحديث جزء من الدليل؛ تظهر القائمة الأساسية للفئات المتأثرة.':'';
+  });
+ }
  function marketUrl(market,symbol){
   return 'decision-center.html?'+new URLSearchParams({market,symbol});
  }
- window.ICTMarketCatalog=Object.freeze({labels,list,load,loadCrypto,loadTraditional,options,marketUrl});
+ window.ICTMarketCatalog=Object.freeze({labels,list,load,loadCrypto,loadTraditional,options,populate,marketOf,marketUrl});
 
  // These selectors consume the same venue identities. Archive-only selectors and
- // TradingView watchlists have their own coverage and are intentionally separate.
+ // chart-only selectors have their own coverage and are intentionally separate.
  const pairs=[
   ['ict-live-symbol','crypto'],['ict-usd-symbol','ict-usd-group',true],
   ...['ict-2d','ict-2e','ict-3a','ict-3b','ict-3c','vc','case','cm','m3','a4','ict-rp','ict6a','ict6b','ict6c']
