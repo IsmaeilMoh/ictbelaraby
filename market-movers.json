@@ -1,5 +1,5 @@
 {
-  "updatedAt": "2026-11-28T03:59:18.603280Z",
+  "updatedAt": "2026-11-28T05:05:02.231056Z",
   "source": "Yahoo Finance public chart feed (unofficial)",
   "changeBasis": "Yahoo chart previous close; not uniform 24h",
   "items": [
@@ -109,7 +109,7 @@
       "category": "index",
       "change": 1.6954,
       "price": 7297.49,
-      "quotedAt": "2026-11-27T18:38:39Z",
+      "quotedAt": "2026-11-27T21:00:00Z",
       "proxy": false,
       "url": "https://www.tradingview.com/symbols/SPX/"
     },
@@ -117,9 +117,9 @@
       "symbol": "DJ30",
       "label": "Dow Jones",
       "category": "index",
-      "change": 3.4175,
-      "price": 50774.94,
-      "quotedAt": "2026-11-27T18:38:45Z",
+      "change": 3.4174,
+      "price": 50774.9,
+      "quotedAt": "2026-11-27T21:00:00Z",
       "proxy": false,
       "url": "https://www.tradingview.com/symbols/DJI/"
     },
@@ -137,9 +137,9 @@
       "symbol": "BTCUSD",
       "label": "Bitcoin",
       "category": "crypto",
-      "change": 0.3818,
-      "price": 59975.86,
-      "quotedAt": "2026-11-28T03:59:13Z",
+      "change": 0.1273,
+      "price": 59823.8,
+      "quotedAt": "2026-11-28T05:04:59Z",
       "proxy": false,
       "url": "https://www.tradingview.com/symbols/BTCUSD/"
     },
@@ -147,9 +147,9 @@
       "symbol": "ETHUSD",
       "label": "Ethereum",
       "category": "crypto",
-      "change": -0.7746,
-      "price": 1664.7,
-      "quotedAt": "2026-11-28T03:59:14Z",
+      "change": -1.2019,
+      "price": 1657.53,
+      "quotedAt": "2026-11-28T05:04:52Z",
       "proxy": false,
       "url": "https://www.tradingview.com/symbols/ETHUSD/"
     }
