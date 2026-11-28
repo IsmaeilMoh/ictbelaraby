@@ -97,5 +97,22 @@ assert.equal(b.length,2);assert.equal(b[0].confirmed,true);
  for(const symbol of ['BTCPERP','BTCUSD','AAPLUSDT','BADUSDT'])assert.equal(live.contract(symbol),null);
  await assert.rejects(live.fetchPerpetuals(async()=>({ok:false,status:403})),/403/);
  assert.equal(live.contract('NEWUSDT').settleCoin,'USDT');
+ const turnover=await live.fetchTurnover24h(async request=>{
+  const url=new URL(request);
+  assert.equal(url.pathname,'/v5/market/tickers');
+  assert.equal(url.search,'?category=linear');
+  return {ok:true,json:async()=>({retCode:0,result:{category:'linear',list:[
+   {symbol:'NEWUSDT',turnover24h:'29',volume24h:'9000'},
+   {symbol:'SOLUSDT',turnover24h:'100',volume24h:'1'},
+   {symbol:'BTCUSDT',turnover24h:' '},
+   {symbol:'ETHUSDT',turnover24h:'0'},
+   {symbol:'AAPLUSDT',turnover24h:'5000'}
+  ]}})};
+ });
+ assert.deepEqual(live.rankByTurnover(['BTCUSDT','NEWUSDT','SOLUSDT','ETHUSDT'],turnover),
+  ['SOLUSDT','NEWUSDT','ETHUSDT','BTCUSDT']);
+ assert.equal(turnover.has('AAPLUSDT'),false);
+ await assert.rejects(live.fetchTurnover24h(async()=>({ok:false,status:403})),/403/);
+ await assert.rejects(live.fetchTurnover24h(async()=>({ok:true,json:async()=>({retCode:0,result:{category:'spot',list:[]}})})),/TICKERS_INVALID/);
  console.log('Bybit catalog pagination, USDT-only and product isolation: PASS');
 })().catch(error=>{console.error(error);process.exitCode=1});
