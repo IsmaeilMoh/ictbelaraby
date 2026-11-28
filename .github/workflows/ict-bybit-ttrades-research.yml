@@ -15,6 +15,12 @@ jobs:
     runs-on: ${{ github.event_name == 'workflow_dispatch' && vars.ICT_BYBIT_RUNNER || 'ubuntu-latest' }}
     timeout-minutes: 20
     steps:
+      - name: Check approved runner configuration
+        if: github.event_name == 'pull_request'
+        env:
+          HAS_APPROVED_RUNNER: ${{ vars.ICT_BYBIT_RUNNER != '' }}
+        run: |
+          echo "Approved Bybit runner label configured: $HAS_APPROVED_RUNNER" | tee -a "$GITHUB_STEP_SUMMARY"
       - uses: actions/checkout@v4
         with:
           persist-credentials: false
