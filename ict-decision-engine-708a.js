@@ -29,6 +29,32 @@ function displacementRange(model,bars,index,events,maxFvgLag=1,minFvgLag=0){
  if(mss==null||fvg==null||fvg-mss<minFvgLag||fvg-mss>maxFvgLag)return null;
  return displacementLeg(model,bars,index,events);
 }
+// Use only volatility and structure known when the model formed.
+function structuralStop(model,bars,structures){
+ const before=bars.filter(bar=>bar.start<model.formedAt);
+ const ranges=before.slice(-20).map(bar=>bar.high-bar.low).sort((a,b)=>a-b);
+ if(ranges.length<12)return null;
+ const median=(ranges[Math.floor((ranges.length-1)/2)]+ranges[Math.floor(ranges.length/2)])/2;
+ if(!(median>0))return null;
+ const bullish=model.direction==='bull',side=bullish?1:-1;
+ const type=bullish?'swing-low':'swing-high';
+ const swept=before.find(bar=>bar.start===model.sweepAt);
+ const anchors=swept?[{level:bullish?swept.low:swept.high,type:'sweep',at:swept.start,frame:structures[0].frame}]:[];
+ for(const {pivots,ms,frame} of structures){
+  for(const pivot of pivots){
+   if(pivot.type===type&&pivot.start>=before[0].start&&pivot.confirmedAt+ms<=model.formedAt)
+    anchors.push({level:pivot.level,type,at:pivot.start,frame});
+  }
+ }
+ const buffer=median*0.05, minimum=median*0.25;
+ return anchors.filter(anchor=>{
+  const distance=side*(model.entry-anchor.level);
+  return distance+buffer>=minimum&&side*(model.stop-anchor.level)>=0&&
+   !before.some(bar=>bar.start>anchor.at&&(bullish?bar.low<anchor.level:bar.high>anchor.level));
+ }).sort((a,b)=>side*(b.level-a.level))
+  .map(anchor=>({stop:anchor.level-side*buffer,stopLiquidity:anchor}))
+  .find(plan=>plan.stop>0)||null;
+}
 function liquidityPlan(model,bars,structures,range,{focused=true}={}){
  const bullish=model.direction==='bull';
  if(focused&&(!range||(bullish?model.entry>=range.midpoint:model.entry<=range.midpoint)))return null;
@@ -45,7 +71,7 @@ function liquidityPlan(model,bars,structures,range,{focused=true}={}){
    if(!Number.isFinite(rr)||rr<=0)continue;
    if(bars.some(bar=>bar.start>=pivot.start+ms&&bar.start<model.formedAt&&touches(bar,pivot.level)))continue;
    const liquidity={type,frame,at:pivot.start};
-   if(focused&&rr<2){
+   if(rr<2){
     if(!interveningLiquidity||rr<interveningLiquidity.rr)interveningLiquidity={level:pivot.level,rr,...liquidity};
    }else if(!best||rr<best.rr){
     best={target:pivot.level,rr,liquidity};
@@ -229,9 +255,13 @@ function inspect(input){
   ?structureModels(bars,index,evaluation.analysis,ms,market,symbol,frame,signalEngine,advancedEngine):[];
  const opportunities=[...recent,...reversals,...inversions,...continuations,...independent].flatMap(m=>{
   const range=m.range||displacementRange(m,bars,index,evaluation.analysis.events,allowDelayedFvgForResearch?2:1,allowEarlyFvgForResearch?-1:0);
-  const focusedPlan=liquidityPlan(m,bars,targetStructures,range);
+  const protection=structuralStop(m,bars,targetStructures);
+  if(!protection)return [];
+  const protectedModel={...m,...protection};
+  const focusedPlan=liquidityPlan(protectedModel,bars,targetStructures,range);
   if(!displayCompleteModels&&!focusedPlan)return [];
-  const plan=displayCompleteModels?liquidityPlan(m,bars,targetStructures,range,{focused:false}):focusedPlan;
+  const plan=displayCompleteModels?liquidityPlan(protectedModel,bars,targetStructures,range,{focused:false}):focusedPlan;
+  if(!plan)return [];
 
   const matched=scenarios.scenarios.find(s=>s.direction===m.direction),alignment=Boolean(matched&&matched.score>=2&&matched.evidence.some(v=>/MSS|BOS/.test(v)));
   const localBlocks=[...blocks];
@@ -250,13 +280,13 @@ function inspect(input){
   const side=m.direction==='bull'?'BUY':'SELL';
   // Never conflate a last-hour close with a live bid/ask or an executable quote.
   const status=localBlocks.length?'مراقبة فقط':'نموذج بحثي — ينتظر إعادة اختبار السعر';
-  return [{id:m.id,symbol,market,direction:m.direction,modelType:m.modelType,side,formedAt:m.formedAt,research:m.research,status,entry,stop:m.stop,target:plan?.target??null,rr:plan?.rr??null,liquidity:plan?.liquidity??null,interveningLiquidity:plan?.interveningLiquidity??null,midpoint:range?.midpoint,dealingRange:range,zone:m.zone,model:m.confirmation,blocks:localBlocks,waiting:[m.modelType==='turtle-soup'?'إعادة اختبار المستوى المسترد دون إبطال':m.modelType==='ifvg'?'إعادة اختبار الفجوة المقلوبة دون إبطال':m.modelType==='ote'?'إعادة اختبار منطقة OTE':m.modelType==='amd'?'مراقبة حد نطاق التراكم':m.modelType==='breaker'?'مراجعة استمرار تبدّل دور الكتلة':'عودة السعر إلى منطقة FVG دون إبطال','التحقق من سعر Bid/Ask والسبريد عند التنفيذ','تأكيد عدم تغيّر الهيكل بعد آخر شمعة'],evidence:matched?.evidence||[],modelEvidence:[m.sweepAt,m.mssAt,m.fvgAt],contextScore:matched?.score||0,ageBars:m.ageBars,referenceClose:price}];
+  return [{id:m.id,symbol,market,direction:m.direction,modelType:m.modelType,side,formedAt:m.formedAt,research:m.research,status,entry,stop:protection.stop,stopLiquidity:protection.stopLiquidity,target:plan.target,rr:plan?.rr??null,liquidity:plan?.liquidity??null,interveningLiquidity:plan?.interveningLiquidity??null,midpoint:range?.midpoint,dealingRange:range,zone:m.zone,model:m.confirmation,blocks:localBlocks,waiting:[m.modelType==='turtle-soup'?'إعادة اختبار المستوى المسترد دون إبطال':m.modelType==='ifvg'?'إعادة اختبار الفجوة المقلوبة دون إبطال':m.modelType==='ote'?'إعادة اختبار منطقة OTE':m.modelType==='amd'?'مراقبة حد نطاق التراكم':m.modelType==='breaker'?'مراجعة استمرار تبدّل دور الكتلة':'عودة السعر إلى منطقة FVG دون إبطال','التحقق من سعر Bid/Ask والسبريد عند التنفيذ','تأكيد عدم تغيّر الهيكل بعد آخر شمعة'],evidence:matched?.evidence||[],modelEvidence:[m.sweepAt,m.mssAt,m.fvgAt],contextScore:matched?.score||0,ageBars:m.ageBars,referenceClose:price}];
  }).sort((a,b)=>b.formedAt-a.formedAt);
- if(!opportunities.length)warnings.push(displayCompleteModels?'لم يظهر نموذج مكتمل في عينة الشموع المتصلة':'لم يظهر نموذج حديث مع Premium/Discount وهدف سيولة يؤمّن 2R على الأقل');
+ if(!opportunities.length)warnings.push(displayCompleteModels?'لم تظهر فرصة بوقف هيكلي وهدف سيولة يحقق 2R على الأقل':'لم يظهر نموذج حديث مع Premium/Discount وهدف سيولة يؤمّن 2R على الأقل');
  return {symbol,market,frame,checkedAt:now,source:market==='crypto'?'Bybit V5 · عقد دائم · USDT':market==='kraken'?'Kraken Futures · USD perpetual':traditional.SOURCE,sourceBars:evaluation.analysis.sourceBars,lastCompleteAt:Number.isFinite(latest)?latest+ms:null,entryFreshUntil:Number.isFinite(latest)?latest+2*ms:null,context,scenarios,opportunities,warnings,blocks,nearbyNews:nearby,newsChecked,newsCovered,eventFeedsLoaded,priceAt:context?.priceAt,price:context?.price,disclaimer:'هذه فرص بحثية مشروطة مستخرجة من إغلاقات شموع، وليست أسعار Bid/Ask لحظية أو أوامر تنفيذ. لا تعتمد الربحية ولا الملاءمة المالية ولا تتضمن سبريدًا أو انزلاقًا أو حجم عقد. تتوقف المراقبة بإغلاق الصفحة.'};
 }
 function qualifiesFocused(plan){
  return plan.research?.phase==='observed'&&!plan.blocks.length&&!plan.interveningLiquidity;
 }
-return Object.freeze({continuationCandidates,inversionFvg,turtleSoup,qualifiesFocused,inspect,nearNews,contextFrame,liquidityPlan,displacementRange,displacementLeg});
+return Object.freeze({continuationCandidates,inversionFvg,turtleSoup,qualifiesFocused,inspect,nearNews,contextFrame,structuralStop,liquidityPlan,displacementRange,displacementLeg});
 });

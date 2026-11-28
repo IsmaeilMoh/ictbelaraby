@@ -8,6 +8,7 @@ const kraken=require('./kraken-perpetual.js');
 const traditional=require('../ict-public-markets-702c2.js');
 const structure=require('./ict_phase2d/ict-structure-engine-702d.js');
 const signals=require('./ict_phase2e/ict-signal-engine-702e.js');
+const decision=require('../ict-decision-engine-708a.js');
 const gates=require('./safety-gates.js');
 const lifecycle=require('../ict-opportunity-lifecycle-708b.js');
 const {inspectHourly}=require('./hourly-context.js');
@@ -116,7 +117,7 @@ function validBars(bars,tf,now){
  const raw=new Map(bars.filter(b=>b.confirmed===true).map(b=>[Number(b.start),b]));
  return consecutive.map(b=>raw.get(b.start));
 }
-function recentObservation(m,target,now,news,structureGate,previous){return {id:target.id+':'+String(m.id),market:target.market,symbol:target.symbol,frame:target.tf,formedAt:m.formedAt,detectedAt:previous?.detectedAt||new Date(now).toISOString(),checkedAt:new Date(now).toISOString(),research:m.research,status:'research_only_blocked',reason:'بحثية؛ أسعار Bid/Ask غير متحققة',newsGate:news,structureGate,accountRiskGate:'not_verified',side:m.direction==='bull'?'BUY':'SELL',entry:m.entry,stop:m.stop,target:m.target,model:'Sweep → MSS → FVG',zone:{low:m.zone.low,high:m.zone.high},evidence:{sweepAt:m.sweepAt,mssAt:m.mssAt,fvgAt:m.fvgAt},reasonCodes:['EXECUTION_QUOTE_NOT_VERIFIED']};}
+function recentObservation(m,target,now,news,structureGate,previous){return {id:target.id+':'+String(m.id),market:target.market,symbol:target.symbol,frame:target.tf,formedAt:m.formedAt,detectedAt:previous?.detectedAt||new Date(now).toISOString(),checkedAt:new Date(now).toISOString(),research:m.research,status:'research_only_blocked',reason:'بحثية؛ أسعار Bid/Ask غير متحققة',newsGate:news,structureGate,accountRiskGate:'not_verified',side:m.direction==='bull'?'BUY':'SELL',entry:m.entry,stop:m.stop,target:m.target,stopLiquidity:m.stopLiquidity,liquidity:m.liquidity,model:'Sweep → MSS → FVG',zone:{low:m.zone.low,high:m.zone.high},evidence:{sweepAt:m.sweepAt,mssAt:m.mssAt,fvgAt:m.fvgAt},reasonCodes:['EXECUTION_QUOTE_NOT_VERIFIED']};}
 // Keep records separated by venue, instrument and timeframe, including after a restart.
 function updateForward(previous,target,bars,observations,now){
  const ms=lifecycle.FRAME[target.tf];
@@ -153,11 +154,18 @@ async function check(target,draft,calendar,getKrakenInstruments,getHourly){const
  for(const model of result.models){
   if(model.ageBars>12||!model.research)continue;
   meta.patternCounts.recent++;
-  const plan=gates.checkStructure(model,maxStopDistancePct);
+  const structures=[{pivots:result.analysis.pivots,ms:Number(target.tf)*60000,frame:target.tf}];
+  const protection=decision.structuralStop(model,bars,structures);
+  if(!protection)continue;
+  const protectedModel={...model,...protection};
+  const objective=decision.liquidityPlan(protectedModel,bars,structures,null,{focused:false});
+  if(!objective)continue;
+  const opportunity={...protectedModel,...objective};
+  const plan=gates.checkStructure(opportunity,maxStopDistancePct);
   if(plan.status==='clear_research_only'){
-   const row=recentObservation(model,target,now,news,plan,previousModels.get(target.id+':'+model.id));
+   const row=recentObservation(opportunity,target,now,news,plan,previousModels.get(target.id+':'+model.id));
    row.hourlyAligned=meta.hourlyContext.aligned?.includes(model.direction)===true;
-   row.trackable=model.status==='watching'&&model.ageBars<=6;
+   row.trackable=model.status==='watching'&&model.ageBars<=6&&!objective.targetTouched;
    observations.push(row);
   }
  }

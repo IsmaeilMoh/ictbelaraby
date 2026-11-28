@@ -8,10 +8,12 @@ s=publicSnapshot({...fixture,targets:{'crypto:BTCUSDT:15':{...fixture.targets['c
 assert.throws(()=>publicSnapshot({...fixture,readyForExecution:true},now),/UNSAFE/);
 console.log('GitHub static payload safety tests: PASS');
 
-const good={id:'crypto:BTCUSDT:15:setup-01',market:'crypto',symbol:'BTCUSDT',frame:'15',formedAt:now-60000,checkedAt:new Date(now).toISOString(),research:{phase:'observed',at:now-60000},evidence:{sweepAt:now-1860000,mssAt:now-960000,fvgAt:now-960000},detectedAt:new Date(now-60000).toISOString(),status:'research_only_blocked',side:'BUY',entry:100,stop:99,target:102,accountRiskGate:'not_verified'};
+const good={id:'crypto:BTCUSDT:15:setup-01',market:'crypto',symbol:'BTCUSDT',frame:'15',formedAt:now-60000,checkedAt:new Date(now).toISOString(),research:{phase:'observed',at:now-60000},evidence:{sweepAt:now-1860000,mssAt:now-960000,fvgAt:now-960000},detectedAt:new Date(now-60000).toISOString(),status:'research_only_blocked',side:'BUY',entry:100,stop:99,target:102,stopLiquidity:{type:'sweep',at:now-1860000,level:99.5},liquidity:{type:'swing-high',at:now-3660000},accountRiskGate:'not_verified'};
 let o=publicSnapshot({...fixture,observations:[good]},now);
 assert.equal(o.observations.length,1);
 assert.equal(o.observations[0].entry,100);
+assert.equal(publicSnapshot({...fixture,observations:[{...good,target:101.999}]},now).observations.length,0);
+assert.equal(publicSnapshot({...fixture,observations:[{...good,stopLiquidity:undefined}]},now).observations.length,0);
 assert.equal(o.observations[0].executionApproved,false);
 assert.equal(o.observations[0].accountName,undefined);
 assert.equal(o.observations[0].accountRiskGate,'not_verified');

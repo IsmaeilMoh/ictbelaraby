@@ -139,7 +139,7 @@ function showEntryStream(res,news){
 }
 function labelTime(ts,zone){return new Intl.DateTimeFormat('ar-EG',{timeZone:zone,year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',hourCycle:'h23'}).format(new Date(ts))}
 function dual(t){return 'نيويورك: '+labelTime(t,'America/New_York')+' | فلسطين: '+labelTime(t,'Asia/Gaza')}
-function money(n){return Number.isFinite(n)?n.toLocaleString('en-US',{maximumFractionDigits:6}):'غير متاح'}
+function money(n){return Number.isFinite(n)?n.toLocaleString('en-US',Math.abs(n)<0.01?{maximumSignificantDigits:10}:{maximumFractionDigits:6}):'غير متاح'}
 function node(tag,value,parent,cls){const e=document.createElement(tag);if(cls)e.className=cls;e.textContent=value;parent.append(e);return e}
 function clear(el){el.replaceChildren()}
 function clearScan(){
@@ -429,6 +429,9 @@ function card(parent,o,origin,{quoteRows,batchQuote=false}={}){
   const el=node('div','',levels);node('small',name,el);node('strong',value,el);
  }
 
+ if(o.stopLiquidity)node('p',
+  (o.side==='BUY'?'الوقف أسفل ':'الوقف أعلى ')+(o.stopLiquidity.type==='sweep'?'ذيل سحب السيولة':o.side==='BUY'?'قاع مؤكّد':'قمة مؤكّدة')+
+  ' · '+money(o.stopLiquidity.level)+' · '+dual(o.stopLiquidity.at),c);
  if(o.liquidity)node('p',
   (o.side==='BUY'?'سيولة فوق قمة مؤكدة':'سيولة تحت قاع مؤكد')+' · '+(o.liquidity.frame==='D'?'يومي':o.liquidity.frame+' د')+
    ' · '+dual(o.liquidity.at)+' | منتصف النطاق '+money(o.midpoint),c);

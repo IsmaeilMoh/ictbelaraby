@@ -107,6 +107,16 @@ function testDisplacementRange() {
   assert.equal(decision.displacementRange(model, bars, index, [{...events[0], level: 108}]), null);
 }
 function testLiquidityPlan() {
+  const stable = Array.from({length:20},(_,start)=>({start,low:99.9,high:103.9}));
+  const narrow = {direction:'bull',entry:100,stop:99.9,sweepAt:19,formedAt:20};
+  const structure = {frame:'5',ms:1,pivots:[
+    {type:'swing-low',start:3,confirmedAt:5,level:98},
+    {type:'swing-low',start:17,confirmedAt:20,level:99}
+  ]};
+  assert.equal(decision.structuralStop(narrow,stable,[{...structure,pivots:[]}]),null);
+  assert.equal(decision.structuralStop(narrow,stable,[structure]).stop,97.8);
+  assert.equal(decision.structuralStop(narrow,[...stable,{start:20,low:1,high:1000}],[structure]).stop,97.8);
+
   const bars = [
     { start: 0, low: 90, high: 132 },
     { start: 1, low: 91, high: 122 },
@@ -280,7 +290,8 @@ async function testOpportunities() {
   assert.ok(plan, 'a completed model is visible before any subsequent correction');
   assert.equal(plan.blocks.length, 0);
   assert.equal(plan.entry, (model.zone.low + model.zone.high) / 2);
-  assert.equal(plan.stop, model.stop);
+  assert.ok(plan.stop > model.stop);
+  assert.ok(plan.stop > plan.stopLiquidity.level);
   assert.ok(plan.rr >= 2);
   assert.ok(plan.entry > plan.midpoint);
   assert.equal(plan.liquidity.type, 'swing-low');
@@ -316,7 +327,7 @@ async function testOpportunities() {
   }
   vm.runInNewContext(await fs.readFile(path.join(__dirname, '../ict-advanced-validation-704c4.js'), 'utf8'), browser);
   const displayInputs = {
-    ...inputs, candles15: bars, candles60: [], contextEngine: context, newsCovered: false,
+    ...inputs, candles15: scopedBars, candles60: [], contextEngine: context, newsCovered: false,
     signalEngine: browser.ICTSignalEngine, advancedEngine: browser.ICTAdvancedValidation4C4,
     displayCompleteModels: true, includeTurtleSoup: true, includeIfvg: true
   };
@@ -324,12 +335,13 @@ async function testOpportunities() {
   assert.equal(display.context, null, 'missing context cannot abort a scan of usable entry candles');
   const shown = display.opportunities.find(item => item.id === model.id);
   assert.ok(shown, 'a composite remains visible without stricter filters and without complete calendar coverage');
-  assert.ok(shown.rr === null || shown.rr < 2, 'display does not require a 2R target');
+  assert.ok(shown.rr >= 2, 'broad research display requires at least 2R');
+  assert.ok(!decision.inspect({...displayInputs, candles15: bars}).opportunities.some(item => item.id === model.id), 'a detected model without a qualifying target is excluded');
   assert.equal(decision.qualifiesFocused(shown), false);
-  assert.ok(display.opportunities.some(item => item.modelType === 'ote' && item.entry > item.zone.low && item.entry < item.zone.high));
-  const withOpenCandle = decision.inspect({...displayInputs, candles15: [...bars, wick]});
+  assert.ok(display.opportunities.every(item => item.rr >= 2 && item.stopLiquidity));
+  const withOpenCandle = decision.inspect({...displayInputs, candles15: [...scopedBars, wick]});
   assert.equal(withOpenCandle.opportunities.find(item => item.id === model.id).research.phase, 'observed');
-  const afterInvalidation = decision.inspect({...displayInputs, candles15: [...bars, wick], now: now + interval});
+  const afterInvalidation = decision.inspect({...displayInputs, candles15: [...scopedBars, wick], now: now + interval});
   assert.equal(afterInvalidation.opportunities.find(item => item.id === model.id).research.phase, 'invalidated');
   assert.equal(decision.inspect({...displayInputs, candles15: []}).opportunities.length, 0);
   const latest = bars.at(-1);
@@ -337,7 +349,7 @@ async function testOpportunities() {
     symbol: 'BTCUSDT', list: [[latest.start, latest.open, latest.high, latest.low, latest.close, 1, 1]]
   }};
   assert.equal(bybit.parseHistory(response, 'BTCUSDT', '15', now)[0].confirmed, false);
-  return bars;
+  return scopedBars;
 }
 
 async function testMonitor(bars) {
@@ -369,6 +381,8 @@ async function testMonitor(bars) {
     assert.equal(fresh.targets[id].executionQuoteGate, 'verified_research_quote');
     assert.ok(fresh.observations.some(o=>o.research.phase==='observed'));
     const first = fresh.observations[0];
+    assert.ok(first.stop > first.stopLiquidity.level);
+    assert.ok(Math.abs((first.target-first.entry)/(first.entry-first.stop))>=2);
     assert.equal(fresh.targets[id].patternCounts.valid, fresh.observations.length);
     time += minute;
     await monitor.cycle();
