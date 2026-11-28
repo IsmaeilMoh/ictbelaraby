@@ -14,6 +14,16 @@ const HOUR = 3600000;
 const WINDOW = 24 * HOUR;
 const frames = {'5':'5m','15':'15m'};
 const root = path.join(__dirname, '..');
+const bybitSource = 'Bybit V5 USDT perpetual';
+
+function archiveMarket(archive, symbol) {
+  // The Bybit exporter identifies the contract type at archive level.
+  if (archive.source === bybitSource) {
+    return archive.version === 2 && /^[A-Z0-9]+USDT$/.test(symbol) ? 'crypto' : null;
+  }
+  const kind = archive.marketKinds?.[symbol];
+  return kind === 'metal' ? 'metals' : kind;
+}
 
 function loadEngines() {
   // Load the exact browser builds used by the opportunity center.
@@ -141,13 +151,17 @@ function barsFor(rows, frame, asOf){
 }
 
 function main(){
-  const frame=process.argv[2]||'5', file=process.argv[3]||path.join(root,'historical-multi-market.json');
-  if(!Object.hasOwn(frames,frame))throw Error('Usage: node ttrades-replay.cjs 5|15 [verified-archive.json]');
+  const frame=process.argv[2]||'5', input=process.argv[3];
+  const file=input==='--bybit' ? path.join(root,'historical-candles.json') :
+    input||path.join(root,'historical-multi-market.json');
+  if(!Object.hasOwn(frames,frame))throw Error('Usage: node ttrades-replay.cjs 5|15 [--bybit|verified-archive.json]');
   const archive=JSON.parse(fs.readFileSync(file,'utf8')), asOf=Date.parse(archive.updatedAt);
+  if (input==='--bybit' && archive.source!==bybitSource) throw Error('Expected a Bybit USDT perpetual archive');
+  if (!Object.keys(archive.assets||{}).length) throw Error('Archive has no market candles');
   if(!archive.source||!Number.isFinite(asOf)||asOf>Date.now())throw Error('Missing verified archive source or cutoff');
   const results=[], unavailable=[];
   for(const [symbol,rows] of Object.entries(archive.assets||{})){
-    const kind=archive.marketKinds?.[symbol],market=kind==='metal'?'metals':kind;
+    const market=archiveMarket(archive,symbol);
     const bars=barsFor(rows[frames[frame]],frame,asOf),hourly=barsFor(rows['1h'],'60',asOf);
     if(!market||bars.length<100||!hourly.length){unavailable.push(symbol);continue;}
     const split=bars[Math.floor(bars.length*0.6)].start;
@@ -157,4 +171,4 @@ function main(){
 }
 
 if(require.main===module)main();
-module.exports={hourSetup,cisd,assess,replay,barsFor};
+module.exports={hourSetup,cisd,assess,replay,barsFor,archiveMarket};

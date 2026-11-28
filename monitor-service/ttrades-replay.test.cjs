@@ -1,6 +1,12 @@
 'use strict';
 const assert = require('node:assert/strict');
-const {hourSetup,cisd,assess,barsFor} = require('./ttrades-replay.cjs');
+const {hourSetup,cisd,assess,barsFor,archiveMarket} = require('./ttrades-replay.cjs');
+const bybit = {version:2,source:'Bybit V5 USDT perpetual'};
+assert.equal(archiveMarket(bybit,'BTCUSDT'),'crypto');
+assert.equal(archiveMarket(bybit,'BTCUSDC'),null);
+assert.equal(archiveMarket({...bybit,version:1},'BTCUSDT'),null);
+assert.equal(archiveMarket({source:'Bybit Spot'},'BTCUSDT'),undefined);
+assert.equal(archiveMarket({marketKinds:{XAUUSD:'metal'}},'XAUUSD'),'metals');
 const at = Date.parse('2026-10-15T12:00:00Z');
 const hour=3600000, minute=60000, frame=5*minute;
 const bar=(start,open,high,low,close)=>({start,open,high,low,close,confirmed:true});
