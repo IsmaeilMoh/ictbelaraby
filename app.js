@@ -239,7 +239,11 @@ function showVisitorGoal(goalId){
 document.addEventListener('click',event=>{const button=event.target.closest('[data-visitor-goal]');if(button)showVisitorGoal(button.dataset.visitorGoal)});
 
 function home(){
- return `<section class="welcome welcome-news-layout"><div class="hero-news-column">${heroSlider()}</div><div class="welcome-aside pulse-desk" id="market-pulse" aria-label="ملخص الأسواق والأخبار والجلسات">${marketPulse()}</div></section>${operationsRoom()}${siteSearchSection()}${visitorGuideSection()}
+ const intro=document.documentElement.dataset.ictDesign==='play'?`<section class="play-intro">
+ <div><h1>الأسواق اليوم</h1><p>تابع حركة الأسواق والأحداث الاقتصادية، وافحص فرص ICT.</p>
+ <a class="play-scan" href="decision-center.html">فحص السوق</a></div>
+ <div class="play-art" aria-hidden="true"></div></section>`:'';
+ return `${intro}<section class="welcome welcome-news-layout"><div class="hero-news-column">${heroSlider()}</div><div class="welcome-aside pulse-desk" id="market-pulse" aria-label="ملخص الأسواق والأخبار والجلسات">${marketPulse()}</div></section>${operationsRoom()}${siteSearchSection()}${visitorGuideSection()}
  <div class="section-title home-tools-title"><div><span class="eyebrow">QUICK ACCESS</span><h2 id="home-tools-heading">مركز التداول</h2></div></div>
  <section class="home-tools-browser" aria-labelledby="home-tools-heading"><div class="tool-grid" id="home-tools-grid"><a class="tool-card" href="decision-center.html"><span class="tool-glyph" aria-hidden="true">◎</span><strong>مركز فرص ICT</strong><span>افحص أصلًا، راجع الأدلة، وتابع الفرص المرصودة</span><b>افتح مركز الفرص ←</b></a><a class="tool-card" href="workflow.html"><span class="tool-glyph">◈</span><strong>رحلة الصفقة الذكية</strong><span>من التوصية إلى المراجعة والحاسبة وسجل النتائج</span><b>افتح الأداة ←</b></a><a class="tool-card" href="smart-desk.html"><span class="tool-glyph">◈</span><strong>غرفة المتداول اليومية</strong><span>الجاهزية اليومية ومراجعة الأداء والبحث في الموقع</span><b>افتح الغرفة ←</b></a></div></section>
  ${notificationCenter('compact')}`;

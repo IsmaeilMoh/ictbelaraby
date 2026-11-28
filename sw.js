@@ -1,5 +1,5 @@
 /* ICT بالعربي 6.8.74: prioritize the home offline shell; other pages cache when visited. */
-const CACHE='ict-shell-2026-11-27-economic-coverage';
+const CACHE='ict-shell-2026-11-28-play-preview';
 const PREFIX='ict-shell-';
 const CORE=[
  "./",
@@ -7,7 +7,9 @@ const CORE=[
  "./analysis-lifecycle.css?v=6.8.61",
  "./analytics-config.js?v=6.4.0",
  "./analytics.js?v=6.4.0",
- "./app.js?v=7.0.63-coverage",
+ "./app.js?v=7.0.64-play-preview",
+ "./ict-design-preview.js?v=1",
+ "./ict-play-preview.css?v=1",
  "./asset-choice-6918.css?v=6.9.18",
  "./asset-choice-6918.js?v=6.9.18",
  "./asset-config.js?v=7.0.31-biquote",
