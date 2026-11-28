@@ -10,6 +10,15 @@ const html=read('decision-center.html');
 const sw=read('sw.js');
 const status=read('ict-background-status-708c2.js');
 const script=read('ict-monitor-auto-refresh-709.js');
+const decision=require('../ict-decision-engine-708a.js');
+const older={market:'crypto',symbol:'BTCUSDT',formedAt:100,frame:'15'};
+const newer={...older,formedAt:200,frame:'5'};
+const updated={...newer,research:{at:210}};
+const otherMarket={...older,market:'forex'};
+const otherAsset={...older,symbol:'ETHUSDT'};
+assert.deepEqual(decision.latestByAsset([newer,older,otherMarket,updated,otherAsset]),
+ [updated,otherMarket,otherAsset]);
+assert.deepEqual(decision.latestByAsset([newer,older].filter(plan=>plan.frame==='15')),[older]);
 const count=(text,needle)=>text.split(needle).length-1;
 const phaseOptions=html.match(/<select id="dc-model-phase">([\s\S]*?)<\/select>/)[1];
 assert.deepEqual([...phaseOptions.matchAll(/<option value="([^"]*)"/g)].map(match=>match[1]),

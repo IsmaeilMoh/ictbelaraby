@@ -1,5 +1,5 @@
 /* ICT بالعربي 6.8.74: prioritize the home offline shell; other pages cache when visited. */
-const CACHE='ict-shell-2026-11-28-active-results';
+const CACHE='ict-shell-2026-11-28-latest-asset';
 const PREFIX='ict-shell-';
 const CORE=[
  "./",
@@ -74,8 +74,8 @@ const CORE=[
  "./ict-context-engine-703a.js?v=7.0.45-prior-week",
  "./ict-data-core-700.js",
  "./ict-decision-center-708a.css?v=7.0.56-result-cards",
- "./ict-decision-console-708a.js?v=7.0.62-active-results",
- "./ict-decision-engine-708a.js?v=7.0.61-structural-levels",
+ "./ict-decision-console-708a.js?v=7.0.63-latest-asset",
+ "./ict-decision-engine-708a.js?v=7.0.63-latest-asset",
  "./ict-economic-compare-706c.js?v=7.0.6c.1",
  "./ict-economic-compare-console-706c.css?v=7.0.6c.1",
  "./ict-economic-compare-console-706c.js?v=7.0.53-audit",
